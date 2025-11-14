@@ -10,7 +10,6 @@ if (process.env.NODE_ENV !== 'production') {
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { cors: true });
-  console.log('JWT_SECRET_KEY:', process.env.JWT_SECRET_KEY);
 
   // Préfixe toutes les routes avec /api
   app.setGlobalPrefix('api');
@@ -18,27 +17,30 @@ async function bootstrap() {
   // Applique les validations DTO globalement
   app.useGlobalPipes(new ValidationPipe());
 
-  // 🔍 Logger toutes les requêtes entrantes
+  // Logger simple pour Render (optionnel)
   app.use((req, res, next) => {
-    console.log('📥 Requête entrante :', req.method, req.url);
-    console.log('🔐 Authorization Header :', req.headers.authorization);
+    console.log(`📥 ${req.method} ${req.url}`);
     next();
   });
 
-  // Swagger config
-  const config = new DocumentBuilder()
-    .setTitle('Galileecommerce')
-    .setDescription('Galileecommerce Mock API')
-    .setVersion('1.0')
-    .addTag('galileecommerce')
-    .build();
+  // Swagger config (peut être désactivée en prod si souhaité)
+  if (process.env.NODE_ENV !== 'production') {
+    const config = new DocumentBuilder()
+      .setTitle('edoto family')
+      .setDescription('edoto family Mock API')
+      .setVersion('1.0')
+      .addTag('edoto family')
+      .build();
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('docs', app, document);
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('docs', app, document);
+  }
 
-  const PORT = process.env.PORT || 5000;
+  // ✅ Render fournit le port via process.env.PORT
+  const PORT = parseInt(process.env.PORT, 10) || 5000;
   await app.listen(PORT, '0.0.0.0');
-  console.log(`🚀 Application is running on: ${await app.getUrl()}/api`);
+  console.log(`🚀 Application is running on port ${PORT}`);
 }
+
 
 bootstrap();
