@@ -10,7 +10,7 @@
     "clean": "rimraf node_modules",
     "build": "nest build && cpx \"src/categories/db/edotofamily_categories_full.json\" dist/categories/db/ && cpx \"src/database/sql/**/*.sql\" dist/src/database/sql/",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
-    "start": "node --max-old-space-size=1024 dist/main.js",
+    "start": "node --max-old-space-size=1024 dist/src/main.js",
     "start:prod": "node --max-old-space-size=1024 dist/src/main.js",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
