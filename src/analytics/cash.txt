@@ -1,0 +1,329 @@
+import { Injectable } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { DatabaseService } from '../database/database.services';
+
+@Injectable()
+export class AnalyticsCronService {
+    constructor(private readonly databaseService: DatabaseService) { }
+
+    @Cron(CronExpression.EVERY_HOUR) // toutes les heures
+    async handleCron() {
+        const pool = this.databaseService.getPool();
+
+        // Récupérer toutes les boutiques
+        const [shops]: any = await pool.query(`SELECT id FROM shops WHERE deleted_at IS NULL`);
+        const shopIds = [null, ...shops.map((s) => s.id)]; // null = admin/global
+
+        for (const shopId of shopIds) {
+            await this.updateAnalyticsForShop(shopId);
+        }
+    }
+
+    private async updateAnalyticsForShop(shopId: number | null) {
+        const pool = this.databaseService.getPool();
+        const shopCondition = shopId ? 'shop_id = ?' : '1=1';
+        const params = shopId ? [shopId] : [];
+
+        // 1️⃣ Totaux principaux
+        const [totals]: any = await pool.query(
+            `
+      SELECT 
+        COALESCE(SUM(total),0) + COALESCE((SELECT SUM(oc.subtotal) FROM order_children oc
+                                           JOIN orders o2 ON oc.order_id = o2.id
+                                           WHERE ${shopCondition}),0) as totalRevenue,
+        COUNT(*) as totalOrders
+      FROM orders
+      WHERE ${shopCondition}
+      `,
+            params
+        );
+
+        // 2️⃣ Nouveaux clients aujourd’hui
+        const [newCustomers]: any = await pool.query(
+            `
+      SELECT COUNT(DISTINCT customer_id) as newCustomers
+      FROM orders
+      WHERE ${shopCondition} AND DATE(created_at) = CURDATE()
+      `,
+            params
+        );
+
+        // 3️⃣ Revenus d’aujourd’hui
+        const [todaysRevenue]: any = await pool.query(
+            `
+      SELECT COALESCE(SUM(total),0) + COALESCE((SELECT SUM(oc.subtotal) FROM order_children oc
+                                           JOIN orders o2 ON oc.order_id = o2.id
+                                           WHERE ${shopCondition} AND DATE(oc.created_at) = CURDATE()),0) as todaysRevenue
+      FROM orders
+      WHERE ${shopCondition} AND DATE(created_at) = CURDATE()
+      `,
+            params
+        );
+
+        // 4️⃣ Total refunds
+        const [totalRefunds]: any = await pool.query(
+            `
+      SELECT COALESCE(SUM(cancelled_amount),0) as totalRefunds
+      FROM orders
+      WHERE ${shopCondition}
+      `,
+            params
+        );
+
+        // 5️⃣ Total shops et total vendors
+        const [totalShops]: any = await pool.query(`SELECT COUNT(*) as totalShops FROM shops WHERE deleted_at IS NULL`);
+        const [totalVendors]: any = await pool.query(`SELECT COUNT(*) as totalVendors FROM users WHERE role='vendor' AND is_active=1`);
+
+        // 6️⃣ Statuts commandes
+        const statuses = ['order-pending', 'order-processing', 'order-completed', 'order-cancelled', 'order-refunded', 'order-failed', 'order-at-local-facility', 'order-out-for-delivery'];
+        const orderStatus = (period: string) => {
+            let dateCondition = '';
+            switch (period) {
+                case 'today': dateCondition = 'AND DATE(created_at) = CURDATE()'; break;
+                case 'week': dateCondition = 'AND YEARWEEK(created_at,1) = YEARWEEK(CURDATE(),1)'; break;
+                case 'month': dateCondition = 'AND MONTH(created_at) = MONTH(CURDATE()) AND YEAR(created_at) = YEAR(CURDATE())'; break;
+                case 'year': dateCondition = 'AND YEAR(created_at) = YEAR(CURDATE())'; break;
+            }
+            return pool.query(
+                `
+        SELECT order_status as status, COUNT(*) as total
+        FROM orders
+        WHERE ${shopCondition} ${dateCondition}
+        GROUP BY order_status
+        `
+                , params
+            );
+        };
+
+        const [todayRows]: any = await orderStatus('today');
+        const [weekRows]: any = await orderStatus('week');
+        const [monthRows]: any = await orderStatus('month');
+        const [yearRows]: any = await orderStatus('year');
+
+        const mapStatus = (rows) => {
+            const obj = {};
+            statuses.forEach(s => obj[s] = 0);
+            rows.forEach(r => obj[r.status] = r.total);
+            return obj;
+        };
+
+        // 7️⃣ Total ventes par mois
+        const [monthlyRows]: any = await pool.query(
+            `
+      SELECT MONTH(created_at) as month, COALESCE(SUM(total),0) as total
+      FROM orders
+      WHERE ${shopCondition} AND YEAR(created_at) = YEAR(CURDATE())
+      GROUP BY MONTH(created_at)
+      `
+            , params
+        );
+
+        const totalYearSaleByMonth = Array.from({ length: 12 }, (_, i) => {
+            const monthRow = monthlyRows.find(r => r.month === i + 1);
+            return { month: new Date(0, i).toLocaleString('en', { month: 'long' }), total: monthRow ? Number(monthRow.total) : 0 };
+        });
+
+        // 8️⃣ Upsert dans analytics
+        await pool.query(
+            `
+      INSERT INTO analytics
+      (shop_id, totalRevenue, totalRefunds, totalShops, totalVendors, todaysRevenue, totalOrders, newCustomers,
+       todayTotalOrderByStatus, weeklyTotalOrderByStatus, monthlyTotalOrderByStatus, yearlyTotalOrderByStatus,
+       totalYearSaleByMonth)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        totalRevenue = VALUES(totalRevenue),
+        totalRefunds = VALUES(totalRefunds),
+        totalShops = VALUES(totalShops),
+        totalVendors = VALUES(totalVendors),
+        todaysRevenue = VALUES(todaysRevenue),
+        totalOrders = VALUES(totalOrders),
+        newCustomers = VALUES(newCustomers),
+        todayTotalOrderByStatus = VALUES(todayTotalOrderByStatus),
+        weeklyTotalOrderByStatus = VALUES(weeklyTotalOrderByStatus),
+        monthlyTotalOrderByStatus = VALUES(monthlyTotalOrderByStatus),
+        yearlyTotalOrderByStatus = VALUES(yearlyTotalOrderByStatus),
+        totalYearSaleByMonth = VALUES(totalYearSaleByMonth),
+        updated_at = NOW()
+      `,
+            [
+                shopId,
+                totals[0].totalRevenue,
+                totalRefunds[0].totalRefunds,
+                totalShops[0].totalShops,
+                totalVendors[0].totalVendors,
+                todaysRevenue[0].todaysRevenue,
+                totals[0].totalOrders,
+                newCustomers[0].newCustomers,
+                JSON.stringify(mapStatus(todayRows)),
+                JSON.stringify(mapStatus(weekRows)),
+                JSON.stringify(mapStatus(monthRows)),
+                JSON.stringify(mapStatus(yearRows)),
+                JSON.stringify(totalYearSaleByMonth)
+            ]
+        );
+    }
+}
+
+
+
+
+cron changé
+
+import { Injectable, Logger } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
+import { DatabaseService } from 'src/database/database.services';
+
+@Injectable()
+export class AnalyticsCronService {
+    private readonly logger = new Logger(AnalyticsCronService.name);
+
+    constructor(private readonly databaseService: DatabaseService) { }
+
+    // Cron toutes les 2 minutes
+    @Cron('*/2 * * * *')
+    async handleCron() {
+        this.logger.debug('Cron: mise à jour des analytics');
+
+        const pool = this.databaseService.getPool();
+
+        try {
+            // 1️⃣ Récupérer tous les shops
+            const [shops]: any = await pool.query(`SELECT id, owner_id FROM shops`);
+
+            for (const shop of shops) {
+                const shopId = shop.id;
+                const ownerId = shop.owner_id;
+
+                // 2️⃣ Calculer les analytics par shop
+                const [rows]: any = await pool.query(
+                    `
+          SELECT 
+            SUM(oc.subtotal) AS totalRevenue,
+            COUNT(DISTINCT o.id) AS totalOrders,
+            SUM(CASE WHEN DATE(oc.created_at) = CURDATE() THEN oc.subtotal ELSE 0 END) AS todaysRevenue
+          FROM order_children oc
+          INNER JOIN orders o ON o.id = oc.order_id
+          INNER JOIN products p ON p.id = oc.product_id
+          WHERE oc.payment_status = 'payment-success' AND p.shop_id = ?
+          `,
+                    [shopId],
+                );
+
+                const totalRevenue = rows[0].totalRevenue || 0;
+                const totalOrders = rows[0].totalOrders || 0;
+                const todaysRevenue = rows[0].todaysRevenue || 0;
+
+                // 3️⃣ Compter le nombre de shops de l’owner
+                let totalShops = 0;
+                if (ownerId) {
+                    const [shopCountRow]: any = await pool.query(
+                        `SELECT COUNT(*) as totalShops FROM shops WHERE owner_id = ?`,
+                        [ownerId],
+                    );
+                    totalShops = shopCountRow[0]?.totalShops || 0;
+                }
+
+                // Compter le nombre de produits et commandes du shop
+                const [[productsCountRow]]: any = await pool.query(
+                    `SELECT COUNT(*) AS productsCount FROM products WHERE shop_id = ?`,
+                    [shopId],
+                );
+                const productsCount = productsCountRow?.productsCount || 0;
+
+                const [[ordersCountRow]]: any = await pool.query(
+                    `
+                    SELECT COUNT(DISTINCT o.id) AS ordersCount
+                    FROM orders o
+                    INNER JOIN order_children oc ON oc.order_id = o.id
+                    INNER JOIN products p ON p.id = oc.product_id
+                    WHERE p.shop_id = ? AND oc.payment_status = 'payment-success'
+                    `,
+                    [shopId],
+                );
+                const ordersCount = ordersCountRow?.ordersCount || 0;
+
+                // 🔄 Mettre à jour la table shops
+                await pool.query(
+                    `
+                    UPDATE shops
+                    SET orders_count = ?, products_count = ?, updated_at = NOW()
+                    WHERE id = ?
+                    `,
+                    [ordersCount, productsCount, shopId],
+                );
+
+                // 4️⃣ Vérifier si analytics existant
+                const [existing]: any = await pool.query(
+                    `SELECT id FROM analytics WHERE shop_id = ?`,
+                    [shopId],
+                );
+
+                if (existing.length > 0) {
+                    // update
+                    await pool.query(
+                        `
+            UPDATE analytics
+            SET totalRevenue = ?, totalOrders = ?, todaysRevenue = ?, totalShops = ?, updated_at = NOW()
+            WHERE shop_id = ?
+            `,
+                        [totalRevenue, totalOrders, todaysRevenue, totalShops, shopId],
+                    );
+                } else {
+                    // insert
+                    await pool.query(
+                        `
+            INSERT INTO analytics (shop_id, totalRevenue, totalOrders, todaysRevenue, totalShops)
+            VALUES (?, ?, ?, ?, ?)
+            `,
+                        [shopId, totalRevenue, totalOrders, todaysRevenue, totalShops],
+                    );
+                }
+            }
+
+            // 5️⃣ Calculer les analytics globales (admin)
+            const [globalRows]: any = await pool.query(
+                `
+        SELECT 
+          SUM(oc.subtotal) AS totalRevenue,
+          COUNT(DISTINCT o.id) AS totalOrders,
+          SUM(CASE WHEN DATE(oc.created_at) = CURDATE() THEN oc.subtotal ELSE 0 END) AS todaysRevenue
+        FROM order_children oc
+        INNER JOIN orders o ON o.id = oc.order_id
+        WHERE oc.payment_status = 'payment-success'
+        `,
+            );
+
+            const totalRevenueGlobal = globalRows[0].totalRevenue || 0;
+            const totalOrdersGlobal = globalRows[0].totalOrders || 0;
+            const todaysRevenueGlobal = globalRows[0].todaysRevenue || 0;
+
+            const [existingAdmin]: any = await pool.query(
+                `SELECT id FROM analytics WHERE shop_id IS NULL`,
+            );
+
+            if (existingAdmin.length > 0) {
+                await pool.query(
+                    `
+          UPDATE analytics
+          SET totalRevenue = ?, totalOrders = ?, todaysRevenue = ?, updated_at = NOW()
+          WHERE shop_id IS NULL
+          `,
+                    [totalRevenueGlobal, totalOrdersGlobal, todaysRevenueGlobal],
+                );
+            } else {
+                await pool.query(
+                    `
+          INSERT INTO analytics (totalRevenue, totalOrders, todaysRevenue)
+          VALUES (?, ?, ?)
+          `,
+                    [totalRevenueGlobal, totalOrdersGlobal, todaysRevenueGlobal],
+                );
+            }
+
+            this.logger.debug('Cron: analytics mis à jour avec succès');
+        } catch (error) {
+            this.logger.error('Erreur lors de la mise à jour des analytics', error);
+        }
+    }
+}

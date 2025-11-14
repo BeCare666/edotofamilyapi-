@@ -1,0 +1,170 @@
+import { Injectable } from '@nestjs/common';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { GetCategoriesDto } from './dto/get-categories.dto';
+import { paginate } from 'src/common/pagination/paginate';
+import { DatabaseService } from '../database/database.services';
+
+@Injectable()
+export class CategoriesService {
+    constructor(private readonly db: DatabaseService) { }
+
+    async create(dto: CreateCategoryDto) {
+        const [result]: any = await this.db.getPool().query(
+            `INSERT INTO sous_categories (name, slug, categories_id, icon, details)
+       VALUES (?, ?, ?, ?, ?)`,
+            [
+                dto.name,
+                dto.slug,
+                dto.categories_id ?? null,
+                dto.icon,
+                dto.details,
+            ],
+        );
+
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT c.*, cat.name AS category_name 
+       FROM sous_categories c 
+       LEFT JOIN categories cat ON c.categories_id = cat.id 
+       WHERE c.id = ?`,
+            [result.insertId],
+        );
+
+        return rows[0];
+    }
+    async createMany(dtos: CreateCategoryDto[]) {
+        if (!dtos.length) return [];
+
+        // Préparer la requête avec les placeholders
+        const values = [];
+        const placeholders = dtos.map(dto => {
+            values.push(dto.name, dto.slug, dto.categories_id ?? null, dto.icon, dto.details);
+            return `(?, ?, ?, ?, ?)`;
+        }).join(", ");
+
+        const sql = `
+    INSERT INTO sous_categories (name, slug, categories_id, icon, details)
+    VALUES ${placeholders}
+  `;
+
+        const [result]: any = await this.db.getPool().query(sql, values);
+
+        // Récupérer les derniers éléments insérés
+        const firstInsertId = result.insertId;
+        const lastInsertId = firstInsertId + dtos.length - 1;
+
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT c.*, cat.name AS category_name
+     FROM sous_categories c
+     LEFT JOIN categories cat ON c.categories_id = cat.id
+     WHERE c.id BETWEEN ? AND ?`,
+            [firstInsertId, lastInsertId]
+        );
+
+        return rows;
+    }
+
+    async getCategories({ limit = 200, page = 1, search }: GetCategoriesDto) {
+        const numericLimit = Number(limit);
+        const numericPage = Number(page);
+        const offset = (numericPage - 1) * numericLimit;
+        const values: any[] = [];
+
+        let whereClause = 'WHERE 1=1';
+
+        if (search) {
+            whereClause += ` AND (c.name LIKE ? OR c.slug LIKE ?)`;
+            values.push(`%${search}%`, `%${search}%`);
+        }
+
+        const [data]: any = await this.db.getPool().query(
+            `SELECT c.*, cat.name AS category_name
+       FROM sous_categories c
+       LEFT JOIN categories cat ON c.categories_id = cat.id
+       ${whereClause}
+       ORDER BY c.created_at DESC
+       LIMIT ? OFFSET ?`,
+            [...values, numericLimit, offset],
+        );
+
+        const [countRows]: any = await this.db.getPool().query(
+            `SELECT COUNT(*) as count
+       FROM sous_categories c
+       ${whereClause}`,
+            values,
+        );
+
+        const total = countRows[0].count;
+        const url = `/sous_categories?search=${search || ''}&limit=${limit}`;
+
+        return {
+            data,
+            ...paginate(total, numericPage, numericLimit, data.length, url),
+        };
+    }
+    // renvoie toutes les sous-catégories d'une catégorie (pour l'UI)
+    async findByCategoryId(categoryId: number) {
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT sc.id, sc.name, sc.slug, sc.categories_id, sc.icon, sc.details,
+      EXISTS(SELECT 1 FROM sous_categories ssc WHERE ssc.categories_id = sc.id LIMIT 1) AS has_children
+     FROM sous_categories sc
+    WHERE sc.categories_id = ? AND sc.deleted_at IS NULL`,
+            [categoryId],
+        );
+
+        return rows; // retourne un tableau
+    }
+
+    async getCategory(param: string, language: string) {
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT c.*, cat.name AS category_name
+       FROM sous_categories c
+       LEFT JOIN categories cat ON c.categories_id = cat.id
+       WHERE c.id = ? OR c.slug = ?
+       LIMIT 1`,
+            [Number(param), param],
+        );
+
+        return rows[0];
+    }
+
+    async update(id: number, dto: UpdateCategoryDto) {
+        await this.db.getPool().query(
+            `UPDATE sous_categories
+       SET name = ?, slug = ?, categories_id = ?, icon = ?, details = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+            [
+                dto.name,
+                dto.slug,
+                dto.categories_id ?? null,
+                dto.icon,
+                dto.details,
+                id,
+            ],
+        );
+
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT c.*, cat.name AS category_name
+       FROM sous_categories c
+       LEFT JOIN categories cat ON c.categories_id = cat.id
+       WHERE c.id = ?`,
+            [id],
+        );
+
+        return rows[0];
+    }
+
+    async remove(id: number) {
+        const [deleted]: any = await this.db.getPool().query(
+            `SELECT * FROM sous_categories WHERE id = ?`,
+            [id],
+        );
+
+        await this.db.getPool().query(
+            `DELETE FROM sous_categories WHERE id = ?`,
+            [id],
+        );
+
+        return deleted[0];
+    }
+}

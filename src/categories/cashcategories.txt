@@ -1,0 +1,162 @@
+import { Injectable } from '@nestjs/common';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { GetCategoriesDto } from './dto/get-categories.dto';
+import { paginate } from 'src/common/pagination/paginate';
+import { DatabaseService } from '../database/database.services';
+
+@Injectable()
+export class CategoriesService {
+    constructor(private readonly db: DatabaseService) { }
+
+    async create(dto: CreateCategoryDto) {
+        const [result]: any = await this.db.getPool().query(
+            `INSERT INTO categories (name, slug, type_id, icon, details)
+       VALUES (?, ?, ?, ?, ?)`,
+            [
+                dto.name,
+                dto.slug,
+                dto.type_id ?? null,
+                dto.icon,
+                dto.details,
+            ],
+        );
+
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT c.*, t.name as type_name 
+       FROM categories c 
+       LEFT JOIN types t ON c.type_id = t.id 
+       WHERE c.id = ?`,
+            [result.insertId],
+        );
+
+        return rows[0];
+    }
+
+    async getCategories({ limit = 30, page = 1, search }: GetCategoriesDto) {
+        const numericLimit = Number(limit);
+        const numericPage = Number(page);
+        const offset = (numericPage - 1) * numericLimit;
+        const values: any[] = [];
+
+        let whereClause = 'WHERE 1=1';
+
+        if (search) {
+            whereClause += ` AND (c.name LIKE ? OR c.slug LIKE ?)`;
+            values.push(`%${search}%`, `%${search}%`);
+        }
+
+
+        const [data]: any = await this.db.getPool().query(
+            `SELECT c.*, t.name AS type_name
+     FROM categories c
+     LEFT JOIN types t ON c.type_id = t.id
+     ${whereClause}
+     ORDER BY c.created_at DESC
+     LIMIT ? OFFSET ?`,
+            [...values, numericLimit, offset],
+        );
+
+        const [countRows]: any = await this.db.getPool().query(
+            `SELECT COUNT(*) as count
+     FROM categories c
+     ${whereClause}`,
+            values,
+        );
+
+        const total = countRows[0].count;
+
+        const url = `/categories?search=${search || ''}&limit=${limit}`;
+        return {
+            data,
+            ...paginate(total, numericPage, numericLimit, data.length, url),
+        };
+    }
+
+    async getCategory(param: string, language: string) {
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT c.*, t.name AS type_name
+       FROM categories c
+       LEFT JOIN types t ON c.type_id = t.id
+       WHERE c.id = ? OR c.slug = ?
+       LIMIT 1`,
+            [Number(param), param],
+        );
+
+        return rows[0];
+    }
+
+    async update(id: number, dto: UpdateCategoryDto) {
+        await this.db.getPool().query(
+            `UPDATE categories
+       SET name = ?, slug = ?,   type_id = ?, icon = ?, details = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+            [
+                dto.name,
+                dto.slug,
+                dto.type_id ?? null,
+                dto.icon,
+                dto.details,
+                id,
+            ],
+        );
+
+        const [rows]: any = await this.db.getPool().query(
+            `SELECT c.*, t.name AS type_name
+       FROM categories c
+       LEFT JOIN types t ON c.type_id = t.id
+       WHERE c.id = ?`,
+            [id],
+        );
+
+        return rows[0];
+    }
+
+    async remove(id: number) {
+        const [deleted]: any = await this.db.getPool().query(
+            `SELECT * FROM categories WHERE id = ?`,
+            [id],
+        );
+
+        await this.db.getPool().query(`DELETE FROM categories WHERE id = ?`, [id]);
+
+        return deleted[0];
+    }
+
+    async createMany(categories: CreateCategoryDto[]) {
+        const results = [];
+
+        for (const dto of categories) {
+            // Protection contre données incomplètes
+            if (!dto.name || !dto.slug) {
+                console.warn('Catégorie invalide ignorée :', dto);
+                continue;
+            }
+
+            const [result]: any = await this.db.getPool().query(
+                `INSERT INTO categories (name, slug, type_id, icon, details)
+       VALUES (?, ?, ?, ?, ?)`,
+                [
+                    dto.name,
+                    dto.slug,
+                    dto.type_id ?? null,
+                    dto.icon,
+                    dto.details,
+                ],
+            );
+
+            const [rows]: any = await this.db.getPool().query(
+                `SELECT c.*, t.name as type_name 
+       FROM categories c 
+       LEFT JOIN types t ON c.type_id = t.id 
+       WHERE c.id = ?`,
+                [result.insertId],
+            );
+
+            results.push(rows[0]);
+        }
+
+        return results;
+    }
+
+}

@@ -1,0 +1,280 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { DatabaseService } from 'src/database/database.services';
+import { CreateSettingDto } from './dto/create-setting.dto';
+import { UpdateSettingDto } from './dto/update-setting.dto';
+import { Setting } from './entities/setting.entity';
+
+@Injectable()
+export class SettingsService {
+  constructor(private readonly db: DatabaseService) {}
+
+  async create(createSettingDto: CreateSettingDto): Promise<Setting> {
+    const now = new Date();
+
+    const [result]: any = await this.db.getPool().query(
+      `INSERT INTO settings (options, language, translated_languages, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        JSON.stringify(createSettingDto.options),
+        createSettingDto.language || 'en',
+        JSON.stringify(createSettingDto.translated_languages || []),
+        now,
+        now,
+      ]
+    );
+
+    return this.findOne(result.insertId);
+  }
+
+  async findAll(): Promise<Setting> {
+    const [rows]: any = await this.db.getPool().query(
+      'SELECT * FROM settings LIMIT 1'
+    );
+
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException(`No settings found`);
+    }
+
+    const row = rows[0];
+    return {
+      id: row.id,
+      options: row.options,
+      language: row.language,
+      translated_languages: row.translated_languages || [],
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  }
+
+  async findOne(id: number): Promise<Setting> {
+    const [rows]: any = await this.db.getPool().query(
+      'SELECT * FROM settings WHERE id = ? LIMIT 1',
+      [id]
+    );
+
+    if (!rows || rows.length === 0) {
+      throw new NotFoundException(`Setting #${id} not found`);
+    }
+
+    const row = rows[0];
+    return {
+      id: row.id,
+      options: row.options,
+      language: row.language,
+      translated_languages: row.translated_languages || [],
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  }
+
+  async update(id: number, updateSettingDto: UpdateSettingDto): Promise<Setting> {
+    const now = new Date();
+
+    const fields: string[] = [];
+    const values: any[] = [];
+
+    Object.entries(updateSettingDto).forEach(([key, value]) => {
+      if (value !== undefined) {
+        if (key === 'options' || key === 'translated_languages') {
+          fields.push(`${key} = ?`);
+          values.push(JSON.stringify(value));
+        } else {
+          fields.push(`${key} = ?`);
+          values.push(value);
+        }
+      }
+    });
+
+    fields.push('updated_at = ?');
+    values.push(now);
+    values.push(id);
+
+    const sql = `UPDATE settings SET ${fields.join(', ')} WHERE id = ?`;
+
+    const [result]: any = await this.db.getPool().query(sql, values);
+
+    if (result.affectedRows === 0) {
+      throw new NotFoundException(`Setting #${id} not found`);
+    }
+
+    return this.findOne(id);
+  }
+
+  async remove(id: number): Promise<{ message: string }> {
+    const [result]: any = await this.db.getPool().query(
+      'DELETE FROM settings WHERE id = ?',
+      [id]
+    );
+
+    if (result.affectedRows === 0) {
+      throw new NotFoundException(`Setting #${id} not found`);
+    }
+
+    return { message: `Setting #${id} deleted successfully` };
+  }
+}
+
+
+
+
+
+
+{
+  "seo": {
+    "ogImage": null,
+    "ogTitle": null,
+    "metaTags": null,
+    "metaTitle": null,
+    "canonicalUrl": null,
+    "ogDescription": null,
+    "twitterHandle": null,
+    "metaDescription": null,
+    "twitterCardType": null
+  },
+  "logo": {
+    "id": 935,
+    "original": "https://edotofamily.netlify.app/images/edotofamily6.1.png",
+    "file_name": "Logo-new.png",
+    "thumbnail": "https://edotofamily.netlify.app/images/edotofamily6.1.png"
+  },
+  "useAi": false,
+  "currency": "USD",
+  "siteLink": "https://galileecommerce.com",
+  "smsEvent": {
+    "all": [],
+    "admin": {
+      "statusChangeOrder": true
+    },
+    "vendor": {
+      "statusChangeOrder": true
+    },
+    "customer": {
+      "statusChangeOrder": true
+    }
+  },
+  "taxClass": "1",
+  "dark_logo": {
+    "id": 936,
+    "original": "https://edotofamily.netlify.app/images/edotofamily6.1.png",
+    "thumbnail": "https://edotofamily.netlify.app/images/edotofamily6.1.png"
+  },
+  "defaultAi": "galileecommerce",
+  "siteTitle": "galileecommerce",
+  "emailEvent": {
+    "all": [],
+    "admin": {
+      "statusChangeOrder": true
+    },
+    "vendor": {
+      "statusChangeOrder": true
+    },
+    "customer": {
+      "statusChangeOrder": true
+    }
+  },
+  "enableTerms": true,
+  "maintenance": {
+    "image": {
+      "id": 1794,
+      "original": " ",
+      "file_name": "background.png",
+      "thumbnail": " "
+    },
+    "start": "2023-12-18T16:07:05.559989Z",
+    "title": "Site is under Maintenance",
+    "until": "2023-12-18T16:07:05.559996Z",
+    "description": "We are currently undergoing essential maintenance to elevate your browsing experience. Our team is working diligently to implement improvements that will bring you an even more seamless and enjoyable interaction with our site. During this period, you may experience temporary inconveniences. We appreciate your patience and understanding. Thank you for being a part of our community, and we look forward to unveiling the enhanced features and content soon.",
+    "aboutUsTitle": "About Us",
+    "overlayColor": null,
+    "buttonTitleOne": "Notify Me",
+    "buttonTitleTwo": "Contact Us",
+    "contactUsTitle": "Contact Us",
+    "isOverlayColor": false,
+    "newsLetterTitle": "Subscribe Newsletter",
+    "overlayColorRange": null,
+    "aboutUsDescription": "Welcome to galileecommerce, your go-to destination for curated excellence. Discover a fusion of style, quality, and affordability in every click. Join our community and elevate your shopping experience with us!",
+    "newsLetterDescription": "Stay in the loop! Subscribe to our newsletter for exclusive deals and the latest trends delivered straight to your inbox. Elevate your shopping experience with insider access."
+  },
+  "server_info": {
+    "memory_limit": "128M",
+    "post_max_size": 8192,
+    "max_input_time": "-1",
+    "max_execution_time": "30",
+    "upload_max_filesize": 2048
+  },
+  "app_settings": {
+    "trust": true,
+    "last_checking_time": "2023-11-18T16:53:50.405273Z"
+  },
+  "collapseLogo": {
+    "id": 909,
+    "original": "https://edotofamily.netlify.app/images/edotofamily6.1.png",
+    "file_name": "galileecommerce-collapse-logo.png",
+    "thumbnail": "https://edotofamily.netlify.app/images/edotofamily6.1.png"
+  },
+  "externalLink": "https://galileecommerce.com",
+  "externalText": "GALILEECOMMERCE",
+  "signupPoints": 100,
+  "siteSubtitle": "Your next ecommerce",
+  "useGoogleMap": false,
+  "copyrightText": "Copyright � GalileeCommerce. All rights reserved worldwide.",
+  "shippingClass": "1",
+  "StripeCardOnly": false,
+  "contactDetails": {
+    "contact": "+237 696 345 849",
+    "socials": [
+      {
+        "url": "https://www.facebook.com/",
+        "icon": "FacebookIcon"
+      },
+      {
+        "url": "https://twitter.com/",
+        "icon": "TwitterIcon"
+      },
+      {
+        "url": "https://www.instagram.com/",
+        "icon": "InstagramIcon"
+      }
+    ],
+    "website": "galileecommerce.com",
+    "location": {
+      "lat": 4.051056,
+      "lng": 9.767868,
+      "zip": null,
+      "city": null,
+      "state": "Douala",
+      "country": "Cameroon",
+      "formattedAddress": "Douala, Littoral Region, Cameroon"
+    },
+    "emailAddress": "info@galileecommerce.com"
+  },
+  "paymentGateway": [
+    {
+      "name": "stripe",
+      "title": "Stripe"
+    }
+  ],
+  "currencyOptions": {
+    "formation": "en-US",
+    "fractions": 2
+  },
+  "isProductReview": false,
+  "maxShopDistance": null,
+  "pushNotification": {
+    "all": {
+      "order": true
+    },
+    "admin": [],
+    "vendor": [],
+    "customer": []
+  },
+  "useEnableGateway": true,
+  "useCashOnDelivery": true,
+  "freeShippingAmount": 0,
+  "isUnderMaintenance": false,
+  "minimumOrderAmount": 0,
+  "useMustVerifyEmail": false,
+  "maximumQuestionLimit": 5,
+  "currencyToWalletRatio": 3,
+  "defaultPaymentGateway": "stripe"
+}

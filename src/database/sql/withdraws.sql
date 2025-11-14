@@ -1,0 +1,12 @@
+CREATE TABLE IF NOT EXISTS withdraws (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  shop_id INT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  payment_method VARCHAR(255) NOT NULL,
+  status VARCHAR(50) NOT NULL DEFAULT 'pending',
+  note TEXT DEFAULT NULL,
+  details TEXT DEFAULT NULL,
+  deleted_at DATETIME DEFAULT NULL,
+  created_at DATETIME NOT NULL,
+  updated_at DATETIME NOT NULL
+);

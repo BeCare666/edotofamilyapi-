@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Test API /products/search avec token</title>
+</head>
+
+<body>
+    <h1>Recherche Produits (API protégée)</h1>
+
+    <label>Pays :
+        <input type="text" id="country" placeholder="ex: 1" />
+    </label>
+    <label>Catégorie :
+        <input type="text" id="category" placeholder="ex: 2" />
+    </label>
+    <label>Corridor :
+        <input type="text" id="corridor" placeholder="ex: 3" />
+    </label>
+    <label>Mot-clé :
+        <input type="text" id="search" placeholder="ex: téléphone" />
+    </label>
+    <label>Prix min :
+        <input type="number" id="minPrice" placeholder="0" />
+    </label>
+    <label>Prix max :
+        <input type="number" id="maxPrice" placeholder="100000" />
+    </label>
+
+    <button onclick="searchProducts()">Rechercher</button>
+
+    <hr />
+
+    <div id="results"></div>
+
+    <script>
+        const TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJiZWNhcmUuZnIuZ2VAZ21haWwuY29tIiwicGVybWlzc2lvbnMiOlsic3RvcmVfb3duZXIiXSwiaWF0IjoxNzUzMzQwMTc5LCJleHAiOjE3NTM5NDQ5Nzl9.QkegM5aJAbinqfb9z1pl8i5c_ZElbwzH2SNnEWRcmEU";
+
+        async function searchProducts() {
+            const country = document.getElementById("country").value;
+            const category = document.getElementById("category").value;
+            const corridor = document.getElementById("corridor").value;
+            const search = document.getElementById("search").value;
+            const minPrice = document.getElementById("minPrice").value;
+            const maxPrice = document.getElementById("maxPrice").value;
+
+            const params = new URLSearchParams();
+
+            if (country) params.append("countryId", country);
+            if (category) params.append("categoryId", category);
+            if (corridor) params.append("corridorId", corridor);
+            if (search) params.append("search", search);
+            if (minPrice) params.append("minPrice", minPrice);
+            if (maxPrice) params.append("maxPrice", maxPrice);
+
+            const response = await fetch("http://127.0.0.1:5000/api/products/search?" + params.toString(), {
+                headers: {
+                    "Authorization": "Bearer " + TOKEN,
+                },
+            });
+
+            if (!response.ok) {
+                alert("Erreur: " + response.status);
+                return;
+            }
+
+            const data = await response.json();
+
+            const resultsDiv = document.getElementById("results");
+            resultsDiv.innerHTML = "";
+
+            if (!data.length) {
+                resultsDiv.innerHTML = "<p>Aucun produit trouvé.</p>";
+                return;
+            }
+
+            data.forEach(product => {
+                const item = document.createElement("div");
+                item.innerHTML = `<strong>${product.name}</strong> - ${product.price} FCFA<br>`;
+                resultsDiv.appendChild(item);
+            });
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,1526 @@
+[
+  {
+    "id": 17,
+    "name": "Phonify Modern Phone Application",
+    "slug": "phonify",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 2,
+    "price": 29,
+    "shop_id": 9,
+    "sale_price": null,
+    "language": "en",
+    "min_price": 29,
+    "max_price": 29,
+    "sku": "8g4f84fd894g8dfsgd",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 763,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/761/image39.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/761/conversions/image39-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 764,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/762/image03.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/762/conversions/image03-thumbnail.jpg"
+      },
+      {
+        "id": 765,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/763/image28.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/763/conversions/image28-thumbnail.jpg"
+      },
+      {
+        "id": 766,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/764/image39.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/764/conversions/image39-thumbnail.jpg"
+      },
+      {
+        "id": 767,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/765/image41.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/765/conversions/image41-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-26T16:07:11.000000Z",
+    "updated_at": "2022-03-07T13:38:02.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 4,
+    "ratings": 0,
+    "total_reviews": 0,
+    "total_downloads": 0,
+    "rating_count": [],
+    "my_review": null,
+    "in_wishlist": false,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 2,
+      "name": "Liquid",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "liquid",
+      "language": "en",
+      "icon": "LiquidIcon",
+      "promotional_sliders": {
+        "id": 939,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/image-2.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/conversions/image-2-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:05.000000Z",
+      "updated_at": "2022-02-02T18:35:15.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 9,
+      "owner_id": 1,
+      "name": "Maxicon Soft Tech",
+      "slug": "maxicon-soft-tech",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 419,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/419/Cover-1.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/419/conversions/Cover-1-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 199,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/199/Group-14403.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/199/conversions/Group-14403-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "53703",
+        "city": "Madison",
+        "state": "Wisconsin",
+        "country": "USA",
+        "street_address": "3405 Browning Lane"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          },
+          {
+            "url": "https://www.instagram.com/redqinc/",
+            "icon": "InstagramIcon"
+          }
+        ],
+        "website": "https://redq.io/about-us",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-26T15:56:04.000000Z",
+      "updated_at": "2022-02-23T14:43:57.000000Z"
+    },
+    "digital_file": {
+      "id": 17,
+      "attachment_id": 768,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 17,
+      "created_at": "2022-01-26T16:07:11.000000Z",
+      "updated_at": "2022-03-07T13:38:02.000000Z"
+    }
+  },
+  {
+    "id": 11,
+    "name": "Rental & Booking WP plugin for WooCommerce",
+    "slug": "rental-bookin",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 1,
+    "price": 39,
+    "shop_id": 1,
+    "sale_price": 29,
+    "language": "en",
+    "min_price": 39,
+    "max_price": 39,
+    "sku": "84a84sd654f5sd5f1sd231v",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 598,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/596/image10.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/596/conversions/image10-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 599,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/597/image10.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/597/conversions/image10-thumbnail.jpg"
+      },
+      {
+        "id": 600,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/598/image13.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/598/conversions/image13-thumbnail.jpg"
+      },
+      {
+        "id": 601,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/599/image19.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/599/conversions/image19-thumbnail.jpg"
+      },
+      {
+        "id": 602,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/600/image21.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/600/conversions/image21-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-23T07:06:05.000000Z",
+    "updated_at": "2022-03-07T12:44:07.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 5,
+    "total_reviews": 1,
+    "total_downloads": 0,
+    "rating_count": [
+      {
+        "rating": 5,
+        "total": 1,
+        "positive_feedbacks_count": 0,
+        "negative_feedbacks_count": 0,
+        "my_feedback": null,
+        "abusive_reports_count": 0
+      }
+    ],
+    "my_review": null,
+    "in_wishlist": false,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 1,
+      "name": "Fixed",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "fixed",
+      "language": "en",
+      "icon": "FixedIcon",
+      "promotional_sliders": {
+        "id": 938,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/934/image-1.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/934/conversions/image-1-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:04:37.000000Z",
+      "updated_at": "2022-02-02T18:35:29.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 1,
+      "owner_id": 1,
+      "name": "Temper studios",
+      "slug": "temper-studios",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 103,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/Cover-3.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/conversions/Cover-3-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 102,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/Group-14405.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/conversions/Group-14405-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "37072",
+        "city": "Goodlettsville",
+        "state": "Tennessee",
+        "country": "USA",
+        "street_address": "3399 Buffalo Creek Road"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          }
+        ],
+        "website": "https://redq.io/",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-22T16:30:50.000000Z",
+      "updated_at": "2022-02-24T04:56:16.000000Z"
+    },
+    "digital_file": {
+      "id": 11,
+      "attachment_id": 603,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 11,
+      "created_at": "2022-01-23T07:06:05.000000Z",
+      "updated_at": "2022-03-07T12:44:07.000000Z"
+    }
+  },
+  {
+    "id": 13,
+    "name": "Phone Gapp All in One Phone App",
+    "slug": "phone-gapp",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 2,
+    "price": 29,
+    "shop_id": 1,
+    "sale_price": 25,
+    "language": "en",
+    "min_price": 29,
+    "max_price": 29,
+    "sku": "8a4g89ad4f86d4a864fs4",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 788,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/786/image11.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/786/conversions/image11-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 789,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/787/image03.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/787/conversions/image03-thumbnail.jpg"
+      },
+      {
+        "id": 790,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/788/image04.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/788/conversions/image04-thumbnail.jpg"
+      },
+      {
+        "id": 791,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/789/image08.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/789/conversions/image08-thumbnail.jpg"
+      },
+      {
+        "id": 792,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/790/image11.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/790/conversions/image11-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-23T07:30:01.000000Z",
+    "updated_at": "2022-03-07T13:36:31.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 0,
+    "total_reviews": 0,
+    "total_downloads": 0,
+    "rating_count": [],
+    "my_review": null,
+    "in_wishlist": false,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 2,
+      "name": "Liquid",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "liquid",
+      "language": "en",
+      "icon": "LiquidIcon",
+      "promotional_sliders": {
+        "id": 939,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/image-2.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/conversions/image-2-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:05.000000Z",
+      "updated_at": "2022-02-02T18:35:15.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 1,
+      "owner_id": 1,
+      "name": "Temper studios",
+      "slug": "temper-studios",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 103,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/Cover-3.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/conversions/Cover-3-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 102,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/Group-14405.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/conversions/Group-14405-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "37072",
+        "city": "Goodlettsville",
+        "state": "Tennessee",
+        "country": "USA",
+        "street_address": "3399 Buffalo Creek Road"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          }
+        ],
+        "website": "https://redq.io/",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-22T16:30:50.000000Z",
+      "updated_at": "2022-02-24T04:56:16.000000Z"
+    },
+    "digital_file": {
+      "id": 13,
+      "attachment_id": 793,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 13,
+      "created_at": "2022-01-23T07:30:01.000000Z",
+      "updated_at": "2022-03-07T13:36:31.000000Z"
+    }
+  },
+  {
+    "id": 14,
+    "name": "BdB Air Accomodattion WordPress Theme",
+    "slug": "bdb-air",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 3,
+    "price": 39,
+    "shop_id": 1,
+    "sale_price": null,
+    "language": "en",
+    "min_price": 39,
+    "max_price": 39,
+    "sku": "658g1a64da54fa",
+    "preview_url": null,
+    "quantity": 5,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 782,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/780/image30.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/780/conversions/image30-thumbnail.jpg"
+    },
+    "video": [],
+    "gallery": [
+      {
+        "id": 783,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/781/image30.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/781/conversions/image30-thumbnail.jpg"
+      },
+      {
+        "id": 784,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/782/image32.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/782/conversions/image32-thumbnail.jpg"
+      },
+      {
+        "id": 785,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/783/image35.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/783/conversions/image35-thumbnail.jpg"
+      },
+      {
+        "id": 786,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/784/image42-2.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/784/conversions/image42-2-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-23T07:32:23.000000Z",
+    "updated_at": "2023-11-17T13:23:23.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 0,
+    "total_reviews": 0,
+    "total_downloads": 0,
+    "rating_count": [],
+    "my_review": null,
+    "in_wishlist": true,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 3,
+      "name": "Responsive",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "responsive",
+      "language": "en",
+      "icon": "ResponsiveIcon",
+      "promotional_sliders": {
+        "id": 940,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/936/image-3.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/936/conversions/image-3-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:32.000000Z",
+      "updated_at": "2022-02-02T18:35:03.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 1,
+      "owner_id": 1,
+      "name": "Temper studios",
+      "slug": "temper-studios",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 103,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/Cover-3.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/conversions/Cover-3-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 102,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/Group-14405.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/conversions/Group-14405-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "37072",
+        "city": "Goodlettsville",
+        "state": "Tennessee",
+        "country": "USA",
+        "street_address": "3399 Buffalo Creek Road"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          }
+        ],
+        "website": "https://redq.io/",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-22T16:30:50.000000Z",
+      "updated_at": "2022-02-24T04:56:16.000000Z"
+    },
+    "digital_file": {
+      "id": 14,
+      "attachment_id": 787,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 14,
+      "created_at": "2022-01-23T07:32:23.000000Z",
+      "updated_at": "2023-11-17T13:23:23.000000Z"
+    }
+  },
+  {
+    "id": 15,
+    "name": "Charity Landing React Next Landing Page",
+    "slug": "charity-landing",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 4,
+    "price": 49,
+    "shop_id": 1,
+    "sale_price": 45,
+    "language": "en",
+    "min_price": 49,
+    "max_price": 49,
+    "sku": "564a65sd4f4a65asd4f4sdf654sdf",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 776,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/774/image09.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/774/conversions/image09-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 777,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/775/image09.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/775/conversions/image09-thumbnail.jpg"
+      },
+      {
+        "id": 778,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/776/image15.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/776/conversions/image15-thumbnail.jpg"
+      },
+      {
+        "id": 779,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/777/image17.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/777/conversions/image17-thumbnail.jpg"
+      },
+      {
+        "id": 780,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/778/image30.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/778/conversions/image30-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-23T07:34:27.000000Z",
+    "updated_at": "2022-03-07T13:34:48.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 0,
+    "total_reviews": 0,
+    "total_downloads": 0,
+    "rating_count": [],
+    "my_review": null,
+    "in_wishlist": false,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 4,
+      "name": "N/A",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "n-a",
+      "language": "en",
+      "icon": "NoTypeIcon",
+      "promotional_sliders": {
+        "id": 941,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/937/image-4.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/937/conversions/image-4-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:52.000000Z",
+      "updated_at": "2022-02-02T18:34:55.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 1,
+      "owner_id": 1,
+      "name": "Temper studios",
+      "slug": "temper-studios",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 103,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/Cover-3.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/103/conversions/Cover-3-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 102,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/Group-14405.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/102/conversions/Group-14405-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "37072",
+        "city": "Goodlettsville",
+        "state": "Tennessee",
+        "country": "USA",
+        "street_address": "3399 Buffalo Creek Road"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          }
+        ],
+        "website": "https://redq.io/",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-22T16:30:50.000000Z",
+      "updated_at": "2022-02-24T04:56:16.000000Z"
+    },
+    "digital_file": {
+      "id": 15,
+      "attachment_id": 781,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 15,
+      "created_at": "2022-01-23T07:34:27.000000Z",
+      "updated_at": "2022-03-07T13:34:48.000000Z"
+    }
+  },
+  {
+    "id": 20,
+    "name": "Dashify React Shopify Dashboard Tempate",
+    "slug": "dashify",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 3,
+    "price": 69,
+    "shop_id": 9,
+    "sale_price": null,
+    "language": "en",
+    "min_price": 69,
+    "max_price": 69,
+    "sku": "f84asd84fa6d45sd4fsd56af",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 745,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/743/image40.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/743/conversions/image40-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 746,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/744/image25.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/744/conversions/image25-thumbnail.jpg"
+      },
+      {
+        "id": 747,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/745/image27.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/745/conversions/image27-thumbnail.jpg"
+      },
+      {
+        "id": 748,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/746/image32.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/746/conversions/image32-thumbnail.jpg"
+      },
+      {
+        "id": 749,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/747/image40.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/747/conversions/image40-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-26T16:14:10.000000Z",
+    "updated_at": "2022-03-07T13:37:47.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 1,
+    "total_reviews": 1,
+    "total_downloads": 0,
+    "rating_count": [
+      {
+        "rating": 1,
+        "total": 1,
+        "positive_feedbacks_count": 0,
+        "negative_feedbacks_count": 0,
+        "my_feedback": null,
+        "abusive_reports_count": 0
+      }
+    ],
+    "my_review": null,
+    "in_wishlist": false,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 3,
+      "name": "Responsive",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "responsive",
+      "language": "en",
+      "icon": "ResponsiveIcon",
+      "promotional_sliders": {
+        "id": 940,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/936/image-3.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/936/conversions/image-3-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:32.000000Z",
+      "updated_at": "2022-02-02T18:35:03.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 9,
+      "owner_id": 1,
+      "name": "Maxicon Soft Tech",
+      "slug": "maxicon-soft-tech",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 419,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/419/Cover-1.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/419/conversions/Cover-1-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 199,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/199/Group-14403.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/199/conversions/Group-14403-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "53703",
+        "city": "Madison",
+        "state": "Wisconsin",
+        "country": "USA",
+        "street_address": "3405 Browning Lane"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          },
+          {
+            "url": "https://www.instagram.com/redqinc/",
+            "icon": "InstagramIcon"
+          }
+        ],
+        "website": "https://redq.io/about-us",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-26T15:56:04.000000Z",
+      "updated_at": "2022-02-23T14:43:57.000000Z"
+    },
+    "digital_file": {
+      "id": 20,
+      "attachment_id": 750,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 20,
+      "created_at": "2022-01-26T16:14:10.000000Z",
+      "updated_at": "2022-03-07T13:37:47.000000Z"
+    }
+  },
+  {
+    "id": 21,
+    "name": "Sootify Laravel Wireframe Kits",
+    "slug": "sootify-laravel-wireframe-kits",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 4,
+    "price": 49,
+    "shop_id": 8,
+    "sale_price": 45,
+    "language": "en",
+    "min_price": 49,
+    "max_price": 49,
+    "sku": "5d1fa5d6s1f65sda1vsva",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 739,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/737/image18.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/737/conversions/image18-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 740,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/738/image06.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/738/conversions/image06-thumbnail.jpg"
+      },
+      {
+        "id": 741,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/739/image18.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/739/conversions/image18-thumbnail.jpg"
+      },
+      {
+        "id": 742,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/740/image22.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/740/conversions/image22-thumbnail.jpg"
+      },
+      {
+        "id": 743,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/741/image24.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/741/conversions/image24-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-27T14:35:52.000000Z",
+    "updated_at": "2022-03-07T13:29:54.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 0,
+    "total_reviews": 0,
+    "total_downloads": 0,
+    "rating_count": [],
+    "my_review": null,
+    "in_wishlist": true,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 4,
+      "name": "N/A",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "n-a",
+      "language": "en",
+      "icon": "NoTypeIcon",
+      "promotional_sliders": {
+        "id": 941,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/937/image-4.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/937/conversions/image-4-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:52.000000Z",
+      "updated_at": "2022-02-02T18:34:55.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 8,
+      "owner_id": 1,
+      "name": "BentaSoft",
+      "slug": "bentasoft",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 196,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/196/Cover-3.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/196/conversions/Cover-3-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 195,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/195/Group-14404.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/195/conversions/Group-14404-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "02138",
+        "city": "Cambridge",
+        "state": "Massachusetts",
+        "country": "USA",
+        "street_address": "4408 Hinkle Lake Road"
+      },
+      "settings": {
+        "contact": "+659033724396",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.instagram.com/redqinc/",
+            "icon": "InstagramIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          }
+        ],
+        "website": "https://redq.io/",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-26T15:54:49.000000Z",
+      "updated_at": "2022-02-15T06:13:22.000000Z"
+    },
+    "digital_file": {
+      "id": 21,
+      "attachment_id": 744,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 21,
+      "created_at": "2022-01-27T14:35:52.000000Z",
+      "updated_at": "2022-03-07T13:29:54.000000Z"
+    }
+  },
+  {
+    "id": 27,
+    "name": "Petronic Tailwind Bootstrap Template",
+    "slug": "petronic-tailwind-bootstrap-template",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 2,
+    "price": 39,
+    "shop_id": 7,
+    "sale_price": 35,
+    "language": "en",
+    "min_price": 39,
+    "max_price": 39,
+    "sku": "48g4s8/97fd84gdf",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 691,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/689/image45.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/689/conversions/image45-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 692,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/690/image28.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/690/conversions/image28-thumbnail.jpg"
+      },
+      {
+        "id": 693,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/691/image41.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/691/conversions/image41-thumbnail.jpg"
+      },
+      {
+        "id": 694,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/692/image45.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/692/conversions/image45-thumbnail.jpg"
+      },
+      {
+        "id": 695,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/693/image52.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/693/conversions/image52-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-27T15:56:29.000000Z",
+    "updated_at": "2022-03-07T13:23:34.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 4,
+    "total_reviews": 1,
+    "total_downloads": 0,
+    "rating_count": [
+      {
+        "rating": 4,
+        "total": 1,
+        "positive_feedbacks_count": 0,
+        "negative_feedbacks_count": 0,
+        "my_feedback": null,
+        "abusive_reports_count": 0
+      }
+    ],
+    "my_review": null,
+    "in_wishlist": false,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 2,
+      "name": "Liquid",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "liquid",
+      "language": "en",
+      "icon": "LiquidIcon",
+      "promotional_sliders": {
+        "id": 939,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/image-2.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/conversions/image-2-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:05.000000Z",
+      "updated_at": "2022-02-02T18:35:15.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 7,
+      "owner_id": 1,
+      "name": "Omnico Team",
+      "slug": "omnico-team",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 193,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/193/Cover-2.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/193/conversions/Cover-2-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 194,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/194/Group-14398.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/194/conversions/Group-14398-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "36104",
+        "city": "Montgomery",
+        "state": "Alabama",
+        "country": "USA",
+        "street_address": "2834 Fleming Street"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          },
+          {
+            "url": "https://www.instagram.com/redqinc/",
+            "icon": "InstagramIcon"
+          }
+        ],
+        "website": "https://redq.io/",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-26T15:53:03.000000Z",
+      "updated_at": "2022-02-20T13:41:15.000000Z"
+    },
+    "digital_file": {
+      "id": 27,
+      "attachment_id": 696,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 27,
+      "created_at": "2022-01-27T15:56:29.000000Z",
+      "updated_at": "2022-03-07T13:23:34.000000Z"
+    }
+  },
+  {
+    "id": 31,
+    "name": "Simplextic Simple Dashboard Template",
+    "slug": "simplextic-simple-dashboard-template",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 4,
+    "price": 35,
+    "shop_id": 4,
+    "sale_price": null,
+    "language": "en",
+    "min_price": 35,
+    "max_price": 35,
+    "sku": "894ag8afdgdf65vafdbda112zvb33fd02b00",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 661,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/659/image22.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/659/conversions/image22-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 662,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/660/image06.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/660/conversions/image06-thumbnail.jpg"
+      },
+      {
+        "id": 663,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/661/image18.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/661/conversions/image18-thumbnail.jpg"
+      },
+      {
+        "id": 664,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/662/image22.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/662/conversions/image22-thumbnail.jpg"
+      },
+      {
+        "id": 665,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/663/image27.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/663/conversions/image27-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-27T16:03:50.000000Z",
+    "updated_at": "2022-03-07T13:17:35.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 3,
+    "total_reviews": 1,
+    "total_downloads": 0,
+    "rating_count": [
+      {
+        "rating": 3,
+        "total": 1,
+        "positive_feedbacks_count": 0,
+        "negative_feedbacks_count": 0,
+        "my_feedback": null,
+        "abusive_reports_count": 0
+      }
+    ],
+    "my_review": null,
+    "in_wishlist": false,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 4,
+      "name": "N/A",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "n-a",
+      "language": "en",
+      "icon": "NoTypeIcon",
+      "promotional_sliders": {
+        "id": 941,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/937/image-4.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/937/conversions/image-4-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:52.000000Z",
+      "updated_at": "2022-02-02T18:34:55.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 4,
+      "owner_id": 1,
+      "name": "Bitronic",
+      "slug": "bitronic",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 423,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/423/Cover-4-thumbnail.jpg",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/423/conversions/Cover-4-thumbnail-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 428,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/428/Group-14393.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/428/conversions/Group-14393-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "02215",
+        "city": "Boston",
+        "state": "Massachusetts",
+        "country": "USA",
+        "street_address": "1981 Metz Lane"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.instagram.com/redqinc/",
+            "icon": "InstagramIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          },
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          }
+        ],
+        "website": null,
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-26T08:55:45.000000Z",
+      "updated_at": "2022-02-15T06:08:31.000000Z"
+    },
+    "digital_file": {
+      "id": 31,
+      "attachment_id": 666,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 31,
+      "created_at": "2022-01-27T16:03:50.000000Z",
+      "updated_at": "2022-03-07T13:17:35.000000Z"
+    }
+  },
+  {
+    "id": 33,
+    "name": "Temprador WooCommerce Landing Page Theme",
+    "slug": "temprador-woocommerce-landing-page-theme",
+    "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+    "type_id": 2,
+    "price": 65,
+    "shop_id": 6,
+    "sale_price": 59,
+    "language": "en",
+    "min_price": 65,
+    "max_price": 65,
+    "sku": "5sad4f8sd4g",
+    "preview_url": "https://themeforest.net/user/redqteam/portfolio",
+    "quantity": 500,
+    "sold_quantity": 0,
+    "in_stock": 1,
+    "is_taxable": 0,
+    "in_flash_sale": 0,
+    "shipping_class_id": null,
+    "status": "publish",
+    "product_type": "simple",
+    "unit": "1",
+    "height": null,
+    "width": null,
+    "length": null,
+    "image": {
+      "id": 805,
+      "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/803/image16.png",
+      "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/803/conversions/image16-thumbnail.jpg"
+    },
+    "video": null,
+    "gallery": [
+      {
+        "id": 307,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/307/Rectangle-827.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/307/conversions/Rectangle-827-thumbnail.jpg"
+      },
+      {
+        "id": 806,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/804/image05.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/804/conversions/image05-thumbnail.jpg"
+      },
+      {
+        "id": 807,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/805/image13.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/805/conversions/image13-thumbnail.jpg"
+      },
+      {
+        "id": 808,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/806/image16.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/806/conversions/image16-thumbnail.jpg"
+      },
+      {
+        "id": 809,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/807/image22.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/807/conversions/image22-thumbnail.jpg"
+      }
+    ],
+    "deleted_at": null,
+    "created_at": "2022-01-27T16:23:58.000000Z",
+    "updated_at": "2022-03-08T08:01:36.000000Z",
+    "author_id": null,
+    "manufacturer_id": null,
+    "is_digital": 1,
+    "is_external": 0,
+    "external_product_url": null,
+    "external_product_button_text": null,
+    "blocked_dates": [],
+    "orders_count": 2,
+    "ratings": 5,
+    "total_reviews": 1,
+    "total_downloads": 0,
+    "rating_count": [
+      {
+        "rating": 5,
+        "total": 1,
+        "positive_feedbacks_count": 0,
+        "negative_feedbacks_count": 0,
+        "my_feedback": null,
+        "abusive_reports_count": 0
+      }
+    ],
+    "my_review": null,
+    "in_wishlist": true,
+    "translated_languages": ["en"],
+    "type": {
+      "id": 2,
+      "name": "Liquid",
+      "settings": {
+        "isHome": false,
+        "layoutType": "classic",
+        "productCard": "helium"
+      },
+      "slug": "liquid",
+      "language": "en",
+      "icon": "LiquidIcon",
+      "promotional_sliders": {
+        "id": 939,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/image-2.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/935/conversions/image-2-thumbnail.jpg"
+      },
+      "created_at": "2022-01-22T13:05:05.000000Z",
+      "updated_at": "2022-02-02T18:35:15.000000Z",
+      "translated_languages": ["en"]
+    },
+    "shop": {
+      "id": 6,
+      "owner_id": 1,
+      "name": "Imagineco",
+      "slug": "imagineco",
+      "description": "Along With Wordpress Themes & Plugins, We always try to use latest trending techs like React, Next Js, Gatsby Js, GraphQl, Shopify etc to make our products special. Our rich tech choice will help you to build high performance applications. We are also known to provide great customer supports to our customers.",
+      "cover_image": {
+        "id": 192,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/192/Cover-1.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/192/conversions/Cover-1-thumbnail.jpg"
+      },
+      "logo": {
+        "id": 191,
+        "original": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/191/Group-14394.png",
+        "thumbnail": "https://pixarlaravel.s3.ap-southeast-1.amazonaws.com/191/conversions/Group-14394-thumbnail.jpg"
+      },
+      "is_active": 1,
+      "address": {
+        "zip": "07071",
+        "city": "Lyndhurst",
+        "state": "California",
+        "country": "USA",
+        "street_address": "4329 Deer Ridge Drive"
+      },
+      "settings": {
+        "contact": "0799302967",
+        "socials": [
+          {
+            "url": "https://www.facebook.com/redqinc/",
+            "icon": "FacebookIcon"
+          },
+          {
+            "url": "https://www.instagram.com/redqinc/",
+            "icon": "InstagramIcon"
+          },
+          {
+            "url": "https://www.youtube.com/channel/UCjld1tyVHRNy_pe3ROLiLhw",
+            "icon": "YouTubeIcon"
+          }
+        ],
+        "website": "https://redq.io/",
+        "location": []
+      },
+      "notifications": null,
+      "created_at": "2022-01-26T15:51:40.000000Z",
+      "updated_at": "2022-02-15T06:11:23.000000Z"
+    },
+    "digital_file": {
+      "id": 33,
+      "attachment_id": 810,
+      "file_name": "",
+      "fileable_type": "Marvel\\Database\\Models\\Product",
+      "fileable_id": 33,
+      "created_at": "2022-01-27T16:24:16.000000Z",
+      "updated_at": "2022-03-08T08:01:36.000000Z"
+    }
+  }
+]

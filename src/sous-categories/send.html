@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Add Subcategories</title>
+</head>
+
+<body>
+  <h2>Add Subcategories for a Category</h2>
+
+  <label for="category">Select a Category:</label>
+  <select id="category"></select>
+
+  <button onclick="submitSubcategories()">Submit Subcategories</button>
+
+  <script>
+    // Load categories from API
+    fetch("http://127.0.0.1:5000/api/categories")
+      .then(res => res.json())
+      .then(data => {
+        console.log(data);
+        var data = data.data;
+        const select = document.getElementById("category");
+        data.forEach(cat => {
+          const option = document.createElement("option");
+          option.value = cat.id;
+          option.text = cat.name;
+          select.appendChild(option);
+        });
+      });
+
+    function slugify(text) {
+      return text
+        .toString()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "-")
+        .replace(/[^\w\-]+/g, "")
+        .replace(/\-\-+/g, "-")
+        .replace(/^-+/, "")
+        .replace(/-+$/, "");
+    }
+
+    function submitSubcategories() {
+      const categoryId = document.getElementById("category").value;
+      const subcategories = [
+        {
+          name: "Laptops",
+          slug: "laptops",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/1995/1995574.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        },
+        {
+          name: "Desktops",
+          slug: "desktops",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/227/227603.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        },
+        {
+          name: "PC Monitors",
+          slug: "pc-monitors",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/1055/1055687.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        },
+        {
+          name: "Accessories",
+          slug: "accessories",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/6338/6338895.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        },
+        {
+          name: "Storage",
+          slug: "storage",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/3513/3513433.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        },
+        {
+          name: "Components",
+          slug: "components",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/3209/3209186.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        },
+        {
+          name: "Gaming",
+          slug: "gaming",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/2930/2930038.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        },
+        {
+          name: "Networking",
+          slug: "networking",
+          language: "en",
+          icon: "https://cdn-icons-png.flaticon.com/512/4367/4367314.png",
+          details: "Subcategory of COMPUTING",
+          categories_id: parseInt(categoryId)
+        }
+      ];
+
+      fetch("http://127.0.0.1:5000/api/souscategories/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subcategories)
+      })
+        .then(response => {
+          if (!response.ok) throw new Error("Submission failed");
+          alert("Subcategories successfully added!");
+        })
+        .catch(error => {
+          console.error(error);
+          alert("Error during submission");
+        });
+    }
+  </script>
+</body>
+
+</html>

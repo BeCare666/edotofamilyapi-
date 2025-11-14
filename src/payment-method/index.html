@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Test PaymentMethodService</title>
+</head>
+
+<body>
+    <h1>Test Payment Methods</h1>
+
+    <!-- Create Payment Method -->
+    <h2>Create Payment Method</h2>
+    <form id="create-form">
+        <label>Method Key: <input name="method_key" required></label><br>
+        <label>Default Card: <input type="checkbox" name="default_card"></label><br>
+        <button type="submit">Create</button>
+    </form>
+
+    <!-- Save Payment Method -->
+    <h2>Save Payment Method</h2>
+    <form id="save-form">
+        <label>Method Key: <input name="method_key" required></label><br>
+        <button type="submit">Save</button>
+    </form>
+
+    <!-- Set Default Card -->
+    <h2>Set Default Card</h2>
+    <form id="default-form">
+        <label>Method ID: <input name="method_id" required></label><br>
+        <button type="submit">Set Default</button>
+    </form>
+
+    <!-- Get All Cards -->
+    <h2>Get All Cards</h2>
+    <button onclick="getAllCards()">Fetch Cards</button>
+
+    <pre id="result"></pre>
+
+    <script>
+        const API_BASE = 'http://127.0.0.1:5000/api'; // à adapter si besoin
+        const TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJiZWNhcmUuZnIuZ2VAZ21haWwuY29tIiwicGVybWlzc2lvbnMiOlsic3RvcmVfb3duZXIiXSwiaWF0IjoxNzUzMzQwMTc5LCJleHAiOjE3NTM5NDQ5Nzl9.QkegM5aJAbinqfb9z1pl8i5c_ZElbwzH2SNnEWRcmEU';
+
+        function showResult(data) {
+            document.getElementById('result').textContent = JSON.stringify(data, null, 2);
+        }
+
+        async function authFetch(url, options = {}) {
+            options.headers = {
+                ...(options.headers || {}),
+                'Authorization': `Bearer ${TOKEN}`,
+                'Content-Type': 'application/json'
+            };
+            return fetch(url, options);
+        }
+
+        document.getElementById('create-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const payload = {
+                method_key: form.method_key.value,
+                default_card: form.default_card.checked
+            };
+            const res = await authFetch(`${API_BASE}/cards`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            showResult(await res.json());
+        };
+
+        document.getElementById('save-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const payload = {
+                method_key: form.method_key.value,
+                default_card: false
+            };
+            const res = await authFetch(`${API_BASE}/save-payment-method`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            showResult(await res.json());
+        };
+
+        document.getElementById('default-form').onsubmit = async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const payload = {
+                method_id: form.method_id.value
+            };
+            const res = await authFetch(`${API_BASE}/set-default-card`, {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+            showResult(await res.json());
+        };
+
+        async function getAllCards() {
+            const res = await authFetch(`${API_BASE}/cards`);
+            showResult(await res.json());
+        }
+    </script>
+</body>
+
+</html>

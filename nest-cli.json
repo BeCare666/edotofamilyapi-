@@ -1,0 +1,15 @@
+{
+  "collection": "@nestjs/schematics",
+  "sourceRoot": "src",
+  "compilerOptions": {
+    "plugins": [
+      "@nestjs/swagger"
+    ],
+    "assets": [
+      {
+        "include": "database/sql/**/*",
+        "outDir": "dist/src"
+      }
+    ]
+  }
+}

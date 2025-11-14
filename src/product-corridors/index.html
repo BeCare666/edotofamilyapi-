@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Lier Produits aux Corridors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f4f4f4;
+        }
+
+        select,
+        button {
+            padding: 10px;
+            margin: 10px 0;
+            width: 100%;
+            max-width: 500px;
+        }
+
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+
+        li {
+            background: #fff;
+            padding: 10px;
+            margin: 5px 0;
+            border-left: 5px solid #2196f3;
+        }
+
+        .selected-corridor {
+            background-color: #e3f2fd;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Associer un produit à des corridors</h1>
+
+    <label for="productSelect">Choisir un produit non lié :</label>
+    <select id="productSelect">
+        <option value="">Chargement...</option>
+    </select>
+
+    <div id="corridorSection" style="display: none;">
+        <h2>Corridors valides</h2>
+        <ul id="corridorList"></ul>
+        <button id="linkBtn">Lier aux corridors sélectionnés</button>
+    </div>
+
+    <div id="message"></div>
+
+    <script>
+        const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJiZWNhcmUuZnIuZ2VAZ21haWwuY29tIiwicGVybWlzc2lvbnMiOlsic3RvcmVfb3duZXIiXSwiaWF0IjoxNzUzNjkzMzYzLCJleHAiOjE3NTQyOTgxNjN9.SZgDCjxb3H1UCum4NsD8K1Y8ix2KvpqI8ucaDQuC6oQ';
+        const apiBase = 'http://127.0.0.1:5000/api/product-corridors';
+
+        const productSelect = document.getElementById('productSelect');
+        const corridorList = document.getElementById('corridorList');
+        const corridorSection = document.getElementById('corridorSection');
+        const linkBtn = document.getElementById('linkBtn');
+        const messageDiv = document.getElementById('message');
+
+        let selectedCorridors = [];
+        let selectedProductId = null;
+
+        async function fetchUnlinkedProducts() {
+            const res = await fetch(`${apiBase}/unlinked-products`);
+            const products = await res.json();
+
+            productSelect.innerHTML = `<option value="">-- Sélectionner un produit --</option>`;
+            products.forEach(p => {
+                productSelect.innerHTML += `<option value="${p.id}">${p.name}</option>`;
+            });
+        }
+
+        async function fetchValidCorridors(productId) {
+            const res = await fetch(`${apiBase}/valid-corridors/${productId}`);
+            const corridors = await res.json();
+
+            corridorList.innerHTML = '';
+            selectedCorridors = [];
+
+            if (corridors.length === 0) {
+                corridorList.innerHTML = '<li>Aucun corridor disponible</li>';
+                return;
+            }
+
+            corridors.forEach(c => {
+                const li = document.createElement('li');
+                li.textContent = c.name || `Corridor ${c.id}`;
+                li.dataset.id = c.id;
+                li.addEventListener('click', () => {
+                    li.classList.toggle('selected-corridor');
+                    const id = c.id;
+                    if (selectedCorridors.includes(id)) {
+                        selectedCorridors = selectedCorridors.filter(cid => cid !== id);
+                    } else {
+                        selectedCorridors.push(id);
+                    }
+                });
+                corridorList.appendChild(li);
+            });
+
+            corridorSection.style.display = 'block';
+        }
+
+        productSelect.addEventListener('change', (e) => {
+            const productId = Number(e.target.value);
+            if (!productId) {
+                corridorSection.style.display = 'none';
+                return;
+            }
+            selectedProductId = productId;
+            fetchValidCorridors(productId);
+        });
+
+        linkBtn.addEventListener('click', async () => {
+            if (!selectedProductId || selectedCorridors.length === 0) {
+                alert('Veuillez choisir un produit et au moins un corridor');
+                return;
+            }
+
+            const res = await fetch(`${apiBase}/link`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    productId: selectedProductId,
+                    corridorIds: selectedCorridors
+                })
+            });
+
+            if (res.ok) {
+                const result = await res.json();
+                messageDiv.innerHTML = `<p style="color: green;">${result.message}</p>`;
+                await fetchUnlinkedProducts();
+                corridorSection.style.display = 'none';
+            } else {
+                const error = await res.json();
+                messageDiv.innerHTML = `<p style="color: red;">Erreur: ${error.message || 'Échec de liaison'}</p>`;
+            }
+        });
+
+        // Initialisation
+        fetchUnlinkedProducts();
+    </script>
+</body>
+
+</html>

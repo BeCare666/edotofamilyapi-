@@ -1,0 +1,44 @@
+{
+  "categories": [
+    {
+      "id": 1,
+      "name": "Fertilité",
+      "slug": "fertilite",
+      "language": "fr",
+      "parent": null,
+      "icon": "https://img.icons8.com/fluency/48/product.png"
+    },
+    {
+      "id": 2,
+      "name": "Grossesse",
+      "slug": "grossesse",
+      "language": "fr",
+      "parent": null,
+      "icon": "https://img.icons8.com/?size=48&id=s3Jrlqy6yqSl&format=png"
+    },
+    {
+      "id": 3,
+      "name": "Intimité",
+      "slug": "intimite",
+      "language": "fr",
+      "parent": null,
+      "icon": "https://img.icons8.com/fluency/48/car.png"
+    },
+    {
+      "id": 4,
+      "name": "Soins",
+      "slug": "soins",
+      "language": "fr",
+      "parent": null,
+      "icon": "https://img.icons8.com/fluency/48/coal.png"
+    },
+    {
+      "id": 5,
+      "name": "Bien-être",
+      "slug": "bien-etre",
+      "language": "fr",
+      "parent": null,
+      "icon": "https://img.icons8.com/fluency/48/factory.png"
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "category_id": 1,
+    "category_name": "Beauté & Soins",
+    "shop_name": "enselme bio",
+    "product_count": 12
+  },
+  {
+    "category_id": 2,
+    "category_name": "Accessoires",
+    "shop_name": "enselme bio",
+    "product_count": 9
+  },
+  {
+    "category_id": 3,
+    "category_name": "Électronique",
+    "shop_name": "TechZone",
+    "product_count": 15
+  },
+  {
+    "category_id": 4,
+    "category_name": "Maison & Cuisine",
+    "shop_name": "BeHome",
+    "product_count": 8
+  },
+  {
+    "category_id": 5,
+    "category_name": "Mode Femme",
+    "shop_name": "ChicAfrique",
+    "product_count": 10
+  },
+  {
+    "category_id": 6,
+    "category_name": "Mode Homme",
+    "shop_name": "ChicAfrique",
+    "product_count": 10
+  },
+  {
+    "category_id": 7,
+    "category_name": "Téléphones & Tablettes",
+    "shop_name": "TechZone",
+    "product_count": 14
+  },
+  {
+    "category_id": 8,
+    "category_name": "Ordinateurs",
+    "shop_name": "TechZone",
+    "product_count": 7
+  },
+  {
+    "category_id": 9,
+    "category_name": "Jeux & Consoles",
+    "shop_name": "GameShop",
+    "product_count": 6
+  },
+  {
+    "category_id": 10,
+    "category_name": "Sport & Fitness",
+    "shop_name": "BeFit",
+    "product_count": 5
+  },
+  {
+    "category_id": 11,
+    "category_name": "Épicerie",
+    "shop_name": "AgroMarket",
+    "product_count": 18
+  },
+  {
+    "category_id": 12,
+    "category_name": "Livres & Éducation",
+    "shop_name": "EduWorld",
+    "product_count": 11
+  },
+  {
+    "category_id": 13,
+    "category_name": "Bijoux & Montres",
+    "shop_name": "BijouLuxe",
+    "product_count": 6
+  },
+  {
+    "category_id": 14,
+    "category_name": "Chaussures",
+    "shop_name": "FootShop",
+    "product_count": 13
+  },
+  {
+    "category_id": 15,
+    "category_name": "Bébés & Enfants",
+    "shop_name": "BabyCare",
+    "product_count": 9
+  },
+  {
+    "category_id": 16,
+    "category_name": "Santé & Bien-être",
+    "shop_name": "enselme bio",
+    "product_count": 10
+  },
+  {
+    "category_id": 17,
+    "category_name": "Informatique & Réseaux",
+    "shop_name": "TechZone",
+    "product_count": 7
+  },
+  {
+    "category_id": 18,
+    "category_name": "Auto & Moto",
+    "shop_name": "AutoPlus",
+    "product_count": 5
+  },
+  {
+    "category_id": 19,
+    "category_name": "Musique & Instruments",
+    "shop_name": "MusicLife",
+    "product_count": 4
+  },
+  {
+    "category_id": 20,
+    "category_name": "Décoration & Art",
+    "shop_name": "ArtDéco",
+    "product_count": 6
+  }
+]

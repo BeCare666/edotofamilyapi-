@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Création de Corridors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+
+        form {
+            border: 1px solid #ccc;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        label {
+            display: block;
+            margin-top: 10px;
+        }
+
+        select,
+        input,
+        textarea {
+            width: 100%;
+            padding: 8px;
+            margin-top: 5px;
+        }
+
+        button {
+            margin-top: 10px;
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Créer 15 Corridors</h1>
+    <div id="forms-container"></div>
+
+    <script>
+        const NUM_CORRIDORS = 15;
+        let countries = [];
+
+        // Charger les pays existants
+        async function fetchCountries() {
+            const res = await fetch('https://galileecommerceshopapi-3.onrender.com/api/countries'); // ⚠️ À adapter à ton backend 
+            countries = await res.json();
+        }
+
+        function createSelectOptions() {
+            return countries.map(c =>
+                `<option value="${c.id}" data-code="${c.code}">${c.name} (${c.code})</option>`
+            ).join('');
+        }
+
+        function generateForm(index) {
+            return `
+        <form onsubmit="submitForm(event, ${index})">
+          <h3>Corridor ${index + 1}</h3>
+           
+          
+          <label>Pays de départ</label>
+          <select name="from_pays_id" required>
+            ${createSelectOptions()}
+          </select>
+
+          <label>Pays de destination</label>
+          <select name="to_pays_id" required>
+            ${createSelectOptions()}
+          </select>
+
+          <label>Douanes</label>
+          <textarea name="douanes" placeholder="Infos douanières" required></textarea>
+
+          <label>Taxes</label>
+          <input type="text" name="taxes" placeholder="Ex: 18%" required />
+
+          <label>Logistique</label>
+          <textarea name="logistique" placeholder="Infos logistiques" required></textarea>
+
+          <button type="submit">Créer ce corridor</button>
+        </form>
+      `;
+        }
+        async function getLatLngFromCode(code) {
+            const res = await fetch(`https://restcountries.com/v3.1/alpha/${code}`);
+            const data = await res.json();
+
+            if (data && data[0] && data[0].latlng) {
+                const [lat, lng] = data[0].latlng;
+                return { latitude: lat, longitude: lng };
+            }
+
+            return { latitude: 0, longitude: 0 }; // fallback
+        }
+
+        async function submitForm(e, index) {
+            e.preventDefault();
+            const form = e.target;
+
+            const fromSelect = form.from_pays_id;
+            const toSelect = form.to_pays_id;
+
+            const fromOption = fromSelect.options[fromSelect.selectedIndex];
+            const toOption = toSelect.options[toSelect.selectedIndex];
+
+            const fromCode = fromOption.dataset.code;
+            const toCode = toOption.dataset.code;
+
+            // 🔄 Récupérer coordonnées automatiquement via API
+            const fromGeo = await getLatLngFromCode(fromCode);
+            const toGeo = await getLatLngFromCode(toCode);
+
+            const data = {
+                from_countries_id: parseInt(fromSelect.value),
+                to_countries_id: parseInt(toSelect.value),
+
+                from_countries_code: fromCode,
+                to_countries_code: toCode,
+
+                from_latitude: fromGeo.latitude,
+                from_longitude: fromGeo.longitude,
+                to_latitude: toGeo.latitude,
+                to_longitude: toGeo.longitude,
+
+                douanes: form.douanes.value,
+                taxes: form.taxes.value,
+                logistique: form.logistique.value,
+            };
+            console.log(data);
+            const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJiZWNhcmUuZnIuZ2VAZ21haWwuY29tIiwicGVybWlzc2lvbnMiOlsic3RvcmVfb3duZXIiXSwiaWF0IjoxNzUzNjkzMzYzLCJleHAiOjE3NTQyOTgxNjN9.SZgDCjxb3H1UCum4NsD8K1Y8ix2KvpqI8ucaDQuC6oQ';
+
+            const res = await fetch('https://galileecommerceshopapi-3.onrender.com/api/corridors', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(data)
+            });
+
+            if (res.ok) {
+                alert(`Corridor créé avec succès`);
+                form.reset();
+            } else {
+                alert(`Erreur lors de la création du corridor ${index + 1}`);
+            }
+        }
+        async function init() {
+            await fetchCountries();
+            const container = document.getElementById('forms-container');
+            for (let i = 0; i < NUM_CORRIDORS; i++) {
+                container.innerHTML += generateForm(i);
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>

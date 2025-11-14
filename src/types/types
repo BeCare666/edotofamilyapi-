@@ -1,0 +1,107 @@
+[
+  {
+    "name": "Électronique",
+    "slug": "electronique",
+    "icon": "https://cdn-icons-png.flaticon.com/512/992/992651.png",
+    "image": "https://images.unsplash.com/photo-1510557880182-3eec5b12a1d4?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Mode",
+    "slug": "mode",
+    "icon": "https://cdn-icons-png.flaticon.com/512/892/892458.png",
+    "image": "https://images.unsplash.com/photo-1503342217505-b0a15ec3261c?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Maison & Jardin",
+    "slug": "maison-jardin",
+    "icon": "https://cdn-icons-png.flaticon.com/512/3043/3043986.png",
+    "image": "https://images.unsplash.com/photo-1494526585095-c41746248156?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Beauté & Santé",
+    "slug": "beaute-sante",
+    "icon": "https://cdn-icons-png.flaticon.com/512/4128/4128300.png",
+    "image": "https://images.unsplash.com/photo-1501004318641-b39e6451bec6?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Sport",
+    "slug": "sport",
+    "icon": "https://cdn-icons-png.flaticon.com/512/892/892458.png",
+    "image": "https://images.unsplash.com/photo-1521412644187-c49fa049e84d?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Jouets & Jeux",
+    "slug": "jouets-jeux",
+    "icon": "https://cdn-icons-png.flaticon.com/512/833/833314.png",
+    "image": "https://images.unsplash.com/photo-1504274066651-8d31a536b11a?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Informatique",
+    "slug": "informatique",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1055/1055687.png",
+    "image": "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Automobile",
+    "slug": "automobile",
+    "icon": "https://cdn-icons-png.flaticon.com/512/743/743922.png",
+    "image": "https://images.unsplash.com/photo-1502877338535-766e1452684a?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Alimentation",
+    "slug": "alimentation",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1046/1046857.png",
+    "image": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Livres",
+    "slug": "livres",
+    "icon": "https://cdn-icons-png.flaticon.com/512/29/29302.png",
+    "image": "https://images.unsplash.com/photo-1512820790803-83ca734da794?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Musique",
+    "slug": "musique",
+    "icon": "https://cdn-icons-png.flaticon.com/512/727/727240.png",
+    "image": "https://images.unsplash.com/photo-1507874457470-272b3c8d8ee2?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Films & Séries",
+    "slug": "films-series",
+    "icon": "https://cdn-icons-png.flaticon.com/512/102/102262.png",
+    "image": "https://images.unsplash.com/photo-1504384308090-c894fdcc538d?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Bricolage",
+    "slug": "bricolage",
+    "icon": "https://cdn-icons-png.flaticon.com/512/839/839860.png",
+    "image": "https://images.unsplash.com/photo-1501594907352-04cda38ebc29?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Voyage",
+    "slug": "voyage",
+    "icon": "https://cdn-icons-png.flaticon.com/512/201/201623.png",
+    "image": "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Animaux",
+    "slug": "animaux",
+    "icon": "https://cdn-icons-png.flaticon.com/512/616/616408.png",
+    "image": "https://images.unsplash.com/photo-1518717758536-85ae29035b6d?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  }
+]

@@ -1,0 +1,35 @@
+import { Controller, Post, UploadedFiles, UseInterceptors, BadRequestException } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
+import { extname } from 'path';
+
+@Controller('attachments')
+export class UploadsController {
+  @Post()
+  @UseInterceptors(FilesInterceptor('attachment', 10, {
+    storage: diskStorage({
+      destination: './uploads',
+      filename: (req, file, cb) => {
+        const uniqueName = Date.now() + '-' + Math.round(Math.random() * 1e9) + extname(file.originalname);
+        cb(null, uniqueName);
+      },
+    }),
+  }))
+  uploadFile(@UploadedFiles() files: Express.Multer.File[]) {
+    console.log('=== Début upload ===');
+    console.log('Files:', files);
+    if (!files || files.length === 0) {
+      console.error('Aucun fichier reçu');
+      throw new BadRequestException('No files uploaded');
+    }
+    return files.map(file => ({
+      originalName: file.originalname,
+      filename: file.filename,
+      size: file.size,
+      mimeType: file.mimetype,
+      // Ici on crée l'URL publique accessible depuis le front
+      url: `${process.env.BASE_URL || 'https://galileecommerceshopapi-3.onrender.com'}/uploads/${file.filename}`,
+      key: file.filename, // Peut servir comme identifiant
+    }));
+  }
+}

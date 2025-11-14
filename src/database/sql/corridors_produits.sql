@@ -1,0 +1,8 @@
+CREATE TABLE IF NOT EXISTS corridors_produits (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  corridor_id VARCHAR(50) NOT NULL,
+  produit_id INT NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (corridor_id) REFERENCES corridors(id) ON DELETE CASCADE,
+  FOREIGN KEY (produit_id) REFERENCES products(id) ON DELETE CASCADE
+);

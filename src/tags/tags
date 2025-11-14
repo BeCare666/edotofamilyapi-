@@ -1,0 +1,137 @@
+[
+  {
+    "id": 1,
+    "name": "Technologie",
+    "slug": "technologie",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1055/1055687.png",
+    "details": "Tag pour tout ce qui concerne la technologie",
+    "type_id": null
+  },
+  {
+    "id": 2,
+    "name": "Finance",
+    "slug": "finance",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2331/2331941.png",
+    "details": "Tag relatif aux finances et à l'économie",
+    "type_id": null
+  },
+  {
+    "id": 3,
+    "name": "Santé",
+    "slug": "sante",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2965/2965567.png",
+    "details": "Tag pour la santé et le bien-être",
+    "type_id": null
+  },
+  {
+    "id": 4,
+    "name": "Éducation",
+    "slug": "education",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1670/1670457.png",
+    "details": "Tag concernant l’éducation et la formation",
+    "type_id": null
+  },
+  {
+    "id": 5,
+    "name": "Voyage",
+    "slug": "voyage",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/3179/3179068.png",
+    "details": "Tag pour les voyages et le tourisme",
+    "type_id": null
+  },
+  {
+    "id": 6,
+    "name": "Cuisine",
+    "slug": "cuisine",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1046/1046784.png",
+    "details": "Tag sur la nourriture et la cuisine",
+    "type_id": null
+  },
+  {
+    "id": 7,
+    "name": "Musique",
+    "slug": "musique",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/727/727245.png",
+    "details": "Tag lié à la musique et aux instruments",
+    "type_id": null
+  },
+  {
+    "id": 8,
+    "name": "Sport",
+    "slug": "sport",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1803/1803651.png",
+    "details": "Tag pour les activités sportives",
+    "type_id": null
+  },
+  {
+    "id": 9,
+    "name": "Art",
+    "slug": "art",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1027/1027114.png",
+    "details": "Tag concernant les arts visuels et la création",
+    "type_id": null
+  },
+  {
+    "id": 10,
+    "name": "Mode",
+    "slug": "mode",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/892/892458.png",
+    "details": "Tag sur la mode et le style",
+    "type_id": null
+  },
+  {
+    "id": 11,
+    "name": "Science",
+    "slug": "science",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1461/1461411.png",
+    "details": "Tag pour les sciences et découvertes",
+    "type_id": null
+  },
+  {
+    "id": 12,
+    "name": "Business",
+    "slug": "business",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1055/1055688.png",
+    "details": "Tag relatif au monde des affaires",
+    "type_id": null
+  },
+  {
+    "id": 13,
+    "name": "Jeux vidéo",
+    "slug": "jeux-video",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/581/581580.png",
+    "details": "Tag pour les jeux vidéo et esports",
+    "type_id": null
+  },
+  {
+    "id": 14,
+    "name": "Photographie",
+    "slug": "photographie",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2920/2920382.png",
+    "details": "Tag lié à la photographie",
+    "type_id": null
+  },
+  {
+    "id": 15,
+    "name": "Environnement",
+    "slug": "environnement",
+    "language": "fr",
+    "icon": "https://cdn-icons-png.flaticon.com/512/427/427735.png",
+    "details": "Tag sur la nature et l’écologie",
+    "type_id": null
+  }
+]

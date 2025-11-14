@@ -1,0 +1,128 @@
+[
+  {
+    "name": "Téléphones",
+    "slug": "telephones",
+    "icon": "https://cdn-icons-png.flaticon.com/512/724/724664.png",
+    "image": "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Ordinateurs",
+    "slug": "ordinateurs",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2721/2721291.png",
+    "image": "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Chaussures",
+    "slug": "chaussures",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1019/1019607.png",
+    "image": "https://images.unsplash.com/photo-1585559602344-395d94d52378?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Sacs",
+    "slug": "sacs",
+    "icon": "https://cdn-icons-png.flaticon.com/512/535/535239.png",
+    "image": "https://images.unsplash.com/photo-1585386959984-a415522b8317?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Montres",
+    "slug": "montres",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1041/1041916.png",
+    "image": "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Vêtements hommes",
+    "slug": "vetements-hommes",
+    "icon": "https://cdn-icons-png.flaticon.com/512/892/892458.png",
+    "image": "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Vêtements femmes",
+    "slug": "vetements-femmes",
+    "icon": "https://cdn-icons-png.flaticon.com/512/3515/3515330.png",
+    "image": "https://images.unsplash.com/photo-1521577352947-9bb58764b69a?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Accessoires",
+    "slug": "accessoires",
+    "icon": "https://cdn-icons-png.flaticon.com/512/992/992651.png",
+    "image": "https://images.unsplash.com/photo-1575936123452-b67c3203c357?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Télévisions",
+    "slug": "televisions",
+    "icon": "https://cdn-icons-png.flaticon.com/512/950/950043.png",
+    "image": "https://images.unsplash.com/photo-1606813908961-7d4dfeb2a40b?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Cuisinières",
+    "slug": "cuisinieres",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2602/2602172.png",
+    "image": "https://images.unsplash.com/photo-1616628182504-4958f4acfa8d?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Réfrigérateurs",
+    "slug": "refrigerateurs",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2803/2803795.png",
+    "image": "https://images.unsplash.com/photo-1606813909580-9ed6c388fa43?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Meubles",
+    "slug": "meubles",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1829/1829336.png",
+    "image": "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Décoration",
+    "slug": "decoration",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2236/2236899.png",
+    "image": "https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Produits capillaires",
+    "slug": "produits-capillaires",
+    "icon": "https://cdn-icons-png.flaticon.com/512/1531/1531113.png",
+    "image": "https://images.unsplash.com/photo-1604169761745-78b7b08c1e4f?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Maquillage",
+    "slug": "maquillage",
+    "icon": "https://cdn-icons-png.flaticon.com/512/892/892497.png",
+    "image": "https://images.unsplash.com/photo-1596461404969-e6fbf6c93008?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Parfums",
+    "slug": "parfums",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2331/2331714.png",
+    "image": "https://images.unsplash.com/photo-1556228720-da17a9239ef5?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Matériel scolaire",
+    "slug": "materiel-scolaire",
+    "icon": "https://cdn-icons-png.flaticon.com/512/681/681494.png",
+    "image": "https://images.unsplash.com/photo-1588072432836-e10032774350?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  },
+  {
+    "name": "Instruments de musique",
+    "slug": "instruments-musique",
+    "icon": "https://cdn-icons-png.flaticon.com/512/2957/2957583.png",
+    "image": "https://images.unsplash.com/photo-1598387991627-fccdc0e32bbf?auto=format&fit=crop&w=500&q=60",
+    "language": "fr"
+  }
+]

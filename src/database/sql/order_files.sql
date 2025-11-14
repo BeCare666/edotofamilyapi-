@@ -1,0 +1,9 @@
+CREATE TABLE IF NOT EXISTS order_files (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  order_id INT NOT NULL,
+  digital_file_id INT NOT NULL,
+  file_url VARCHAR(255) NOT NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE
+);

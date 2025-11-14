@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Gestion des sous Catégories</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            padding: 20px;
+        }
+
+        input,
+        select,
+        button {
+            margin: 5px 0;
+            display: block;
+            width: 100%;
+            padding: 5px;
+        }
+
+        .category {
+            border: 1px solid #ccc;
+            padding: 10px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Sous Catégories</h1>
+
+    <h2>Créer / Mettre à jour un sous catégorie</h2>
+    <form id="category-form">
+        <input type="hidden" id="category-id" />
+        <input type="text" id="name" placeholder="Nom" required />
+        <input type="text" id="slug" placeholder="Slug" required />
+
+        <select id="categories_id" required>
+            <option value="">Chargement des sous categories...</option>
+        </select>
+
+        <input type="text" id="details" placeholder="Détails" />
+        <input type="text" id="icon" placeholder="Icône" />
+
+        <input type="text" id="language" placeholder="Langue" value="fr" />
+        <button type="submit">Enregistrer</button>
+    </form>
+
+    <hr />
+
+    <h2>Liste des catégories</h2>
+    <div id="categories"></div>
+
+    <script>
+        const apiUrl = 'http://127.0.0.1:5000/api/souscategories';
+        const typeUrl = 'http://127.0.0.1:5000/api/categories';
+        const token = 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJiZWNhcmUuZnIuZ2VAZ21haWwuY29tIiwicGVybWlzc2lvbnMiOlsic3RvcmVfb3duZXIiXSwiaWF0IjoxNzUzMzQwMTc5LCJleHAiOjE3NTM5NDQ5Nzl9.QkegM5aJAbinqfb9z1pl8i5c_ZElbwzH2SNnEWRcmEU';
+
+        const form = document.getElementById('category-form');
+        const categoriesDiv = document.getElementById('categories');
+        const typeSelect = document.getElementById('categories_id');
+
+        let typesCache = [];
+
+        async function fetchTypes() {
+            const res = await fetch(typeUrl, {
+                headers: { Authorization: token }
+            });
+            const json = await res.json();
+            typesCache = json.data;
+            console.log(json)
+            typeSelect.innerHTML = '<option value="">Sélectionner un sous categories</option>';
+            typesCache.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type.id;
+                option.textContent = `${type.name} (${type.language})`;
+                typeSelect.appendChild(option);
+            });
+        }
+
+        async function fetchCategories() {
+            const res = await fetch(apiUrl, {
+                headers: { Authorization: token }
+            });
+            const json = await res.json();
+            categoriesDiv.innerHTML = '';
+            json.data.forEach(cat => {
+                const type = typesCache.find(t => t.id === cat.categories_id);
+                const typeName = type ? `${type.name} (${type.language})` : `ID: ${cat.categories_id}`;
+                const el = document.createElement('div');
+                el.className = 'category';
+                el.innerHTML = `
+          <strong>${cat.name}</strong> (slug: ${cat.slug})<br>
+          Type: ${typeName} | Langue: ${cat.language} <br>
+          <button onclick="editCategory(${cat.id})">Modifier</button>
+          <button onclick="deleteCategory(${cat.id})">Supprimer</button>
+        `;
+                categoriesDiv.appendChild(el);
+            });
+        }
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const category = {
+                name: form.name.value,
+                slug: form.slug.value,
+                categories_id: parseInt(form.categories_id.value) || null,
+                icon: form.icon.value || null,
+                details: form.details.value || null,
+                language: form.language.value,
+            };
+
+            const id = form['category-id'].value;
+
+            const url = id ? `${apiUrl}/${id}` : apiUrl;
+            const method = id ? 'PUT' : 'POST';
+
+            await fetch(url, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: token
+                },
+                body: JSON.stringify(category),
+            });
+
+            form.reset();
+            await fetchCategories();
+        });
+
+        async function editCategory(id) {
+            const res = await fetch(`${apiUrl}/${id}?language=fr`, {
+                headers: { Authorization: token }
+            });
+            const cat = await res.json();
+            form['category-id'].value = cat.id;
+            form.name.value = cat.name;
+            form.slug.value = cat.slug;
+            form.categories_id.value = cat.categories_id || '';
+            form.details.value = cat.details || '';
+            form.icon.value = cat.icon || '';
+
+            form.language.value = cat.language || 'fr';
+        }
+
+        async function deleteCategory(id) {
+            if (confirm('Supprimer cette catégorie ?')) {
+                await fetch(`${apiUrl}/${id}`, {
+                    method: 'DELETE',
+                    headers: { Authorization: token }
+                });
+                await fetchCategories();
+            }
+        }
+
+        // Chargement initial
+        fetchTypes().then(fetchCategories);
+    </script>
+</body>
+
+</html>

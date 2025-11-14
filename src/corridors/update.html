@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Update Corridor (auto latitude/longitude via API)</title>
+</head>
+
+<body>
+    <h2>Mise à jour partielle d’un corridor</h2>
+
+    <form id="updateForm">
+        <input type="text" id="id" placeholder="ID du corridor" required />
+
+        <h3>Pays de départ (from)</h3>
+        <input type="text" id="from_countries_code" placeholder="Code pays source (ex: BJ)" />
+        <input type="number" step="any" id="from_latitude" placeholder="Latitude source" />
+        <input type="number" step="any" id="from_longitude" placeholder="Longitude source" />
+
+        <h3>Pays de destination (to)</h3>
+        <input type="text" id="to_countries_code" placeholder="Code pays destination (ex: CI)" />
+        <input type="number" step="any" id="to_latitude" placeholder="Latitude destination" />
+        <input type="number" step="any" id="to_longitude" placeholder="Longitude destination" />
+
+        <button type="submit">Mettre à jour</button>
+    </form>
+
+    <pre id="response"></pre>
+
+    <script>
+        async function getLatLngFromCode(code) {
+            try {
+                const res = await fetch(`https://restcountries.com/v3.1/alpha/${code}`);
+                const data = await res.json();
+
+                if (data && data[0] && data[0].latlng) {
+                    const [lat, lng] = data[0].latlng;
+                    return { latitude: lat, longitude: lng };
+                }
+            } catch (e) {
+                console.error("Erreur récupération pays :", e);
+            }
+
+            return { latitude: 0, longitude: 0 }; // fallback
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            document.getElementById("from_countries_code").addEventListener("blur", async () => {
+                const code = document.getElementById("from_countries_code").value.trim().toUpperCase();
+                if (code) {
+                    const { latitude, longitude } = await getLatLngFromCode(code);
+                    document.getElementById("from_latitude").value = latitude;
+                    document.getElementById("from_longitude").value = longitude;
+                }
+            });
+
+            document.getElementById("to_countries_code").addEventListener("blur", async () => {
+                const code = document.getElementById("to_countries_code").value.trim().toUpperCase();
+                if (code) {
+                    const { latitude, longitude } = await getLatLngFromCode(code);
+                    document.getElementById("to_latitude").value = latitude;
+                    document.getElementById("to_longitude").value = longitude;
+                }
+            });
+
+            document.getElementById("updateForm").addEventListener("submit", async (e) => {
+                e.preventDefault();
+                console.log("Form submitted"); // ← Ajout ici
+                const id = document.getElementById("id").value;
+                const fields = [
+                    "from_countries_code",
+                    "to_countries_code",
+                    "from_latitude",
+                    "from_longitude",
+                    "to_latitude",
+                    "to_longitude"
+                ];
+
+                const data = {};
+                for (const field of fields) {
+                    const val = document.getElementById(field).value;
+                    if (val !== "") {
+                        data[field] = isNaN(val) ? val : parseFloat(val);
+                    }
+                }
+                const token = ' eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJiZWNhcmUuZnIuZ2VAZ21haWwuY29tIiwicGVybWlzc2lvbnMiOlsic3RvcmVfb3duZXIiXSwiaWF0IjoxNzUzNTA1NjYxLCJleHAiOjE3NTQxMTA0NjF9.oM5kYQV8dKPAzV4GoGUadOoxfLPYfmBOKlZlf4Jao9M';
+                const res = await fetch(`http://127.0.0.1:5000/api/corridors/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await res.json();
+                document.getElementById('response').innerText = JSON.stringify(result, null, 2);
+            });
+        });
+    </script>
+</body>
+
+</html>

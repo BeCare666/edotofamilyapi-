@@ -1,0 +1,92 @@
+[
+  {
+    "id": 1,
+    "name": "discount",
+    "slug": "discount",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/3574786-200.png",
+    "details": "Special offer discount tag",
+    "type_id": null
+  },
+  {
+    "id": 2,
+    "name": "sale",
+    "slug": "sale",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/4025785-200.png",
+    "details": "Sale price label",
+    "type_id": null
+  },
+  {
+    "id": 3,
+    "name": "new-arrival",
+    "slug": "new-arrival",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/5451235-200.png",
+    "details": "Tag for new products",
+    "type_id": null
+  },
+  {
+    "id": 4,
+    "name": "bestseller",
+    "slug": "bestseller",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/4867774-200.png",
+    "details": "Most sold item tag",
+    "type_id": null
+  },
+  {
+    "id": 5,
+    "name": "limited-offer",
+    "slug": "limited-offer",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/4867794-200.png",
+    "details": "Limited time deal",
+    "type_id": null
+  },
+  {
+    "id": 6,
+    "name": "eco-friendly",
+    "slug": "eco-friendly",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/3903929-200.png",
+    "details": "Eco-friendly product",
+    "type_id": null
+  },
+  {
+    "id": 7,
+    "name": "free-shipping",
+    "slug": "free-shipping",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/3893558-200.png",
+    "details": "Tag for free shipping",
+    "type_id": null
+  },
+  {
+    "id": 8,
+    "name": "gift",
+    "slug": "gift",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/3581437-200.png",
+    "details": "Gift or freebie tag",
+    "type_id": null
+  },
+  {
+    "id": 9,
+    "name": "exclusive",
+    "slug": "exclusive",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/4253153-200.png",
+    "details": "Exclusive item",
+    "type_id": null
+  },
+  {
+    "id": 10,
+    "name": "clearance",
+    "slug": "clearance",
+    "language": "en",
+    "icon": "https://static.thenounproject.com/png/4575055-200.png",
+    "details": "Clearance sale",
+    "type_id": null
+  }
+]

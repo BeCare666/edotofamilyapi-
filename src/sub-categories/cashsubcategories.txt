@@ -1,0 +1,193 @@
+import { Injectable } from '@nestjs/common';
+import { CreateCategoryDto } from './dto/create-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { GetCategoriesDto } from './dto/get-categories.dto';
+import { paginate } from 'src/common/pagination/paginate';
+import { DatabaseService } from '../database/database.services';
+
+@Injectable()
+export class CategoriesService {
+  constructor(private readonly db: DatabaseService) { }
+
+  async create(dto: CreateCategoryDto) {
+    const [result]: any = await this.db.getPool().query(
+      `INSERT INTO sub_categories (name, slug, sous_categories_id, icon, details)
+       VALUES (?, ?, ?, ?, ?)`,
+      [
+        dto.name,
+        dto.slug,
+        dto.sous_categories_id ?? null,
+        dto.icon,
+        dto.details,
+      ],
+    );
+
+    const [rows]: any = await this.db.getPool().query(
+      `SELECT c.*, s.name as sous_category_name 
+       FROM sub_categories c 
+       LEFT JOIN sous_categories s ON c.sous_categories_id = s.id 
+       WHERE c.id = ?`,
+      [result.insertId],
+    );
+
+    return rows[0];
+  }
+
+  async createMany(dtos: CreateCategoryDto[]) {
+    if (!dtos.length) return [];
+
+    // Préparer la requête avec les placeholders
+    const values = [];
+    const placeholders = dtos.map(dto => {
+      values.push(dto.name, dto.slug, dto.categories_id ?? null, dto.icon, dto.details);
+      return `(?, ?, ?, ?, ?)`;
+    }).join(", ");
+
+    const sql = `
+      INSERT INTO sub_categories (name, slug, sous_categories_id, icon, details)
+      VALUES ${placeholders}
+    `;
+
+    const [result]: any = await this.db.getPool().query(sql, values);
+
+    // Récupérer les derniers éléments insérés
+    const firstInsertId = result.insertId;
+    const lastInsertId = firstInsertId + dtos.length - 1;
+
+    const [rows]: any = await this.db.getPool().query(
+      `SELECT c.*, cat.name AS category_name
+       FROM sub_categories c
+       LEFT JOIN sous_categories cat ON c.sous_categories_id = cat.id
+       WHERE c.id BETWEEN ? AND ?`,
+      [firstInsertId, lastInsertId]
+    );
+
+    return rows;
+  }
+  // sous-categories.service.ts (extrait)  
+  async findByCategoryId(categoryIds: number | number[] | string) {
+    // Normaliser en tableau de nombres
+    let ids: number[] = [];
+
+    if (Array.isArray(categoryIds)) {
+      ids = categoryIds.map(Number).filter((n) => Number.isFinite(n) && n > 0);
+    } else if (typeof categoryIds === 'string') {
+      // supporte "1,2,3" ou "1" ou "1, 2"
+      ids = categoryIds
+        .split(',')
+        .map((s) => s.trim())
+        .map(Number)
+        .filter((n) => Number.isFinite(n) && n > 0);
+    } else if (typeof categoryIds === 'number') {
+      if (Number.isFinite(categoryIds) && categoryIds > 0) ids = [categoryIds];
+    }
+
+    if (!ids.length) {
+      return []; // rien à chercher   
+    }
+
+    // Créer placeholders pour la clause IN de façon sécurisée
+    const placeholders = ids.map(() => '?').join(', ');
+
+    const sql = `
+    SELECT sc.id, sc.name, sc.slug, sc.sous_categories_id, sc.icon, sc.details,
+           EXISTS(SELECT 1 FROM sub_categories ssc WHERE ssc.sous_categories_id = sc.id LIMIT 1) AS has_children
+    FROM sub_categories sc
+    WHERE sc.sous_categories_id IN (${placeholders})
+     AND sc.deleted_at IS NULL
+    ORDER BY sc.name ASC
+  `;
+
+    const [rows]: any = await this.db.getPool().query(sql, ids);
+    return rows;
+  }
+
+  async getCategories({ limit = 200, page = 1, search }: GetCategoriesDto) {
+    const numericLimit = Number(limit);
+    const numericPage = Number(page);
+    const offset = (numericPage - 1) * numericLimit;
+    const values: any[] = [];
+
+    let whereClause = 'WHERE 1=1';
+
+    if (search) {
+      whereClause += ` AND (c.name LIKE ? OR c.slug LIKE ?)`;
+      values.push(`%${search}%`, `%${search}%`);
+    }
+
+    const [data]: any = await this.db.getPool().query(
+      `SELECT c.*, s.name AS sous_category_name
+       FROM sub_categories c
+       LEFT JOIN sous_categories s ON c.sous_categories_id = s.id
+       ${whereClause}
+       ORDER BY c.created_at DESC
+       LIMIT ? OFFSET ?`,
+      [...values, numericLimit, offset],
+    );
+
+    const [countRows]: any = await this.db.getPool().query(
+      `SELECT COUNT(*) as count
+       FROM sub_categories c
+       ${whereClause}`,
+      values,
+    );
+
+    const total = countRows[0].count;
+
+    const url = `/sub_categories?search=${search || ''}&limit=${limit}`;
+    return {
+      data,
+      ...paginate(total, numericPage, numericLimit, data.length, url),
+    };
+  }
+
+  async getCategory(param: string, language: string) {
+    const [rows]: any = await this.db.getPool().query(
+      `SELECT c.*, s.name AS sous_category_name
+       FROM sub_categories c
+       LEFT JOIN sous_categories s ON c.sous_categories_id = s.id
+       WHERE c.id = ? OR c.slug = ?
+       LIMIT 1`,
+      [Number(param), param],
+    );
+
+    return rows[0];
+  }
+
+  async update(id: number, dto: UpdateCategoryDto) {
+    await this.db.getPool().query(
+      `UPDATE sub_categories
+       SET name = ?, slug = ?, sous_categories_id = ?, icon = ?, details = ?, updated_at = CURRENT_TIMESTAMP
+       WHERE id = ?`,
+      [
+        dto.name,
+        dto.slug,
+        dto.sous_categories_id ?? null,
+        dto.icon,
+        dto.details,
+        id,
+      ],
+    );
+
+    const [rows]: any = await this.db.getPool().query(
+      `SELECT c.*, s.name AS sous_category_name
+       FROM sub_categories c
+       LEFT JOIN sous_categories s ON c.sous_categories_id = s.id
+       WHERE c.id = ?`,
+      [id],
+    );
+
+    return rows[0];
+  }
+
+  async remove(id: number) {
+    const [deleted]: any = await this.db.getPool().query(
+      `SELECT * FROM sub_categories WHERE id = ?`,
+      [id],
+    );
+
+    await this.db.getPool().query(`DELETE FROM sub_categories WHERE id = ?`, [id]);
+
+    return deleted[0];
+  }
+}

@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Gestion des Types</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 2rem auto;
+        }
+
+        input,
+        button,
+        select,
+        textarea {
+            padding: 0.5rem;
+            margin: 0.3rem 0;
+            width: 100%;
+            max-width: 400px;
+        }
+
+        label {
+            font-weight: bold;
+            margin-top: 1rem;
+            display: block;
+        }
+
+        .type-item {
+            border: 1px solid #ccc;
+            padding: 1rem;
+            margin-bottom: 0.8rem;
+            border-radius: 6px;
+        }
+
+        .actions {
+            margin-top: 0.5rem;
+        }
+
+        button {
+            cursor: pointer;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Gestion des Types</h1>
+
+    <section>
+        <h2>Créer un nouveau Type</h2>
+        <form id="createForm">
+            <label for="name">Nom *</label>
+            <input type="text" id="name" name="name" required />
+
+            <label for="slug">Slug (optionnel)</label>
+            <input type="text" id="slug" name="slug" placeholder="ex: mon-type" />
+
+            <label for="icon">Icone (URL)</label>
+            <input type="text" id="icon" name="icon" placeholder="URL image icone" />
+            <!--
+            <label for="icon">pdf</label>
+            <input type="file" id="icon" name="icon" accept="application/pdf" />-->
+
+            <label for="language">Langue *</label>
+            <select id="language" name="language" required>
+                <option value="fr">Français</option>
+                <option value="en">Anglais</option>
+                <!-- ajoute d'autres langues si besoin -->
+            </select>
+
+            <button type="submit">Créer</button>
+        </form>
+    </section>
+
+    <hr />
+
+    <section>
+        <h2>Liste des Types</h2>
+        <div id="typesList"></div>
+    </section>
+
+    <script>
+        const apiBase = 'https://galileecommerceshopapi-3.onrender.com/api/types'; // adapte l'URL selon ton API
+
+        const createForm = document.getElementById('createForm');
+        const typesList = document.getElementById('typesList');
+
+        async function fetchTypes() {
+            const res = await fetch(apiBase);
+            const types = await res.json();
+            renderTypes(types);
+        }
+
+        function renderTypes(types) {
+            typesList.innerHTML = '';
+            if (!types.length) {
+                typesList.textContent = 'Aucun type trouvé.';
+                return;
+            }
+            types.forEach(type => {
+                const div = document.createElement('div');
+                div.className = 'type-item';
+
+                div.innerHTML = `
+          <strong>${type.name}</strong> (${type.slug}) - Langue: ${type.language} <br/>
+          <img src="${type.icon || ''}" alt="Icone" width="30" height="30" onerror="this.style.display='none'" />
+           
+          <div class="actions">
+            <button onclick="editType(${type.id})">Modifier</button>
+            <button onclick="deleteType(${type.id})" style="color:red;">Supprimer</button>
+          </div>
+          <div id="editForm-${type.id}" style="display:none; margin-top:10px;">
+            <input type="text" id="editName-${type.id}" value="${type.name}" placeholder="Nom" />
+            <input type="text" id="editSlug-${type.id}" value="${type.slug}" placeholder="Slug" />
+            <input type="text" id="editIcon-${type.id}" value="${type.icon || ''}" placeholder="Icone URL" />
+            <select id="editLanguage-${type.id}">
+              <option value="fr" ${type.language === 'fr' ? 'selected' : ''}>Français</option>
+              <option value="en" ${type.language === 'en' ? 'selected' : ''}>Anglais</option>
+            </select>
+            <button onclick="submitEdit(${type.id})">Enregistrer</button>
+            <button onclick="cancelEdit(${type.id})">Annuler</button>
+          </div>
+        `;
+
+                typesList.appendChild(div);
+            });
+        }
+
+        createForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(createForm);
+            const data = Object.fromEntries(formData.entries());
+
+            try {
+                const token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MSwiZW1haWwiOiJiZWNhcmUuZnIuZ2VAZ21haWwuY29tIiwicGVybWlzc2lvbnMiOlsic3RvcmVfb3duZXIiXSwiaWF0IjoxNzUzMzQwMTc5LCJleHAiOjE3NTM5NDQ5Nzl9.QkegM5aJAbinqfb9z1pl8i5c_ZElbwzH2SNnEWRcmEU';
+                const res = await fetch(apiBase, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` // ✅ ICI DANS HEADERS
+                    },
+                    body: JSON.stringify(data),
+                });
+                if (!res.ok) throw new Error('Erreur lors de la création');
+                alert('Type créé avec succès');
+                createForm.reset();
+                fetchTypes();
+            } catch (err) {
+                alert(err.message);
+            }
+        });
+
+        function editType(id) {
+            document.getElementById(`editForm-${id}`).style.display = 'block';
+        }
+
+        function cancelEdit(id) {
+            document.getElementById(`editForm-${id}`).style.display = 'none';
+        }
+
+        async function submitEdit(id) {
+            const name = document.getElementById(`editName-${id}`).value.trim();
+            const slug = document.getElementById(`editSlug-${id}`).value.trim();
+            const icon = document.getElementById(`editIcon-${id}`).value.trim();
+
+            const language = document.getElementById(`editLanguage-${id}`).value;
+
+            if (!name || !language) {
+                alert('Le nom et la langue sont obligatoires');
+                return;
+            }
+
+            try {
+                const res = await fetch(`${apiBase}/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, slug, icon, language }),
+                });
+                if (!res.ok) throw new Error('Erreur lors de la mise à jour');
+                alert('Type mis à jour');
+                cancelEdit(id);
+                fetchTypes();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        async function deleteType(id) {
+            if (!confirm('Voulez-vous vraiment supprimer ce type ?')) return;
+            try {
+                const res = await fetch(`${apiBase}/${id}`, { method: 'DELETE' });
+                if (!res.ok) throw new Error('Erreur lors de la suppression');
+                alert('Type supprimé');
+                fetchTypes();
+            } catch (err) {
+                alert(err.message);
+            }
+        }
+
+        // Chargement initial
+        fetchTypes();
+    </script>
+</body>
+
+</html>

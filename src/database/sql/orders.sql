@@ -1,0 +1,74 @@
+ALTER TABLE orders
+ADD COLUMN payment_intent VARCHAR(255) DEFAULT NULL AFTER payment_gateway;
+CREATE TABLE IF NOT EXISTS orders (
+  id INT PRIMARY KEY AUTO_INCREMENT,
+  tracking_number VARCHAR(50) NOT NULL,
+  customer_id INT NOT NULL,
+  customer_contact VARCHAR(100),
+  customer_name VARCHAR(255),
+  amount DECIMAL(10,2),
+  sales_tax DECIMAL(10,2),
+  paid_total DECIMAL(10,2),
+  total DECIMAL(10,2),
+  note TEXT,
+  cancelled_amount DECIMAL(10,2) DEFAULT 0,
+  cancelled_tax DECIMAL(10,2) DEFAULT 0,
+  cancelled_delivery_fee DECIMAL(10,2) DEFAULT 0,
+  language VARCHAR(10),
+  coupon_id INT DEFAULT NULL,
+  parent_id INT DEFAULT NULL,
+  shop_id INT DEFAULT NULL,
+  discount DECIMAL(10,2) DEFAULT NULL,
+  payment_gateway ENUM(
+    'FLUTTERWAVE',
+    'CASH',
+    'FULL_WALLET_PAYMENT',
+    'STRIPE',
+    'PAYPAL',
+    'RAZORPAY',
+    'paystack',
+    'FEEXPAY'
+  ),
+  payment_intent VARCHAR(255) DEFAULT NULL,
+  altered_payment_gateway ENUM(
+    'FLUTTERWAVE',
+    'CASH',
+    'FULL_WALLET_PAYMENT',
+    'STRIPE',
+    'PAYPAL',
+    'RAZORPAY',
+    'paystack',
+    'FEEXPAY'
+  ) DEFAULT NULL,
+  shipping_address JSON DEFAULT NULL,
+  billing_address JSON DEFAULT NULL,
+  logistics_provider VARCHAR(255) DEFAULT NULL,
+  delivery_fee DECIMAL(10,2) DEFAULT NULL,
+  delivery_time DATETIME DEFAULT NULL,
+  order_status ENUM(
+    'order-pending',
+    'order-processing',
+    'order-completed',
+    'order-cancelled',
+    'order-refunded',
+    'order-failed',
+    'order-at-local-facility',
+    'order-out-for-delivery'
+  ) DEFAULT 'order-pending',
+  payment_status ENUM(
+    'payment-pending',
+    'payment-processing',
+    'payment-success',
+    'payment-failed',
+    'payment-cash-on-delivery',
+    'payment-cash',
+    'payment-wallet',
+    'payment-awaiting-for-approval'
+  ) DEFAULT 'payment-pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+
+  FOREIGN KEY (customer_id) REFERENCES users(id),
+  FOREIGN KEY (parent_id) REFERENCES orders(id),
+  FOREIGN KEY (shop_id) REFERENCES shops(id)
+);

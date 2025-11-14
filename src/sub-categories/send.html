@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Add Accessories Sub-Subcategories</title>
+</head>
+
+<body>
+    <h2>Add Accessories Sub-Subcategories for a Category</h2>
+
+    <label for="category">Select a Category:</label>
+    <select id="category">
+        <option value="">-- Select category --</option>
+    </select>
+
+    <button onclick="submitSubSubcategories()">Submit Accessories Sub-Subcategories</button>
+
+    <script>
+        // Fonction pour générer un slug propre
+        function slugify(text) {
+            return text
+                .toString()
+                .toLowerCase()
+                .normalize("NFD")
+                .replace(/[\u0300-\u036f]/g, "")
+                .replace(/\s+/g, "-")
+                .replace(/[^\w\-]+/g, "")
+                .replace(/\-\-+/g, "-")
+                .replace(/^-+/, "")
+                .replace(/-+$/, "");
+        }
+
+        // Charger les catégories dans le select
+        fetch("http://127.0.0.1:5000/api/souscategories")
+            .then(res => res.json())
+            .then(data => {
+                const categories = data.data;
+                console.log(categories)
+                const select = document.getElementById("category");
+                categories.forEach(cat => {
+                    const option = document.createElement("option");
+                    option.value = cat.id;
+                    option.text = cat.name;
+                    select.appendChild(option);
+                });
+            })
+            .catch(err => {
+                alert("Error loading categories");
+                console.error(err);
+            });
+
+        // Sous-sous-catégories "Accessories" traduites en anglais
+        const accessoriesSubSubcategories = [
+            {
+                "name": "Mice",
+                "slug": "mice",
+                "language": "en",
+                "icon": "https://example.com/mice.svg",
+                "sous-categories_id": 704
+            },
+            {
+                "name": "Keyboards",
+                "slug": "keyboards",
+                "language": "en",
+                "icon": "https://example.com/keyboards.svg",
+                "sous-categories_id": 704
+            },
+            {
+                "name": "Headsets and Webcams",
+                "slug": "headsets-and-webcams",
+                "language": "en",
+                "icon": "https://example.com/headsets-webcams.svg",
+                "sous-categories_id": 704
+            },
+            {
+                "name": "PC Speakers",
+                "slug": "pc-speakers",
+                "language": "en",
+                "icon": "https://example.com/speakers.svg",
+                "sous-categories_id": 704
+            },
+            {
+                "name": "Cables",
+                "slug": "cables",
+                "language": "en",
+                "icon": "https://example.com/cables.svg",
+                "sous-categories_id": 704
+            },
+            {
+                "name": "Bags & Sleeves",
+                "slug": "bags-and-sleeves",
+                "language": "en",
+                "icon": "https://example.com/bags.svg",
+                "sous-categories_id": 704
+            },
+            {
+                "name": "SSD",
+                "slug": "ssd",
+                "language": "en",
+                "icon": "https://example.com/ssd.svg",
+                "sous-categories_id": 705
+            },
+            {
+                "name": "Internal Hard Drives",
+                "slug": "internal-hard-drives",
+                "language": "en",
+                "icon": "https://example.com/internal-hdd.svg",
+                "sous-categories_id": 705
+            },
+            {
+                "name": "External Hard Drives",
+                "slug": "external-hard-drives",
+                "language": "en",
+                "icon": "https://example.com/external-hdd.svg",
+                "sous-categories_id": 705
+            },
+            {
+                "name": "NAS",
+                "slug": "nas",
+                "language": "en",
+                "icon": "https://example.com/nas.svg",
+                "sous-categories_id": 705
+            },
+            {
+                "name": "SD Cards",
+                "slug": "sd-cards",
+                "language": "en",
+                "icon": "https://example.com/sd-cards.svg",
+                "sous-categories_id": 705
+            },
+            {
+                "name": "Micro SD Cards",
+                "slug": "micro-sd-cards",
+                "language": "en",
+                "icon": "https://example.com/micro-sd-cards.svg",
+                "sous-categories_id": 705
+            },
+            {
+                "name": "USB Flash Drives",
+                "slug": "usb-flash-drives",
+                "language": "en",
+                "icon": "https://example.com/usb-drives.svg",
+                "sous-categories_id": 705
+            },
+            {
+                "name": "Processors",
+                "slug": "processors",
+                "language": "en",
+                "icon": "https://example.com/cpu.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "id": 70115,
+                "name": "Graphics Cards",
+                "slug": "graphics-cards",
+                "language": "en",
+                "icon": "https://example.com/gpu.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "name": "Motherboards",
+                "slug": "motherboards",
+                "language": "en",
+                "icon": "https://example.com/motherboard.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "name": "RAM Memory",
+                "slug": "ram-memory",
+                "language": "en",
+                "icon": "https://example.com/ram.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "name": "Internal Storage",
+                "slug": "internal-storage",
+                "language": "en",
+                "icon": "https://example.com/internal-storage.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "name": "Power Supplies",
+                "slug": "power-supplies",
+                "language": "en",
+                "icon": "https://example.com/psu.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "name": "Cases",
+                "slug": "cases",
+                "language": "en",
+                "icon": "https://example.com/case.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "name": "Cooling Systems",
+                "slug": "cooling-systems",
+                "language": "en",
+                "icon": "https://example.com/cooling.svg",
+                "sous-categories_id": 706
+            },
+            {
+                "name": "Gaming Laptops",
+                "slug": "gaming-laptops",
+                "language": "en",
+                "icon": "https://example.com/gaming-laptop.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Gaming Desktops",
+                "slug": "gaming-desktops",
+                "language": "en",
+                "icon": "https://example.com/gaming-desktop.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Gaming Monitors",
+                "slug": "gaming-monitors",
+                "language": "en",
+                "icon": "https://example.com/gaming-monitor.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Gaming Keyboards",
+                "slug": "gaming-keyboards",
+                "language": "en",
+                "icon": "https://example.com/gaming-keyboard.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Gaming Mice",
+                "slug": "gaming-mice",
+                "language": "en",
+                "icon": "https://example.com/gaming-mice.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Gaming Headsets",
+                "slug": "gaming-headsets",
+                "language": "en",
+                "icon": "https://example.com/gaming-headset.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Gaming Components",
+                "slug": "gaming-components",
+                "language": "en",
+                "icon": "https://example.com/gaming-components.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "PC Games",
+                "slug": "pc-games",
+                "language": "en",
+                "icon": "https://example.com/pc-games.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Gaming Store",
+                "slug": "gaming-store",
+                "language": "en",
+                "icon": "https://example.com/gaming-store.svg",
+                "sous-categories_id": 707
+            },
+            {
+                "name": "Powerline Adapters",
+                "slug": "powerline-adapters",
+                "language": "en",
+                "icon": "https://example.com/cpl.svg",
+                "sous-categories_id": 708
+            },
+            {
+                "name": "Wifi Repeaters",
+                "slug": "wifi-repeaters",
+                "language": "en",
+                "icon": "https://example.com/repeater.svg",
+                "sous-categories_id": 708
+            },
+            {
+                "name": "Switches",
+                "slug": "switches",
+                "language": "en",
+                "icon": "https://example.com/switch.svg",
+                "sous-categories_id": 708
+            },
+            {
+                "name": "Streaming Devices",
+                "slug": "streaming-devices",
+                "language": "en",
+                "icon": "https://example.com/streaming.svg",
+                "sous-categories_id": 708
+            },
+            {
+                "name": "Routers",
+                "slug": "routers",
+                "language": "en",
+                "icon": "https://example.com/router.svg",
+                "sous-categories_id": 708
+            },
+            {
+
+                "name": "Wifi Adapters",
+                "slug": "wifi-adapters",
+                "language": "en",
+                "icon": "https://example.com/wifi-adapter.svg",
+                "sous-categories_id": 708
+            },
+            {
+                "name": "Modems",
+                "slug": "modems",
+                "language": "en",
+                "icon": "https://example.com/modem.svg",
+                "sous-categories_id": 708
+            }
+        ];
+
+
+        function submitSubSubcategories() {
+            const categoryId = document.getElementById("category").value;
+            if (!categoryId) {
+                alert("Please select a category");
+                return;
+            }
+
+            // Préparer le payload en ajoutant slug, language et catégorie
+            const payload = accessoriesSubSubcategories.map(item => ({
+                name: item.name,
+                slug: slugify(item.name),
+                language: "en",
+                icon: item.icon,
+                details: item.details,
+                sous_categories_id: parseInt(categoryId) // id de la sous-catégorie "Accessories"
+            }));
+
+            fetch("http://127.0.0.1:5000/api/subcategories/batch", { // adapter selon ton endpoint réel
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    // "Authorization": "Bearer TON_TOKEN" // décommente si besoin
+                },
+                body: JSON.stringify(payload)
+            })
+                .then(response => {
+                    if (!response.ok) throw new Error("Submission failed");
+                    alert("Accessories sub-subcategories added successfully!");
+                })
+                .catch(error => {
+                    console.error(error);
+                    alert("Error during submission");
+                });
+        }
+    </script>
+</body>
+
+</html>
