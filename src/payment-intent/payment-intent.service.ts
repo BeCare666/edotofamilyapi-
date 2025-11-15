@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
-import { Pool, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import { Pool, RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
 import axios, { AxiosError } from 'axios';
 import fs from 'fs';
 import path from 'path';
@@ -8,6 +8,7 @@ import PDFDocument from 'pdfkit';
 import { Cron } from '@nestjs/schedule';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
+import { sendVerificationEmail } from '../auth/mailer';
 interface FlutterwavePaymentData {
   id: number;
   tx_ref: string;
@@ -101,19 +102,18 @@ export class PaymentIntentService {
   }
   // POST /payments/feexpay/complete
   async completeFeexPayPayment(body: { transaction_id: string; custom_id: string }) {
+    const conn = await this.pool.getConnection();
     try {
       const { transaction_id, custom_id } = body;
+      if (!transaction_id || !custom_id) throw new Error("Invalid payload");
 
-      if (!transaction_id || !custom_id) {
-        throw new Error("Invalid payload");
-      }
+      await conn.beginTransaction();
 
-      // Trouver commande
-      const [orderRows] = await this.pool.query<RowDataPacket[]>(
-        `SELECT * FROM orders WHERE tracking_number = ?`,
+      // 1️⃣ Trouver la commande
+      const [orderRows] = await conn.query<RowDataPacket[]>(
+        `SELECT * FROM orders WHERE tracking_number = ? LIMIT 1`,
         [custom_id]
       );
-
       const order = orderRows[0];
       if (!order) throw new Error("Order not found");
 
@@ -121,10 +121,9 @@ export class PaymentIntentService {
       const amount = order.total;
       const currency = order.currency || "XOF";
 
-      // 1️⃣ Créer payment_intent interne
+      // 2️⃣ Créer payment_intent interne
       const tx_ref = `FPX-${orderId}-${Date.now()}`;
-
-      const [insert] = await this.pool.query<ResultSetHeader>(
+      const [insert] = await conn.query<ResultSetHeader>(
         `INSERT INTO payment_intents
       (order_id, tracking_number, payment_gateway, status, total_amount, currency, payment_intent_info)
       VALUES (?, ?, ?, ?, ?, ?, ?)`,
@@ -135,33 +134,96 @@ export class PaymentIntentService {
           "payment-success",
           amount,
           currency,
-          JSON.stringify({ tx_ref, transaction_id, custom_id })
+          JSON.stringify({ tx_ref, transaction_id, custom_id }),
         ]
       );
 
       const paymentIntentId = insert.insertId;
 
-      // 2️⃣ Update commandes + enfant
-      await this.pool.query(
-        `UPDATE orders SET order_status='order-completed', payment_status='payment-success', updated_at=NOW()
+      // 🔥 3️⃣ Génération OTP pour retrait 🔥
+      const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 chiffres
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
+
+      await conn.query(
+        `UPDATE orders 
+       SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, updated_at=NOW()
+       WHERE id=?`,
+        [otp, expiresAt, orderId]
+      );
+
+      // 4️⃣ Récupérer l'email du client
+      const [userRows] = await conn.query<RowDataPacket[]>(
+        `SELECT email FROM users WHERE id = ? LIMIT 1`,
+        [order.customer_id]
+      );
+      const customer = userRows[0];
+      if (!customer) throw new Error("Customer not found");
+
+      // 5️⃣ Envoyer l’email avec OTP
+      await sendVerificationEmail({
+        email: customer.email,
+        subject: `Votre code de retrait - E·Doto Family`,
+        message: `
+<div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
+  
+  <!-- Header -->
+  <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
+    <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
+    <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
+    <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Harmonie, bien-être et santé au féminin</p>
+  </div>
+
+  <!-- Body -->
+  <div style="padding: 40px 30px; background-color: #ffffff; text-align: center;">
+    <h2 style="color: #111827; font-size: 20px; margin-bottom: 12px;">Retrait de votre commande 🌸</h2>
+    <p style="color: #4B5563; font-size: 15px; line-height: 1.7; margin: 0 auto; max-width: 460px;">
+      Pour retirer votre commande <strong>${order.tracking_number}</strong>, utilisez le code ci-dessous :
+    </p>
+
+    <!-- OTP / Code -->
+    <div style="font-size: 28px; font-weight: 700; color: #FF6EA9; margin: 30px 0; padding: 14px 24px; background: #FFF0F5; border-radius: 12px; display: inline-block; letter-spacing: 2px;">
+      ${otp}
+    </div>
+
+    <p style="color: #6B7280; font-size: 14px; line-height: 1.6;">
+      Ce code est valable pendant <strong>48 heures</strong> et ne peut être utilisé qu'une seule fois.<br/>
+      Présentez-le au livreur ou au point de retrait lors de la récupération.
+    </p>
+  </div>
+
+  <!-- Footer -->
+  <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
+    <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
+      © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
+      <a href="https://edotofamily.netlify.app" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
+    </p>
+  </div>
+
+</div>
+      `,
+      });
+
+      // 6️⃣ Update commandes + enfants
+      await conn.query(
+        `UPDATE orders 
+       SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() 
        WHERE id=?`,
         [orderId]
       );
 
-      await this.pool.query(
-        `UPDATE order_children SET order_status='order-completed', payment_status='payment-success', updated_at=NOW()
+      await conn.query(
+        `UPDATE order_children 
+       SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() 
        WHERE order_id=?`,
         [orderId]
       );
 
-      // 3️⃣ Wallets
-      await this.updateWallets(orderId, this.pool);
+      // 7️⃣ Wallets, Analytics, Factures
+      await this.updateWallets(orderId, conn);
+      await this.updateAnalytics(amount, conn);
+      await this.generateInvoices(orderId, conn);
 
-      // 4️⃣ Analytics
-      await this.updateAnalytics(amount);
-
-      // 5️⃣ Factures
-      await this.generateInvoices(orderId);
+      await conn.commit();
 
       return {
         success: true,
@@ -169,12 +231,18 @@ export class PaymentIntentService {
         orderId,
         transaction_id,
         tx_ref,
+        otp, // optionnel, utile pour debug interne
       };
-
     } catch (err: any) {
+      await conn.rollback();
       throw new Error("FeexPay Error: " + err.message);
+    } finally {
+      conn.release();
     }
   }
+
+
+
 
 
   // ---------------------------
@@ -292,10 +360,10 @@ export class PaymentIntentService {
       conn.release();
     }
 
-    await this.updateAnalytics(paymentIntent.total_amount);
+    await this.updateAnalytics(paymentIntent.total_amount, conn);
 
     // ✅ génère facture multi-shops + client
-    await this.generateInvoices(paymentIntent.order_id);
+    await this.generateInvoices(paymentIntent.order_id, conn);
 
     return { success: true, paymentData };
   }
@@ -370,20 +438,22 @@ export class PaymentIntentService {
   // ---------------------------
   // Mise à jour analytics
   // ---------------------------
-  private async updateAnalytics(amount: number) {
-    const [rows] = await this.pool.query<RowDataPacket[]>(`SELECT * FROM analytics WHERE id = 1`);
+  private async updateAnalytics(amount: number, conn: PoolConnection) {
+    const [rows] = await conn.query<RowDataPacket[]>(`SELECT * FROM analytics WHERE id = 1`);
+
     if (rows.length === 0) {
-      await this.pool.query<ResultSetHeader>(
+      await conn.query<ResultSetHeader>(
         `INSERT INTO analytics (totalRevenue, totalOrders, created_at) VALUES (?, ?, NOW())`,
         [amount, 1]
       );
     } else {
-      await this.pool.query<ResultSetHeader>(
+      await conn.query<ResultSetHeader>(
         `UPDATE analytics SET totalRevenue = totalRevenue + ?, totalOrders = totalOrders + 1, updated_at = NOW() WHERE id = 1`,
         [amount]
       );
     }
   }
+
 
   // ---------------------------
   // Génération factures (shops + client)
@@ -495,33 +565,32 @@ export class PaymentIntentService {
   // ---------------------------
   // Fonction principale generateInvoices
   // ---------------------------
-  public async generateInvoices(orderId: number): Promise<void> {
-    const [orderRows] = await this.pool.query<RowDataPacket[]>(`SELECT * FROM orders WHERE id = ?`, [orderId]);
+  public async generateInvoices(orderId: number, conn: PoolConnection): Promise<void> {
+    const [orderRows] = await conn.query<RowDataPacket[]>(`SELECT * FROM orders WHERE id = ?`, [orderId]);
     const order = orderRows[0];
     if (!order) throw new Error(`Order ${orderId} not found`);
 
-    const [userRows] = await this.pool.query<RowDataPacket[]>(`SELECT * FROM users WHERE id = ?`, [order.customer_id]);
+    const [userRows] = await conn.query<RowDataPacket[]>(`SELECT * FROM users WHERE id = ?`, [order.customer_id]);
     const user = userRows[0];
 
-    const [childOrders] = await this.pool.query<RowDataPacket[]>(
-      `SELECT co.id as child_order_id,
-              co.order_quantity,
-              co.unit_price,
-              co.subtotal,
-              s.name as shop_name,
-              s.contact as shop_contact,
-              p.name as product_name
-      FROM order_children co
-      JOIN shops s ON s.id = co.shop_id
-      JOIN products p ON p.id = co.product_id
-      WHERE co.order_id = ?`,
-      [orderId]
+    const [childOrders] = await conn.query<RowDataPacket[]>(`
+    SELECT co.id as child_order_id,
+           co.order_quantity,
+           co.unit_price,
+           co.subtotal,
+           s.name as shop_name,
+           s.contact as shop_contact,
+           p.name as product_name
+    FROM order_children co
+    JOIN shops s ON s.id = co.shop_id
+    JOIN products p ON p.id = co.product_id
+    WHERE co.order_id = ?`, [orderId]
     );
 
     // 1️⃣ Facture client
     const clientBuffer = await this.buildInvoicePdfBuffer(order, user, childOrders, 'Client Invoice');
     const clientUrl = await this.uploadPdfToCloudinary(clientBuffer, `invoice_client_${order.tracking_number}`);
-    await this.pool.query<ResultSetHeader>(
+    await conn.query<ResultSetHeader>(
       `INSERT INTO invoices (order_id, pdf_url, type, status) VALUES (?, ?, 'client', 'generated')`,
       [orderId, clientUrl],
     );
@@ -530,7 +599,7 @@ export class PaymentIntentService {
     for (const co of childOrders) {
       const shopBuffer = await this.buildInvoicePdfBuffer(order, user, [co], `Invoice for ${co.shop_name}`);
       const shopUrl = await this.uploadPdfToCloudinary(shopBuffer, `invoice_shop_${co.shop_id}_${order.tracking_number}`);
-      await this.pool.query<ResultSetHeader>(
+      await conn.query<ResultSetHeader>(
         `INSERT INTO invoices (order_id, shop_id, pdf_url, type, status) VALUES (?, ?, ?, 'shop', 'generated')`,
         [orderId, co.shop_id, shopUrl],
       );
@@ -538,6 +607,7 @@ export class PaymentIntentService {
 
     this.logger.debug(`Factures générées et uploadées pour order ${order.tracking_number}`);
   }
+
 
   // ---------------------------
   // Cron : regénère factures manquantes
@@ -554,9 +624,10 @@ export class PaymentIntentService {
     );
 
     for (const order of orders) {
+      const conn = await this.pool.getConnection(); // ⚡ connexion transactionnelle
       try {
         this.logger.debug(`Regénération facture pour commande ${order.tracking_number}`);
-        await this.generateInvoices(order.id);
+        await this.generateInvoices(order.id, conn);
       } catch (err) {
         this.logger.error(`Erreur génération facture commande ${order.tracking_number}`, err);
       }

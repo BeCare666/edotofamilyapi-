@@ -1,5 +1,6 @@
-ALTER TABLE orders
-ADD COLUMN payment_intent VARCHAR(255) DEFAULT NULL AFTER payment_gateway;
+ 
+ ALTER TABLE orders 
+ADD delivery_option ENUM('any_pickup', 'specific_pickup', 'home_delivery') DEFAULT 'any_pickup';
 CREATE TABLE IF NOT EXISTS orders (
   id INT PRIMARY KEY AUTO_INCREMENT,
   tracking_number VARCHAR(50) NOT NULL,
@@ -11,6 +12,11 @@ CREATE TABLE IF NOT EXISTS orders (
   paid_total DECIMAL(10,2),
   total DECIMAL(10,2),
   note TEXT,
+  otp_code VARCHAR(10) DEFAULT NULL,
+  otp_used TINYINT(1) DEFAULT 0,
+  otp_expires_at DATETIME DEFAULT NULL,
+  otp_attempts INT DEFAULT 0;
+  pickup_point_id INT DEFAULT NULL;
   cancelled_amount DECIMAL(10,2) DEFAULT 0,
   cancelled_tax DECIMAL(10,2) DEFAULT 0,
   cancelled_delivery_fee DECIMAL(10,2) DEFAULT 0,

@@ -47,7 +47,7 @@ export class AuthService {
     // Hasher le mot de passe de l'utilisateur
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Générer le token de vérification
+    // Générer le token de vérification 
     const verificationToken = jwt.sign(
       { email },
       process.env.JWT_SECRET_KEY,
@@ -55,7 +55,7 @@ export class AuthService {
     );
 
     // Lien de vérification
-    const verificationLink = `http://127.0.0.1:5000/api/verify-email?token=${verificationToken}`;
+    const verificationLink = `${process.env.BASE_URL}/verify-email?token=${verificationToken}`;
 
     // Envoie l'e-mail de vérification (toujours, même si l'utilisateur existe déjà)
     try {
@@ -257,7 +257,7 @@ export class AuthService {
         return {
           token,
           permissions: ['store_owner'],
-          redirect: 'http://localhost:3002/shops/create',
+          redirect: `${process.env.FRONTEND_ADMIN_CALLBACK_URL}/shops/create`,
         };
       }
 
@@ -275,7 +275,7 @@ export class AuthService {
       return {
         token,
         permissions: ['store_owner'],
-        redirect: 'http://localhost:3002',
+        redirect: process.env.FRONTEND_ADMIN_CALLBACK_URL,
       };
     } else if (user.role === "super_admin") {
       const token = jwt.sign({
@@ -287,7 +287,7 @@ export class AuthService {
       return {
         token,
         permissions: ['super_admin'],
-        redirect: 'http://localhost:3002',
+        redirect: process.env.FRONTEND_ADMIN_CALLBACK_URL,
       };
     }
 
@@ -449,18 +449,49 @@ export class AuthService {
     // Envoyer l’email..
     await sendVerificationEmail({
       email,
-      subject: 'Votre code de réinitialisation - Galilée Commerce',
+      subject: 'Votre code de réinitialisation - E·Doto Family',
       message: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto;">
-          <h2>Réinitialisation de votre mot de passe</h2>
-          <p>Voici votre code de vérification :</p>
-          <div style="font-size: 24px; font-weight: bold; margin: 20px 0; text-align: center;">
-            ${token}
-          </div>
-          <p>Ce code expire dans 10 minutes.</p>
-        </div>
-      `,
+  <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
+    
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
+      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
+      <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
+      <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Harmonie, bien-être et santé au féminin</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 40px 30px; background-color: #ffffff; text-align: center;">
+      <h2 style="color: #111827; font-size: 20px; margin-bottom: 12px;">Réinitialisation de votre mot de passe 🌸</h2>
+      <p style="color: #4B5563; font-size: 15px; line-height: 1.7; margin: 0 auto; max-width: 460px;">
+        Vous avez demandé à réinitialiser votre mot de passe.  
+        Utilisez le code ci-dessous pour continuer :
+      </p>
+
+      <!-- Token / Code -->
+      <div style="font-size: 28px; font-weight: 700; color: #FF6EA9; margin: 30px 0; padding: 14px 24px; background: #FFF0F5; border-radius: 12px; display: inline-block; letter-spacing: 2px;">
+        ${token}
+      </div>
+
+      <p style="color: #6B7280; font-size: 14px; line-height: 1.6;">
+        Ce code expirera dans <strong>10 minutes</strong>.<br />
+        Si vous n'avez pas demandé cette réinitialisation, ignorez simplement cet e-mail.
+      </p>
+ 
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
+      <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
+        © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
+        <a href="https://edotofamily.netlify.app" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
+      </p>
+    </div>
+
+  </div>
+  `,
     });
+
 
     return { success: true, message: 'Code OTP envoyé par email' };
   }

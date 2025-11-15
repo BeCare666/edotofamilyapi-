@@ -91,7 +91,7 @@ export class AuthController {
     try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY) as { email: string };
       await this.authService.verifyEmail(decoded.email);
-      return res.redirect('http://localhost:3000/login');
+      return res.redirect(`${process.env.FRONTEND_CALLBACK_URL}login`);
     } catch (err) {
       return res.status(400).json({ message: 'Lien invalide ou expiré.' });
     }

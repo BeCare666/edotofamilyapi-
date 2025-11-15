@@ -9,7 +9,7 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true });
+  const app = await NestFactory.create(AppModule, { cors: true, logger: ['error', 'warn', 'log', 'debug', 'verbose'], });
 
   // Préfixe toutes les routes avec /api
   app.setGlobalPrefix('api');
