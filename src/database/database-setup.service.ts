@@ -55,6 +55,7 @@ export class DatabaseSetupService implements OnModuleInit {
       'invoices.sql',
       'wallet_transactions.sql',
       'settings.sql',
+      'pending_payments.sql'
     ];
 
 
@@ -75,7 +76,7 @@ export class DatabaseSetupService implements OnModuleInit {
   }
 }
 
-//host: 'tramway.proxy.rlwy.net',
+//host: 'tramway.proxy.rlwy.net',Ok
 //user: 'root',
 // password: 'tjqUSbdKCnShXQahtkYrzGRSLOuxsttA',
 //database: 'railway',

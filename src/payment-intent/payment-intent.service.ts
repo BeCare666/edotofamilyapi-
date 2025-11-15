@@ -101,17 +101,36 @@ export class PaymentIntentService {
     };
   }
   // POST /payments/feexpay/complete
-  async completeFeexPayPayment(body: { transaction_id: string; custom_id: string }) {
-    const conn = await this.pool.getConnection();
+  // service.ts (extrait) - méthode completeFeexPayPayment améliorée
+  async completeFeexPayPayment(
+    body: { transaction_id: string; custom_id: string; feexpay_response?: any; },
+    externalConn?: PoolConnection
+  ) {
+    const conn = externalConn ?? await this.pool.getConnection();
+    const isExternal = !!externalConn;
+
+    let pendingId = null;
+
     try {
-      const { transaction_id, custom_id } = body;
+      const { transaction_id, custom_id, feexpay_response } = body;
       if (!transaction_id || !custom_id) throw new Error("Invalid payload");
 
-      await conn.beginTransaction();
+      // 0) Trace dans pending_payments — seulement si pas un retry manuel
+      if (!isExternal) {
+        const [pendingInsert] = await conn.query<ResultSetHeader>(
+          `INSERT INTO pending_payments (tracking_number, transaction_id, feexpay_response, status, created_at, updated_at)
+         VALUES (?, ?, ?, 'processing', NOW(), NOW())`,
+          [custom_id, transaction_id, JSON.stringify(feexpay_response || {})]
+        );
+        pendingId = pendingInsert.insertId;
+      }
 
-      // 1️⃣ Trouver la commande
+      // 1) Begin transaction uniquement si interne
+      if (!isExternal) await conn.beginTransaction();
+
+      // 2) Charger commande
       const [orderRows] = await conn.query<RowDataPacket[]>(
-        `SELECT * FROM orders WHERE tracking_number = ? LIMIT 1`,
+        `SELECT * FROM orders WHERE tracking_number=? LIMIT 1`,
         [custom_id]
       );
       const order = orderRows[0];
@@ -119,14 +138,14 @@ export class PaymentIntentService {
 
       const orderId = order.id;
       const amount = order.total;
-      const currency = order.currency || "XOF";
+      const currency = order.currency ?? "XOF";
 
-      // 2️⃣ Créer payment_intent interne
+      // 3) payment_intent
       const tx_ref = `FPX-${orderId}-${Date.now()}`;
       const [insert] = await conn.query<ResultSetHeader>(
         `INSERT INTO payment_intents
-      (order_id, tracking_number, payment_gateway, status, total_amount, currency, payment_intent_info)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
+       (order_id, tracking_number, payment_gateway, status, total_amount, currency, payment_intent_info, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           orderId,
           order.tracking_number,
@@ -134,36 +153,34 @@ export class PaymentIntentService {
           "payment-success",
           amount,
           currency,
-          JSON.stringify({ tx_ref, transaction_id, custom_id }),
+          JSON.stringify({ tx_ref, transaction_id, custom_id })
         ]
       );
-
       const paymentIntentId = insert.insertId;
 
-      // 🔥 3️⃣ Génération OTP pour retrait 🔥
-      const otp = Math.floor(100000 + Math.random() * 900000).toString(); // 6 chiffres
-      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000); // 48h
-
+      // 4) OTP
+      const otp = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
       await conn.query(
-        `UPDATE orders 
-       SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, updated_at=NOW()
-       WHERE id=?`,
+        `UPDATE orders SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, updated_at=NOW() WHERE id=?`,
         [otp, expiresAt, orderId]
       );
 
-      // 4️⃣ Récupérer l'email du client
+      // 5) Récup email
       const [userRows] = await conn.query<RowDataPacket[]>(
-        `SELECT email FROM users WHERE id = ? LIMIT 1`,
+        `SELECT email FROM users WHERE id=? LIMIT 1`,
         [order.customer_id]
       );
+      if (!userRows[0]) throw new Error("Customer not found");
       const customer = userRows[0];
-      if (!customer) throw new Error("Customer not found");
 
-      // 5️⃣ Envoyer l’email avec OTP
-      await sendVerificationEmail({
-        email: customer.email,
-        subject: `Votre code de retrait - E·Doto Family`,
-        message: `
+      // 6) Email
+      try {
+        // 5️⃣ Envoyer l’email avec OTP
+        await sendVerificationEmail({
+          email: customer.email,
+          subject: `Votre code de retrait - E·Doto Family`,
+          message: `
 <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
   
   <!-- Header -->
@@ -201,45 +218,70 @@ export class PaymentIntentService {
 
 </div>
       `,
-      });
+        });
+      } catch (e) {
+        throw new Error("Failed to send OTP email: " + e);
+      }
 
-      // 6️⃣ Update commandes + enfants
+      // 7) commande + enfants
       await conn.query(
-        `UPDATE orders 
-       SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() 
-       WHERE id=?`,
+        `UPDATE orders SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() WHERE id=?`,
+        [orderId]
+      );
+      await conn.query(
+        `UPDATE order_children SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() WHERE order_id=?`,
         [orderId]
       );
 
-      await conn.query(
-        `UPDATE order_children 
-       SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() 
-       WHERE order_id=?`,
-        [orderId]
-      );
-
-      // 7️⃣ Wallets, Analytics, Factures
+      // 8) updates
       await this.updateWallets(orderId, conn);
       await this.updateAnalytics(amount, conn);
       await this.generateInvoices(orderId, conn);
 
-      await conn.commit();
+      // 9) commit uniquement si interne
+      if (!isExternal) await conn.commit();
+
+      // 10) maj pending_payments
+      if (!isExternal) {
+        await conn.query(
+          `UPDATE pending_payments SET status='completed', processed_at=NOW(), payment_intent_id=?, updated_at=NOW() WHERE id=?`,
+          [paymentIntentId, pendingId]
+        );
+      }
 
       return {
         success: true,
-        paymentIntentId,
+        processed: true,
         orderId,
-        transaction_id,
+        paymentIntentId,
         tx_ref,
-        otp, // optionnel, utile pour debug interne
+        otp,
+        pendingPaymentId: pendingId
       };
+
     } catch (err: any) {
-      await conn.rollback();
-      throw new Error("FeexPay Error: " + err.message);
+
+      if (!isExternal) {
+        try { await conn.rollback(); } catch { }
+        await conn.query(
+          `UPDATE pending_payments SET status='failed', error_message=?, updated_at=NOW() WHERE id=?`,
+          [String(err.message || err), pendingId]
+        );
+      }
+
+      return {
+        success: true,
+        processed: false,
+        pendingPaymentId: pendingId,
+        error: String(err.message || err)
+      };
+
     } finally {
-      conn.release();
+      if (!isExternal) conn.release();
     }
   }
+
+
 
 
 
@@ -633,4 +675,65 @@ export class PaymentIntentService {
       }
     }
   }
+
+  async retryPendingPayments() {
+    this.logger.debug("Cron: retry des paiements pending/failed…");
+
+    const [pending] = await this.pool.query<RowDataPacket[]>(
+      `SELECT * 
+     FROM pending_payments 
+     WHERE status IN ('processing','failed')`
+    );
+
+    for (const p of pending) {
+      const conn = await this.pool.getConnection();
+      await conn.beginTransaction();
+
+      try {
+        this.logger.debug(
+          `Retry pending payment ${p.id} (${p.transaction_id})`
+        );
+
+        // 1. Rejouer la logique interne
+        const result = await this.completeFeexPayPayment(
+          {
+            transaction_id: p.transaction_id,
+            custom_id: p.custom_id,
+            feexpay_response: JSON.parse(p.raw_response || "{}")
+          },
+          conn // ✔ CORRECT
+        );
+
+        // 2. Marquer le retry comme OK
+        await conn.query(
+          `UPDATE pending_payments 
+         SET status = 'processed', retried_at = NOW() 
+         WHERE id = ?`,
+          [p.id]
+        );
+
+        await conn.commit();
+        this.logger.debug(
+          `Pending payment ${p.id} traité avec succès.`
+        );
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+
+        this.logger.error(`Retry échoué pour pending ${p.id}: ${msg}`);
+
+        await conn.query(
+          `UPDATE pending_payments 
+         SET status = 'failed', last_error = ?, retry_count = retry_count + 1 
+         WHERE id = ?`,
+          [msg, p.id]
+        );
+
+        await conn.rollback();
+      } finally {
+        conn.release();
+      }
+    }
+  }
+
+
 }

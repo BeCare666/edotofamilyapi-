@@ -1,6 +1,5 @@
  
- ALTER TABLE orders 
-ADD delivery_option ENUM('any_pickup', 'specific_pickup', 'home_delivery') DEFAULT 'any_pickup';
+
 CREATE TABLE IF NOT EXISTS orders (
   id INT PRIMARY KEY AUTO_INCREMENT,
   tracking_number VARCHAR(50) NOT NULL,

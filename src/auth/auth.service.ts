@@ -143,6 +143,123 @@ export class AuthService {
       message: 'Inscription réussie. Vérifie ton email.',
     };
   }
+
+  async registerPickUpPoint(createUserInput: RegisterDto): Promise<AuthResponse> {
+    const { name, email, password } = createUserInput;
+
+    // Vérifier si l'utilisateur existe déjà
+    const [existing]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
+      'SELECT id FROM users WHERE email = ?',
+      [email]
+    );
+
+    if (existing.length > 0) {
+      throw new ForbiddenException('Cet utilisateur existe déjà.');
+    }
+
+    // Hash du mot de passe
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Génération du token
+    const verificationToken = jwt.sign(
+      { email },
+      process.env.JWT_SECRET_KEY,
+      { expiresIn: '5m' }
+    );
+
+    // Lien de vérification
+    const verificationLink = `${process.env.BASE_URL}/verify-email?token=${verificationToken}`;
+
+    // Envoi de l'e-mail adapté aux points de retrait
+    try {
+      await sendVerificationEmail({
+        email,
+        subject: "Activez votre compte Point de Retrait - E·Doto Family",
+        message: `
+  <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
+    
+    <!-- Header -->
+    <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
+      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
+      <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
+      <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Partenaire officiel — Point de Retrait</p>
+    </div>
+
+    <!-- Body -->
+    <div style="padding: 40px 30px; background-color: #ffffff;">
+      <h2 style="color: #111827; font-size: 20px; margin-bottom: 12px; text-align: center;">
+        Bienvenue parmi nos Points de Retrait ✨
+      </h2>
+
+      <p style="color: #4B5563; font-size: 15px; line-height: 1.7; text-align: center; margin: 0 auto; max-width: 480px;">
+        Bonjour <strong>${name}</strong>,<br/><br/>
+        Vous venez de rejoindre notre réseau de <strong>Points de Retrait E·Doto Family</strong>.  
+        Pour finaliser votre inscription et accéder à votre espace partenaire,  
+        merci de confirmer votre adresse e-mail en cliquant sur le bouton ci-dessous :
+      </p>
+
+      <!-- Call to Action -->
+      <div style="text-align: center; margin: 36px 0;">
+        <a href="${verificationLink}"
+          style="background: linear-gradient(135deg, #FF6EA9, #ff579d); color: #fff; padding: 14px 36px;
+                 border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px;
+                 display: inline-block; box-shadow: 0 3px 10px rgba(255,110,169,0.3); transition: all 0.3s ease;">
+          Activer mon compte
+        </a>
+      </div>
+
+      <p style="color: #6B7280; font-size: 14px; line-height: 1.6; text-align: center;">
+        Ce lien est valable pendant <strong>5 minutes</strong>.  
+        Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet e-mail.
+      </p>
+
+      <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 36px 0;" />
+
+      <p style="color: #9CA3AF; font-size: 13px; text-align: center;">
+        Merci de contribuer à offrir une meilleure expérience aux membres de la communauté 💖<br />
+        L’équipe <strong style="color: #FF6EA9;">E·Doto Family</strong>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
+      <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
+        © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
+        <a href="https://edotofamily.netlify.app" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
+      </p>
+    </div>
+  </div>
+      `,
+      });
+
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de l'e-mail :", error);
+      throw new InternalServerErrorException("Impossible d'envoyer l'e-mail de vérification.");
+    }
+
+    // Insertion en base avec le rôle super_pickuppoint
+    await this.DatabaseService.query(
+      `INSERT INTO users 
+    (name, email, password, role, is_verified, email_verified, email_verified_at, is_active, shop_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [
+        name,
+        email,
+        hashedPassword,
+        'super_pickuppoint', // rôle
+        false,
+        0,
+        null,
+        1,
+        null
+      ]
+    );
+
+    return {
+      message: 'Inscription réussie. Vérifiez votre e-mail pour activer votre compte Point de Retrait.',
+    };
+  }
+
   async socialLogin(profile: { name: string; email: string }, provider: 'google' | 'facebook'): Promise<AuthResponse> {
     const { name, email } = profile;
 

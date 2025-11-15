@@ -22,7 +22,10 @@ export class AuthController {
   createAccount(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
   }
-
+  @Post('register-pick-up-point')
+  createAccountpickUpPoint(@Body() registerDto: RegisterDto) {
+    return this.authService.registerPickUpPoint(registerDto);
+  }
   @Post('token')
   login(@Body() loginDto: LoginDto) {
     const { email, password } = loginDto;
