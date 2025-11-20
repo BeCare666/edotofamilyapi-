@@ -76,9 +76,9 @@ export class DatabaseSetupService implements OnModuleInit {
   }
 }
 
-//host: 'tramway.proxy.rlwy.net',Ok
+//host: 'tramway.proxy.rlwy.net',
 //user: 'root',
 // password: 'tjqUSbdKCnShXQahtkYrzGRSLOuxsttA',
 //database: 'railway',
 //port: 20162,
-//multipleStatements: true,
+//multipleStatements: true.

@@ -111,6 +111,7 @@ export class Order extends CoreEntity {
   translated_languages: string[];
   payment_intent?: PaymentIntent;
   altered_payment_gateway?: string;
+
 }
 
 export class OrderFiles extends CoreEntity {

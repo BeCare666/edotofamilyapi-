@@ -354,7 +354,19 @@ export class AuthService {
         token,
         permissions: ['customer'],
       };
-    } else if (user.role === "store_owner") {
+    } else if (user.role === "super_pickuppoint") {
+      const token = jwt.sign({
+        id: user.id,
+        email: user.email,
+        permissions: ['super_pickuppoint'],
+      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+
+      return {
+        token,
+        permissions: ['super_pickuppoint'],
+      };
+    }
+    else if (user.role === "store_owner") {
       // Vérifier si le shop existe
       const [shops]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
         'SELECT * FROM shops WHERE owner_id = ?',

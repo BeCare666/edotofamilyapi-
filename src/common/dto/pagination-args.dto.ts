@@ -5,4 +5,5 @@ export class PaginationArgs {
   page?: number = 1;     // page actuelle
   per_page?: number;   // items par page
   current_page?: number; // page actuelle
+  role?: string;
 }

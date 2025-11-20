@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, ForbiddenException, NotFoundException, BadRequestException } from '@nestjs/common';
 import { AuthService } from 'src/auth/auth.service';
 import { FlutterwaveService } from 'src/payment/flutterwave.service';
 import { FeexpayService } from 'src/payment/feexpay.service';
@@ -11,6 +11,7 @@ import { QueryOrdersOrderByColumn } from './dto/get-order.dto';
 import { GetOrderStatusesDto } from './dto/get-order-statuses.dto';
 import { CheckoutVerificationDto } from './dto/verify-checkout.dto';
 import { GetOrderFilesDto, OrderFilesPaginator } from './dto/get-downloads.dto';
+import { VerifyOtpDto } from './dto/verify-otp.dto';
 
 import {
   Order,
@@ -218,6 +219,66 @@ export class OrdersService {
     }
   }
 
+  // Vérifie l'OTP et marque la commande comme livrée si ok
+  async verifyOtp(dto: VerifyOtpDto, user: { id: number; permissions: string }) {
+    const pool = this.databaseService.getPool();
+console.log("user a verifié", user)
+    // Récupérer l'order par id et otp_code
+    const [rows]: any = await pool.query(
+      `SELECT id, otp_code, otp_used, pickup_point_id, order_status
+       FROM orders
+       WHERE id = ? AND otp_code = ? LIMIT 1`,
+      [dto.order_id, dto.otp_code]
+    );
+
+    if (!rows || rows.length === 0) {
+      // aucun ordre avec cet id + otp
+      throw new NotFoundException({ message: 'Code OTP invalide ou commande introuvable.' });
+    }
+
+    const order = rows[0];
+
+    // Si OTP déjà utilisé -> refuse
+    if (order.otp_used) {
+      throw new BadRequestException({ message: 'Ce code OTP a déjà été utilisé.' });
+    }
+
+    // Vérifier que l'utilisateur est autorisé (super_pickuppoint) et que pickup_point_id correspond
+    if (!user.permissions.includes('super_pickuppoint')) {
+      throw new ForbiddenException({ message: "Vous n'êtes pas autorisé à effectuer cette opération." });
+    }
+
+    // Si l'order pickup_point_id n'est pas le même que l'id du user (ou me.pickup_point_id selon ton modèle)
+    // Ici j’assume que le pickup_point_id est égal à user.id pour les super_pickuppoint.
+    if (order.pickup_point_id !== user.id) {
+      throw new ForbiddenException({ message: "Vous n'êtes pas autorisé à effectuer cette opération pour ce point relais." });
+    }
+
+    // Tout est OK -> marquer comme livré (order-completed) + delivered_at + otp_used = 1
+    const [updateResult]: any = await pool.query(
+      `UPDATE orders
+       SET order_status = ?, otp_used = 1, otp_attempts = otp_attempts + 1, delivered_at = NOW()
+       WHERE id = ?`,
+      ['order-completed', order.id]
+    );
+
+    // Récupérer la commande à jour pour renvoyer
+    const [updatedRows]: any = await pool.query(
+      `SELECT * FROM orders WHERE id = ? LIMIT 1`,
+      [order.id]
+    );
+
+    return { success: true, order: updatedRows[0] };
+  }
+
+  // Optionnel : incrementer tentative OTP si tentative incorrecte
+  async registerInvalidOtpAttempt(orderId: number) {
+    const pool = this.databaseService.getPool();
+    await pool.query(
+      `UPDATE orders SET otp_attempts = otp_attempts + 1 WHERE id = ?`,
+      [orderId]
+    );
+  }
 
 
   // =========================
@@ -255,65 +316,213 @@ export class OrdersService {
   }
 
   // =========================
-  // GET ORDERS
-  // =========================
-  async getOrders(query: GetOrdersDto): Promise<OrderPaginator> {
-    const pool = this.databaseService.getPool();
-    const {
-      limit = 15,
-      page = 1,
-      search,
-      orderBy = QueryOrdersOrderByColumn.CREATED_AT,
-      sortedBy = 'DESC',
-    } = query;
-    const offset = (page - 1) * limit;
 
-    // whitelist orderBy
-    const allowedOrderBy = {
-      created_at: 'created_at',
-      updated_at: 'updated_at',
-      total: 'total',
-    };
-    const orderByColumn = allowedOrderBy[orderBy.toLowerCase()] || 'created_at';
 
-    let sql = `SELECT * FROM orders`;
-    const params: any[] = [];
+// 📌 STATS PICKUP POINT
+async getPickupStats(pickupPointId: number) {
+  const pool = this.databaseService.getPool();
 
-    if (search) {
-      sql += ` WHERE tracking_number LIKE ? OR customer_id IN (SELECT id FROM users WHERE email LIKE ?)`;
-      params.push(`%${search}%`, `%${search}%`);
-    }
+  const [rows]: any = await pool.query(
+    `
+    SELECT 
+      COUNT(*) AS total,
+      SUM(order_status = 'order-completed') AS completed,
+      SUM(order_status != 'order-completed') AS pending
+    FROM orders
+    WHERE pickup_point_id = ? AND is_archived = 0
+    `,
+    [pickupPointId]
+  );
 
-    sql += ` ORDER BY ${orderByColumn} ${sortedBy} LIMIT ? OFFSET ?`;
-    params.push(Number(limit), Number(offset));
+  return {
+    total: rows[0].total ?? 0,
+    completed: rows[0].completed ?? 0,
+    pending: rows[0].pending ?? 0,
+  };
+}
 
-    const [rows]: any = await pool.query(sql, params);
 
-    let countSql = `SELECT COUNT(*) as total FROM orders`;
-    const countParams: any[] = [];
-    if (search) {
-      countSql += ` WHERE tracking_number LIKE ? OR customer_id IN (SELECT id FROM users WHERE email LIKE ?)`;
-      countParams.push(`%${search}%`, `%${search}%`);
-    }
-    const [countRows]: any = await pool.query(countSql, countParams);
-    const total = countRows[0].total;
-    const last_page = Math.ceil(total / limit);
+async getStats(user) {
+  const pool = this.databaseService.getPool();
 
-    return {
-      data: rows,
-      count: total,
-      current_page: page,
-      per_page: limit,
-      total: total,
-      firstItem: offset + 1,
-      lastItem: offset + rows.length,
-      last_page: last_page,
-      first_page_url: `/orders?page=1`,
-      last_page_url: `/orders?page=${last_page}`,
-      next_page_url: page < last_page ? `/orders?page=${page + 1}` : null,
-      prev_page_url: page > 1 ? `/orders?page=${page - 1}` : null,
-    };
+  let where = `WHERE is_archived = 0`;
+  const params = [];
+
+  if (user.permissions?.includes('super_pickuppoint')) {
+    where += ` AND pickup_point_id = ?`;
+    params.push(user.id);
   }
+
+  const [statsRows]: any = await pool.query(
+    `
+    SELECT
+      COUNT(*) AS total_orders,
+      SUM(order_status = 'order-completed') AS validated_orders,
+      SUM(order_status != 'order-completed') AS pending_orders,
+      SUM(DATE(created_at) = CURDATE()) AS today_new_orders
+    FROM orders
+    ${where}
+    `,
+    params
+  );
+
+  const stats = statsRows[0];
+  return stats;
+}
+
+async archiveOrder(orderId: number, user) {
+  const pool = this.databaseService.getPool();
+
+  // Sécurité PickupPoint 
+  //Sécurité PickupPoint
+  if (user.permissions?.includes('super_pickuppoint')) {
+    const [orderRows]: any = await pool.query(
+      `SELECT pickup_point_id FROM orders WHERE id = ?`,
+      [orderId]
+    );
+
+    const order = orderRows[0];
+
+    if (!order || order.pickup_point_id !== user.id) {
+      throw new ForbiddenException("Vous ne pouvez pas archiver cette commande");
+    }
+  }
+
+  await pool.query(
+    `UPDATE orders SET is_archived = 1 WHERE id = ?`,
+    [orderId]
+  );
+
+  return { message: "Commande archivée" };
+}
+
+async unarchiveOrder(orderId: number) {
+  const pool = this.databaseService.getPool();
+
+  await pool.query(
+    `UPDATE orders SET is_archived = 0 WHERE id = ?`,
+    [orderId]
+  );
+
+  return { message: "Commande restaurée" };
+}
+
+async getNewOrders(user) {
+  const pool = this.databaseService.getPool();
+
+  const where = [`is_archived = 0`, `order_status != 'order-completed'`];
+  const params = [];
+
+  if (user.permissions === "super_pickuppoint") {
+    where.push(`pickup_point_id = ?`);
+    params.push(user.id);
+  }
+
+  const [rows]: any = await pool.query(
+    `SELECT * FROM orders 
+     WHERE ${where.join(" AND ")} 
+     ORDER BY created_at DESC 
+     LIMIT 20`,
+    params
+  );
+
+  return rows;
+}
+
+
+// 📌 GET ORDERS (pickup + user normal)
+// Compatible MySQL + pool.query
+async getOrders(query: GetOrdersDto, user) {
+  const pool = this.databaseService.getPool();
+
+  const {
+    limit = 15,
+    page = 1,
+    search,
+    customer_id,
+    pickup_point_id,
+    orderBy = 'created_at',
+    sortedBy = 'DESC',
+  } = query;
+
+  const offset = (page - 1) * limit;
+
+  // ----------------------------
+  // 🔐 Sécurité PickupPoint
+  // ----------------------------
+  if (user.permissions === 'super_pickuppoint') {
+    if (+pickup_point_id !== user.id) {
+      throw new ForbiddenException("Vous ne pouvez accéder qu'à vos commandes");
+    }
+  }
+
+  // ----------------------------
+  // 🔥 Base Query
+  // ----------------------------
+  let sql = `SELECT * FROM orders`;
+  const params: any[] = [];
+
+  const where: string[] = [`is_archived = 0`];  // 👈 support archive
+
+  // Client filter
+  if (customer_id) {
+    where.push(`customer_id = ?`);
+    params.push(customer_id);
+  }
+
+  // PickupPoint filter
+  if (pickup_point_id) {
+    where.push(`pickup_point_id = ?`);
+    params.push(pickup_point_id);
+  }
+
+  // Search filter
+  if (search) {
+    where.push(`(
+      tracking_number LIKE ?
+      OR otp_code LIKE ?
+      OR customer_name LIKE ?
+      OR customer_contact LIKE ?
+    )`);
+    params.push(
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`,
+      `%${search}%`
+    );
+  }
+
+  if (where.length > 0) {
+    sql += ` WHERE ` + where.join(' AND ');
+  }
+
+  // whitelist ORDER BY
+  const allowedOrder = {
+    created_at: 'created_at',
+    total: 'total',
+    updated_at: 'updated_at'
+  };
+  const safeOrderBy = allowedOrder[orderBy] || 'created_at';
+
+  sql += ` ORDER BY ${safeOrderBy} ${sortedBy} LIMIT ? OFFSET ?`;
+  params.push(Number(limit), Number(offset));
+
+  const [rows]: any = await pool.query(sql, params);
+
+  // COUNT
+  let countSql = `SELECT COUNT(*) as total FROM orders WHERE ${where.join(' AND ')}`;
+  const [count]: any = await pool.query(countSql, params.slice(0, params.length - 2));
+
+  return {
+    data: rows,
+    total: count[0].total,
+    page,
+    last_page: Math.ceil(count[0].total / limit),
+    next_page_url: page < Math.ceil(count[0].total / limit),
+    prev_page_url: page > 1,
+  };
+}
+
 
   async getOrderByIdOrTrackingNumber(idOrTracking: string | number): Promise<Order | null> {
     console.log('DEBUG >>> Fonction appelée avec idOrTracking =', idOrTracking);
@@ -332,7 +541,41 @@ export class OrdersService {
 
     const order = rows[0];
     if (!order) return null;
+    // 🔥 Charger les infos du pickup point si défini
+    if (order.pickup_point_id) {
+      try {
+        const [pickupRows]: any = await pool.query(
+          `SELECT id, name, email FROM users WHERE id = ? LIMIT 1`,
+          [order.pickup_point_id]
+        );
 
+        order.pickup_point = pickupRows[0] || null;
+
+      } catch (e) {
+        console.error("Erreur lors du chargement du pickup point:", e);
+        order.pickup_point = null;
+      }
+    } else {
+      // Pour le front : toujours renvoyer une clé pickup_point
+      order.pickup_point = null;
+    }
+    if (order.customer_id) {
+      try {
+        const [pickupRowsCustomer]: any = await pool.query(
+          `SELECT id, name, email FROM users WHERE id = ? LIMIT 1`,
+          [order.customer_id]
+        );
+
+        order.pickupRowsCustomer = pickupRowsCustomer[0] || null;
+
+      } catch (e) {
+        console.error("Erreur lors du chargement du pickup point:", e);
+        order.customer_id = null;
+      }
+    } else {
+      // Pour le front : toujours renvoyer une clé pickup_point
+      order.customer_id = null;
+    }
     // Récupérer les enfants de la commande
     const [childrenRows]: any = await pool.query(
       `SELECT 

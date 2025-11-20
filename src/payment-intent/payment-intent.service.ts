@@ -225,11 +225,11 @@ export class PaymentIntentService {
 
       // 7) commande + enfants
       await conn.query(
-        `UPDATE orders SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() WHERE id=?`,
+        `UPDATE orders SET order_status='order-processing', payment_status='payment-success', updated_at=NOW() WHERE id=?`,
         [orderId]
       );
       await conn.query(
-        `UPDATE order_children SET order_status='order-completed', payment_status='payment-success', updated_at=NOW() WHERE order_id=?`,
+        `UPDATE order_children SET order_status='order-processing', payment_status='payment-success', updated_at=NOW() WHERE order_id=?`,
         [orderId]
       );
 
@@ -375,7 +375,7 @@ export class PaymentIntentService {
 
       await conn.query<ResultSetHeader>(
         `UPDATE orders 
-        SET order_status = 'order-completed', 
+        SET order_status = 'order-processing', 
             payment_status = 'payment-success',
             updated_at = NOW() 
         WHERE id = ?`,
@@ -384,7 +384,7 @@ export class PaymentIntentService {
 
       await conn.query<ResultSetHeader>(
         `UPDATE order_children 
-        SET order_status = 'order-completed', 
+        SET order_status = 'order-processing', 
             payment_status = 'payment-success',
             updated_at = NOW() 
         WHERE order_id = ?`,

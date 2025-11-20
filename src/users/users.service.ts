@@ -79,28 +79,57 @@ export class UsersService {
     return rows[0] as User;
   }
 
-  async getUsers({ limit = 30, page = 1 }: GetUsersDto): Promise<UserPaginator> {
-    const pool = this.DatabaseService.getPool();
+async getUsers({ limit = 30, page = 1, role }: GetUsersDto): Promise<UserPaginator> {
+  const pool = this.DatabaseService.getPool();
 
-    const pageNumber = Number(page);
-    const limitNumber = Number(limit);
-    const offset = (pageNumber - 1) * limitNumber;
+  const pageNumber = Number(page);
+  const limitNumber = Number(limit);
+  const offset = (pageNumber - 1) * limitNumber;
 
+  // --- SI role est fourni → filtrage ---
+  if (role) {
     const [rows] = await pool.query<RowDataPacket[]>(
-      'SELECT * FROM users LIMIT ? OFFSET ?',
-      [limitNumber, offset]
+      `SELECT * FROM users WHERE role = ? LIMIT ? OFFSET ?`,
+      [role, limitNumber, offset]
     );
 
     const [countRows] = await pool.query<RowDataPacket[]>(
-      'SELECT COUNT(*) as total FROM users'
+      `SELECT COUNT(*) as total FROM users WHERE role = ?`,
+      [role]
     );
+
     const total = countRows[0].total;
 
     return {
       data: rows as User[],
-      ...paginate(total, pageNumber, limitNumber, rows.length, `/users?limit=${limitNumber}`),
+      ...paginate(
+        total,
+        pageNumber,
+        limitNumber,
+        rows.length,
+        `/users?role=${role}&limit=${limitNumber}`
+      ),
     };
   }
+
+  // --- SINON → comportement normal ---
+  const [rows] = await pool.query<RowDataPacket[]>(
+    'SELECT * FROM users LIMIT ? OFFSET ?',
+    [limitNumber, offset]
+  );
+
+  const [countRows] = await pool.query<RowDataPacket[]>(
+    'SELECT COUNT(*) as total FROM users'
+  );
+
+  const total = countRows[0].total;
+
+  return {
+    data: rows as User[],
+    ...paginate(total, pageNumber, limitNumber, rows.length, `/users?limit=${limitNumber}`),
+  };
+}
+
 
 
 

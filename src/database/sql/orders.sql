@@ -1,5 +1,6 @@
  
 
+ALTER TABLE orders ADD COLUMN is_archived TINYINT(1) NOT NULL DEFAULT 0;
 CREATE TABLE IF NOT EXISTS orders (
   id INT PRIMARY KEY AUTO_INCREMENT,
   tracking_number VARCHAR(50) NOT NULL,
@@ -11,11 +12,12 @@ CREATE TABLE IF NOT EXISTS orders (
   paid_total DECIMAL(10,2),
   total DECIMAL(10,2),
   note TEXT,
+  is_archived TINYINT(1) NOT NULL DEFAULT 0,
   otp_code VARCHAR(10) DEFAULT NULL,
   otp_used TINYINT(1) DEFAULT 0,
   otp_expires_at DATETIME DEFAULT NULL,
-  otp_attempts INT DEFAULT 0;
-  pickup_point_id INT DEFAULT NULL;
+  otp_attempts INT DEFAULT 0,
+  pickup_point_id INT DEFAULT NULL,
   cancelled_amount DECIMAL(10,2) DEFAULT 0,
   cancelled_tax DECIMAL(10,2) DEFAULT 0,
   cancelled_delivery_fee DECIMAL(10,2) DEFAULT 0,
@@ -24,6 +26,7 @@ CREATE TABLE IF NOT EXISTS orders (
   parent_id INT DEFAULT NULL,
   shop_id INT DEFAULT NULL,
   discount DECIMAL(10,2) DEFAULT NULL,
+  delivered_at DATETIME DEFAULT NULL,
   payment_gateway ENUM(
     'FLUTTERWAVE',
     'CASH',
