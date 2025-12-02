@@ -48,6 +48,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseModule } from './database/database.module'
 import { CorridorsModule } from './corridors/corridors.module';
 import { CountriesModule } from './countries/countries.module';
+import { CampaignsModule } from './campaigns/campaigns.module';
 import { ProductCorridorModule } from './product-corridors/product-corridor.module';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
@@ -103,7 +104,8 @@ import { ProductCorridorModule } from './product-corridors/product-corridor.modu
     DatabaseModule,
     ProductCorridorModule,
     CorridorsModule,
-    CountriesModule
+    CountriesModule,
+    CampaignsModule
     //DatabaseService
   ],
   controllers: [],
