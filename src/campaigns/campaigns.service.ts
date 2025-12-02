@@ -277,7 +277,7 @@ await sendVerificationEmail({
       throw new BadRequestException("Déjà retiré.");
     }
 
-    // 4) Marquer comme retiré
+    // 4) Marquer comme retiré // 4)
     await this.databaseService.getPool().query(
       `UPDATE campaign_registrations
        SET picked_up = 1, picked_up_at = NOW(), updated_at = NOW()
