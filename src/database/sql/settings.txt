@@ -151,4 +151,84 @@ VALUES
     1,
     1
   );
- 
+
+  INSERT INTO campaigns 
+(title, description, image_url, location, date_start, date_end, status, objective_kits, distributed_kits)
+VALUES
+-- 🟢 Campagne EN COURS
+(
+  'Santé Jeunes Cotonou',
+  'Campagne de distribution de kits de santé sexuelle et reproductive destinée aux jeunes et adolescents dans les quartiers urbains de Cotonou.',
+  'https://www.undp.org/sites/g/files/zskgke326/files/2022-09/UNDP-bj-Sensibilisation-VBG-2015.jpg',
+  'Cotonou',
+  '2025-12-01',
+  '2025-12-31',
+  'en_cours',
+  3000,
+  1850
+),
+
+-- 🔵 Campagne PLANIFIÉE 1
+(
+  'Prévention et Autonomie – Porto-Novo',
+  'Distribution de kits SSR accompagnée de séances de sensibilisation pour les jeunes femmes et hommes.',
+  'https://example.com/images/porto-novo-ssr.jpg',
+  'Porto-Novo',
+  '2026-01-15',
+  '2026-02-15',
+  'planifie',
+  2500,
+  0
+),
+
+-- 🔵 Campagne PLANIFIÉE 2
+(
+  'Santé Communautaire Abomey-Calavi',
+  'Campagne communautaire visant à améliorer l’accès aux produits de santé sexuelle et reproductive.',
+  'https://example.com/images/abomey-calavi.jpg',
+  'Abomey-Calavi',
+  '2026-02-01',
+  '2026-03-01',
+  'planifie',
+  4000,
+  0
+),
+
+-- 🟠 Campagne À VENIR
+(
+  'Égalité et Santé – Zones Rurales',
+  'Future campagne de distribution de kits SSR dans les zones rurales du sud du Bénin.',
+  'https://example.com/images/zones-rurales.jpg',
+  'Zou / Mono',
+  '2026-04-01',
+  NULL,
+  'a_venir',
+  5000,
+  0
+);
+
+
+
+
+INSERT INTO users (name, email, password, role, is_verified, email_verified, email_verified_at, is_active, shop_id, created_at, updated_at)
+VALUES
+('Point de Retrait Akpakpa Dédokpo', 'pickup.akpakpa.dedokpo@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Akpakpa PK3', 'pickup.akpakpa.pk3@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Sainte-Cécile', 'pickup.sainte.cecile@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Hindé', 'pickup.hinde@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Zogbo', 'pickup.zogbo@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Fidjrossè Plage', 'pickup.fidjrosse.plage@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Fidjrossè Calvaire', 'pickup.fidjrosse.calvaire@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Fidjrossè Centre', 'pickup.fidjrosse.centre@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Gbégamey', 'pickup.gbegamey@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Gbeto Royale', 'pickup.gbeto.royale@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Jonquet', 'pickup.jonquet@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait St Michel', 'pickup.stmichel@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Haie Vive', 'pickup.haievive@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Cadjèhoun', 'pickup.cadjehoun@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Ganhi', 'pickup.ganhi@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Maro-Militaire', 'pickup.maro.militaire@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Houéyiho', 'pickup.houeyiho@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Sainte-Rita', 'pickup.sainte.rita@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Kouhounou', 'pickup.kouhounou@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
+('Point de Retrait Agla Petit Paris', 'pickup.agla.petitparis@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW());

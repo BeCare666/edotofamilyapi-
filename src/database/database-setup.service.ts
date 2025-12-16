@@ -9,11 +9,11 @@ export class DatabaseSetupService implements OnModuleInit {
 
   async onModuleInit() {
     this.connection = await mysql.createConnection({
-      host: 'shinkansen.proxy.rlwy.net',     // ✅ Nouveau host Railway
-      user: 'root',                           // ✅ Identique
-      password: 'tzLMZJgpvwOyUyrUDQwYPCAxxWjGgtEo', // ✅ Nouveau mot de passen
-      database: 'railway',                    // ✅ Toujours "railway"
-      port: 48037,                            // ✅ Nouveau port Railway.
+      host: 'shinkansen.proxy.rlwy.net',      // ✅ Host Railway
+      user: 'root',                           // ✅ Utilisateur
+      password: 'fVcRDGvfmnRaQKyCHSwxaTPqpvPeNNoF', // ✅ Nouveau mot de passe.
+      database: 'railway',                    // ✅ Base
+      port: 47907,                            // ✅ Nouveau port
       multipleStatements: true
     });
     console.log('✅ Connexion MySQL établie');
@@ -72,7 +72,7 @@ export class DatabaseSetupService implements OnModuleInit {
       }
     }
 
-    await this.connection.end(); // ferme la connexion dbv
+    await this.connection.end(); // ferme la connexion db
     console.log('✅ Connexion fermée après setup');
     console.log('Toutes les tables sont prêtes !');
   }
