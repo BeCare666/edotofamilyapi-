@@ -39,3 +39,51 @@ CREATE TABLE IF NOT EXISTS shops (
   FOREIGN KEY (cover_image_id) REFERENCES media(id) ON DELETE SET NULL,
   FOREIGN KEY (logo_image_id) REFERENCES media(id) ON DELETE SET NULL
 );
+INSERT INTO shops (
+  id,
+  owner_id,
+  name,
+  slug,
+  description,
+  is_active,
+  rating,
+  zip,
+  city,
+  state,
+  country,
+  street_address,
+  contact,
+  website,
+  location,
+  cover_image_id,
+  logo_image_id,
+  orders_count,
+  products_count,
+  wallet_balance,
+  created_at,
+  updated_at
+)
+VALUES (
+  1,                      -- ✅ ID du shop
+  23,                     -- ✅ owner_id
+  'Edoto Family Shop',
+  'edoto-family-shop',
+  'Boutique officielle Edoto Family',
+  TRUE,
+  0,
+  '00000',
+  'Cotonou',
+  'Littoral',
+  'Bénin',
+  'Rue principale',
+  '+22900000000',
+  'https://edotofamily.com',
+  NULL,
+  NULL,
+  NULL,
+  0,
+  0,
+  0.00,
+  NOW(),
+  NOW()
+);

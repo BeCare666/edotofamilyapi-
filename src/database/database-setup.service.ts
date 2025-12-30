@@ -72,7 +72,7 @@ export class DatabaseSetupService implements OnModuleInit {
       }
     }
 
-    await this.connection.end(); // ferme la connexion db
+    await this.connection.end(); // ferme la connexion db.
     console.log('✅ Connexion fermée après setup');
     console.log('Toutes les tables sont prêtes !');
   }
@@ -80,7 +80,7 @@ export class DatabaseSetupService implements OnModuleInit {
 
 //host: 'tramway.proxy.rlwy.net'.
 //user: 'root',
-// password: 'tjqUSbdKCnShXQahtkYrzGRSLOuxsttA',
+// password: 'tjqUSbdKCnShXQahtkYrzGRSLOuxsttA'.
 //database: 'railway',
 //port: 20162,
 //multipleStatements: true.

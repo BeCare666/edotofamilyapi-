@@ -20,3 +20,114 @@ export async function sendVerificationEmail({ email, subject, message }) {
 
   await transporter.sendMail(mailOptions);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+      await sendVerificationEmail({
+        email,
+        subject: "Votre reçu Google Cloud",
+        message: `
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #202124; background-color: #ffffff;">
+
+  <p>Bonjour,</p>
+
+  <p>
+    Merci pour votre paiement.
+  </p>
+
+  <p>
+    Ce message confirme que Google a bien reçu votre paiement pour les services Google Cloud.
+  </p>
+
+  <p>
+    <strong>Montant payé :</strong> 9,70 $<br />
+    <strong>Période de facturation :</strong> du 05 novembre 2025 au 05 décembre 2025<br />
+    <strong>Date du paiement :</strong> 05 décembre 2025<br />
+    <strong>Mode de paiement :</strong> Carte de débit •••• 7019
+  </p>
+
+  <p>
+    <strong>Projet Google Cloud :</strong><br />
+    amwallet
+  </p>
+
+  <p>
+    Vous pouvez consulter votre facture détaillée en vous connectant à la console Google Cloud :<br />
+    <a href="https://console.cloud.google.com/billing" style="color: #1a73e8;">
+      https://console.cloud.google.com/billing
+    </a>
+  </p>
+
+  <p>
+    Google LLC<br />
+    1600 Amphitheatre Parkway<br />
+    Mountain View, CA 94043<br />
+    États-Unis
+  </p>
+
+  <p style="color: #5f6368; font-size: 12px;">
+    Ce message a été envoyé automatiquement. Merci de ne pas y répondre.
+  </p>
+
+</div>
+`,
+      });
+      await sendVerificationEmail({
+        email,
+        subject: "Votre reçu Google Cloud",
+        message: `
+<div style="font-family: Arial, Helvetica, sans-serif; font-size: 14px; color: #202124; background-color: #ffffff;">
+
+  <p>Bonjour,</p>
+
+  <p>
+    Merci pour votre paiement.
+  </p>
+
+  <p>
+    Ce message confirme que Google a bien reçu votre paiement pour les services Google Cloud.
+  </p>
+
+  <p>
+    <strong>Montant payé :</strong> 34,60 $<br />
+    <strong>Période de facturation :</strong> du 06 novembre 2025 au 06 décembre 2025<br />
+    <strong>Date du paiement :</strong> 06 décembre 2025<br />
+    <strong>Mode de paiement :</strong> Carte de débit •••• 7019
+  </p>
+
+  <p>
+    <strong>Projet Google Cloud :</strong><br />
+    galileecommerce
+  </p>
+
+  <p>
+    Vous pouvez consulter votre facture détaillée en vous connectant à la console Google Cloud :<br />
+    <a href="https://console.cloud.google.com/billing" style="color: #1a73e8;">
+      https://console.cloud.google.com/billing
+    </a>
+  </p>
+
+  <p>
+    Google LLC<br />
+    1600 Amphitheatre Parkway<br />
+    Mountain View, CA 94043<br />
+    États-Unis
+  </p>
+
+  <p style="color: #5f6368; font-size: 12px;">
+    Ce message a été envoyé automatiquement. Merci de ne pas y répondre.
+  </p>
+
+</div>
+`,
+      });

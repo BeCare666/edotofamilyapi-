@@ -335,9 +335,9 @@ export class AuthService {
     const user = rows[0];
     if (!user) throw new UnauthorizedException('Utilisateur non trouvé');
 
-    if (!user.is_verified) {
-      throw new ForbiddenException('Veuillez valider votre email avant de vous connecter.');
-    }
+    //if (!user.is_verified) {
+    //  throw new ForbiddenException('Veuillez valider votre email avant de vous connecter.');
+    //}
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {

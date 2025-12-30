@@ -252,7 +252,7 @@
       try {
         const data = JSON.parse(jsonText);
 
-        const res = await fetch(`http://127.0.0.1:5000/api/countries/bulk`, {
+        const res = await fetch(`https://edotofamilyapi.onrender.com/api/countries/bulk`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json'
