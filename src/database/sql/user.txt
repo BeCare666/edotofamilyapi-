@@ -20,3 +20,32 @@ VALUES
 ('Point de Retrait Sainte-Rita', 'pickup.sainte.rita@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
 ('Point de Retrait Kouhounou', 'pickup.kouhounou@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
 ('Point de Retrait Agla Petit Paris', 'pickup.agla.petitparis@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW());
+
+
+INSERT INTO users (
+  name,
+  email,
+  password,
+  role,
+  is_verified,
+  email_verified,
+  email_verified_at,
+  is_active,
+  shop_id,
+  created_at,
+  updated_at
+)
+VALUES (
+  'edotofamily',
+  'hinlintransfert4@gmail.com',
+  '$2b$10$mtPsMycP/lHTte/MKkdaNu2X3CHo4jPWVjUWYmbgoH/c8/LVFvBSq',
+  'super_admin',
+  1,
+  1,
+  NOW(),
+  1,
+  1, -- ✅ shop_id NON NULL
+  NOW(),
+  NOW()
+);
+

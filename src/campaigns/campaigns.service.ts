@@ -8,7 +8,7 @@ import { sendVerificationEmail } from '../auth/mailer';
 
 @Injectable()
 export class CampaignsService {
-  constructor(private readonly databaseService: DatabaseService) {}
+  constructor(private readonly databaseService: DatabaseService) { }
 
   async getActiveCampaign() {
     const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
@@ -66,69 +66,69 @@ export class CampaignsService {
     return { message: 'Statut mis à jour.' };
   }
 
-async register(dto: RegisterDto, userId: number) {
+  async register(dto: RegisterDto, userId: number) {
 
-  // 1) Vérifier campagne
-  const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-    `SELECT id FROM campaigns WHERE id = ?`,
-    [dto.campaign_id]
-  );
-  if (!rows.length) throw new NotFoundException('Campagne introuvable');
+    // 1) Vérifier campagne
+    const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+      `SELECT id FROM campaigns WHERE id = ?`,
+      [dto.campaign_id]
+    );
+    if (!rows.length) throw new NotFoundException('Campagne introuvable');
 
-  // 2) Récup user
-  const [user]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-    `SELECT name, email FROM users WHERE id = ?`,
-    [userId]
-  );
-  if (!user.length) throw new NotFoundException('Utilisateur introuvable');
+    // 2) Récup user
+    const [user]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+      `SELECT name, email FROM users WHERE id = ?`,
+      [userId]
+    );
+    if (!user.length) throw new NotFoundException('Utilisateur introuvable');
 
-  const fullName = user[0].name;
-  const email = user[0].email;
+    const fullName = user[0].name;
+    const email = user[0].email;
 
-  // 3) Vérifier si déjà inscrit
-  const [existing]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-    `SELECT id FROM campaign_registrations 
+    // 3) Vérifier si déjà inscrit
+    const [existing]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+      `SELECT id FROM campaign_registrations 
      WHERE campaign_id = ? AND email = ?`,
-    [dto.campaign_id, email]
-  );
-  if (existing.length > 0) {
-    throw new BadRequestException("Vous êtes déjà inscrit à cette campagne.");
-  }
+      [dto.campaign_id, email]
+    );
+    if (existing.length > 0) {
+      throw new BadRequestException("Vous êtes déjà inscrit à cette campagne.");
+    }
 
-  // 4) Enregistrer la participation
-  const [result]: any = await this.databaseService.getPool().query(
-    `INSERT INTO campaign_registrations
+    // 4) Enregistrer la participation
+    const [result]: any = await this.databaseService.getPool().query(
+      `INSERT INTO campaign_registrations
      (campaign_id, full_name, email, pickup_center)
      VALUES (?, ?, ?, ?)`,
-    [dto.campaign_id, fullName, email, dto.pickup_center]
-  );
+      [dto.campaign_id, fullName, email, dto.pickup_center]
+    );
 
-  const registrationId = result.insertId;
+    const registrationId = result.insertId;
 
-  // 5) Générer OTP
-  const otp = Math.floor(100000 + Math.random() * 900000).toString();
-  const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    // 5) Générer OTP
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
 
-  // 6) Enregistrer OTP
-  await this.databaseService.getPool().query(
-    `UPDATE campaign_registrations
-     SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, updated_at=NOW()
+    // 6) Enregistrer OTP
+    await this.databaseService.getPool().query(
+      `UPDATE campaign_registrations
+     SET otp_code=?, otp_used=0, otp_attempts=0, order_status = 'order-processing', otp_expires_at=?, updated_at=NOW()
      WHERE id=?`,
-    [otp, expiresAt, registrationId]
-  );
+      [otp, expiresAt, registrationId]
+    );
 
-  // 8) Ajouter +1 aux kits distribués
-  await this.databaseService.getPool().query(
-    `UPDATE campaigns SET distributed_kits = distributed_kits + 1 WHERE id = ?`,
-    [dto.campaign_id]
-  );
+    // 8) Ajouter +1 aux kits distribués
+    await this.databaseService.getPool().query(
+      `UPDATE campaigns SET distributed_kits = distributed_kits + 1 WHERE id = ?`,
+      [dto.campaign_id]
+    );
 
-  // 7) Envoyer OTP par email
-  try {
-await sendVerificationEmail({
-  email,
-  subject: `Code de retrait de campagne - E·Doto Family`,
-  message: `
+    // 7) Envoyer OTP par email
+    try {
+      await sendVerificationEmail({
+        email,
+        subject: `Code de retrait de campagne - E·Doto Family`,
+        message: `
   <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden;">
 
     <!-- HEADER -->
@@ -168,20 +168,28 @@ await sendVerificationEmail({
 
   </div>
   `
-});
+      });
 
-  } catch (e) {
-    console.error(e);
-    throw new Error("Impossible d’envoyer le code OTP : " + e);
+    } catch (e) {
+      console.error(e);
+      throw new Error("Impossible d’envoyer le code OTP : " + e);
+    }
+
+    return {
+      id: registrationId,
+      otp, // 💡 Facultatif
+      message: "Inscription enregistrée. Un code OTP vous a été envoyé."
+    };
   }
 
-  return {
-    id: registrationId,
-    otp, // 💡 Facultatif
-    message: "Inscription enregistrée. Un code OTP vous a été envoyé."
-  };
-}
-
+  // Récupère toutes les inscriptions pour un point de retrait donné
+  async getRegistrationsByPickupCenter(pickupCenterId: number) {
+    const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+      `SELECT * FROM campaign_registrations WHERE pickup_center = ? ORDER BY created_at DESC`,
+      [pickupCenterId]
+    );
+    return rows;
+  }
 
 
   async getRegistrationsForCampaign(campaignId: number) {
@@ -239,7 +247,7 @@ await sendVerificationEmail({
     // 6) Marquer OTP comme utilisé
     await this.databaseService.getPool().query(
       `UPDATE campaign_registrations 
-       SET otp_used = 1, verified_at = NOW(), updated_at = NOW()
+       SET otp_used = 1, order_status = 'order-at-local-facility', verified_at = NOW(), updated_at = NOW()
        WHERE id = ?`,
       [registration_id]
     );
@@ -280,7 +288,7 @@ await sendVerificationEmail({
     // 4) Marquer comme retiré // 4)
     await this.databaseService.getPool().query(
       `UPDATE campaign_registrations
-       SET picked_up = 1, picked_up_at = NOW(), updated_at = NOW()
+       SET picked_up = 1, order_status = 'order-completed', picked_up_at = NOW(), updated_at = NOW()
        WHERE id = ?`,
       [registration_id]
     );

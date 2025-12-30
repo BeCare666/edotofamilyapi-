@@ -19,6 +19,7 @@ export enum PaymentGatewayType {
   PAYSTACK = 'paystack',
   FLUTTERWAVE = 'flutterwave',
   FEEXPAY = 'FEEXPAY',
+  FREE = 'FREE',
 }
 
 export enum OrderStatusType {

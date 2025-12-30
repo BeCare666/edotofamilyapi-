@@ -1,12 +1,13 @@
-import { Controller, Get, Post, Patch, Body, Param, ParseIntPipe,  UseGuards, Res, Req } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param, ParseIntPipe, UseGuards, Req } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
 import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+
 @Controller()
 export class CampaignsController {
-  constructor(private readonly campaignsService: CampaignsService) {}
+  constructor(private readonly campaignsService: CampaignsService) { }
 
   @Get('campaigns/active')
   getActive() {
@@ -22,12 +23,12 @@ export class CampaignsController {
   getById(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.getCampaignById(id);
   }
-@UseGuards(JwtAuthGuard)
-@Post('campaigns/register')
-async register(@Body() dto: RegisterDto, @Req() req) {
-  return this.campaignsService.register(dto, req.user.id);
-}
 
+  @UseGuards(JwtAuthGuard)
+  @Post('campaigns/register')
+  async register(@Body() dto: RegisterDto, @Req() req) {
+    return this.campaignsService.register(dto, req.user.id);
+  }
 
   @Post('admin/campaigns')
   create(@Body() dto: CreateCampaignDto) {
@@ -46,6 +47,14 @@ async register(@Body() dto: RegisterDto, @Req() req) {
   getRegistrations(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.getRegistrationsForCampaign(id);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Get('campaign-registrations/my')
+  async getMyRegistrations(@Req() req) {
+    // récupère les inscriptions pour le point de retrait connecté
+    return this.campaignsService.getRegistrationsByPickupCenter(req.user.id);
+  }
+
   @Post('campaigns/verify-otp')
   async verifyCampaignOtp(@Body() body: { registration_id: number; otp: string }) {
     return this.campaignsService.verifyCampaignOtp(body);
@@ -55,5 +64,4 @@ async register(@Body() dto: RegisterDto, @Req() req) {
   async markPickup(@Body() body: { registration_id: number }) {
     return this.campaignsService.markPickup(body);
   }
-
 }

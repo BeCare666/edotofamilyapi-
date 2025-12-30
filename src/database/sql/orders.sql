@@ -1,5 +1,6 @@
  
-
+ALTER TABLE orders 
+ADD COLUMN campaign_id INT NULL;
 CREATE TABLE IF NOT EXISTS orders (
   id INT PRIMARY KEY AUTO_INCREMENT,
   tracking_number VARCHAR(50) NOT NULL,

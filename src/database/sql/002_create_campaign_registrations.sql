@@ -1,3 +1,16 @@
+ ALTER TABLE campaign_registrations
+ADD COLUMN order_status ENUM(
+  'order-pending',
+  'order-processing',
+  'order-completed',
+  'order-cancelled',
+  'order-refunded',
+  'order-failed',
+  'order-at-local-facility',
+  'order-out-for-delivery'
+) NOT NULL DEFAULT 'order-pending'
+AFTER pickup_center;
+
  CREATE TABLE IF NOT EXISTS campaign_registrations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   campaign_id INT NOT NULL,

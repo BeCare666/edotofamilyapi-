@@ -10,7 +10,7 @@ export class DatabaseService {
 
   constructor() {
     this.pool = mysql.createPool({
-      host: 'shinkansen.proxy.rlwy.net',      // ✅ Host Railway
+      host: 'shinkansen.proxy.rlwy.net',      // ✅ Host Railway.
       user: 'root',                           // ✅ Utilisateur
       password: 'fVcRDGvfmnRaQKyCHSwxaTPqpvPeNNoF', // ✅ Nouveau mot de passe
       database: 'railway',                    // ✅ Base

@@ -13,32 +13,6 @@ CREATE TABLE IF NOT EXISTS users (
   shop_id INT DEFAULT NULL,
   email_verified TINYINT(1) DEFAULT 0
 );
-INSERT INTO users (
-  name,
-  email,
-  password,
-  role,
-  is_verified,
-  email_verified,
-  email_verified_at,
-  is_active,
-  shop_id,
-  created_at,
-  updated_at
-)
-VALUES (
-  'edotofamily',
-  'hinlintransfert4@gmail.com',
-  '$2b$10$mtPsMycP/lHTte/MKkdaNu2X3CHo4jPWVjUWYmbgoH/c8/LVFvBSq',
-  'super_admin',
-  1,
-  1,
-  NOW(),
-  1,
-  1, -- ✅ shop_id NON NULL
-  NOW(),
-  NOW()
-);
 
 
 
