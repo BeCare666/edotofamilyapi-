@@ -1,6 +1,3 @@
- 
-ALTER TABLE orders 
-ADD COLUMN campaign_id INT NULL;
 CREATE TABLE IF NOT EXISTS orders (
   id INT PRIMARY KEY AUTO_INCREMENT,
   tracking_number VARCHAR(50) NOT NULL,
@@ -18,6 +15,7 @@ CREATE TABLE IF NOT EXISTS orders (
   otp_expires_at DATETIME DEFAULT NULL,
   otp_attempts INT DEFAULT 0,
   pickup_point_id INT DEFAULT NULL,
+  campaign_id INT NULL,
   cancelled_amount DECIMAL(10,2) DEFAULT 0,
   cancelled_tax DECIMAL(10,2) DEFAULT 0,
   cancelled_delivery_fee DECIMAL(10,2) DEFAULT 0,

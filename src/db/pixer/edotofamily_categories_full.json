@@ -25,14 +25,6 @@
       "icon": "https://img.icons8.com/fluency/48/car.png"
     },
     {
-      "id": 4,
-      "name": "Soins",
-      "slug": "soins",
-      "language": "fr",
-      "parent": null,
-      "icon": "https://img.icons8.com/fluency/48/coal.png"
-    },
-    {
       "id": 5,
       "name": "Bien-être",
       "slug": "bien-etre",

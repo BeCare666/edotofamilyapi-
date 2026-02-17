@@ -1,8 +1,0 @@
-    {
-      "id": 19,
-      "name": "FABRICATION DE PRODUITS D’ORIGINE",
-      "slug": "fabrication-de-produits-d-origine",
-      "language": "fr",
-      "parent": null,
-      "icon": "https://img.icons8.com/fluency/48/product.png"
-    },

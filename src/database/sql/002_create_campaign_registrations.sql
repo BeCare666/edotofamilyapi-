@@ -1,17 +1,4 @@
- ALTER TABLE campaign_registrations
-ADD COLUMN order_status ENUM(
-  'order-pending',
-  'order-processing',
-  'order-completed',
-  'order-cancelled',
-  'order-refunded',
-  'order-failed',
-  'order-at-local-facility',
-  'order-out-for-delivery'
-) NOT NULL DEFAULT 'order-pending'
-AFTER pickup_center;
-
- CREATE TABLE IF NOT EXISTS campaign_registrations (
+CREATE TABLE IF NOT EXISTS campaign_registrations (
   id INT AUTO_INCREMENT PRIMARY KEY,
   campaign_id INT NOT NULL,
   full_name VARCHAR(255) NOT NULL,
@@ -24,6 +11,16 @@ AFTER pickup_center;
   picked_up TINYINT(1) DEFAULT 0,
   picked_up_at DATETIME NULL,
   pickup_center VARCHAR(255) NOT NULL,
+  order_status ENUM(
+  'order-pending',
+  'order-processing',
+  'order-completed',
+  'order-cancelled',
+  'order-refunded',
+  'order-failed',
+  'order-at-local-facility',
+  'order-out-for-delivery'
+) NOT NULL DEFAULT 'order-pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE

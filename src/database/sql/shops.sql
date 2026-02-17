@@ -8,7 +8,10 @@ CREATE TABLE IF NOT EXISTS shops (
 
   is_active BOOLEAN NOT NULL DEFAULT FALSE,                    -- statut actif ou non
   rating FLOAT DEFAULT 0,                                      -- note du shop pour topShops
-
+  address JSON NULL,
+  documents JSON NULL,
+  bank JSON NULL,
+  raw_payload JSON NULL,
   -- Adresse simple (pas d'entité séparée)
   zip VARCHAR(20),
   city VARCHAR(100),
@@ -65,7 +68,7 @@ INSERT INTO shops (
 )
 VALUES (
   1,                      -- ✅ ID du shop
-  23,                     -- ✅ owner_id
+  1,                     -- ✅ owner_id
   'Edoto Family Shop',
   'edoto-family-shop',
   'Boutique officielle Edoto Family',

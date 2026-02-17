@@ -37,7 +37,7 @@ INSERT INTO users (
 )
 VALUES (
   'edotofamily',
-  'hinlintransfert4@gmail.com',
+  'edotofamily@gmail.com',
   '$2b$10$mtPsMycP/lHTte/MKkdaNu2X3CHo4jPWVjUWYmbgoH/c8/LVFvBSq',
   'super_admin',
   1,

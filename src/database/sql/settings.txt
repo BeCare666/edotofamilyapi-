@@ -141,7 +141,7 @@ INSERT INTO users
 VALUES
   (
     'edotofamily',
-    'hinlintransfert4@gmail.com',
+    'edotofamily@gmail.com',
     '$2b$10$qlSKGExI7fzY7deGLaBCQOXrQIBYywqYLfUkyxaivBg.xU.w8okyi',
     1,
     NOW(),
@@ -152,7 +152,7 @@ VALUES
     1
   );
 
-  INSERT INTO campaigns 
+INSERT INTO campaigns 
 (title, description, image_url, location, date_start, date_end, status, objective_kits, distributed_kits)
 VALUES
 -- 🟢 Campagne EN COURS
@@ -232,3 +232,56 @@ VALUES
 ('Point de Retrait Sainte-Rita', 'pickup.sainte.rita@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
 ('Point de Retrait Kouhounou', 'pickup.kouhounou@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW()),
 ('Point de Retrait Agla Petit Paris', 'pickup.agla.petitparis@edoto.bj', '$2b$10$Tqk5EONosFVJeFt3PcTUEewrGHPaKjCY/jqNxC34HIJVBb4f4O/nW', 'super_pickuppoint', FALSE, 0, NULL, 1, NULL, NOW(), NOW());
+
+
+INSERT INTO shops (
+  owner_id,
+  name,
+  slug,
+  description,
+  is_active,
+  rating,
+  zip,
+  city,
+  state,
+  country,
+  street_address,
+  contact,
+  website,
+  location,
+  cover_image_id,
+  logo_image_id,
+  orders_count,
+  products_count,
+  wallet_balance,
+  created_at,
+  updated_at
+)
+VALUES
+(
+  1,
+  'edoto family',
+  'edoto family',
+  'La plateforme web officielle de edoto family.',
+  TRUE,
+  0,
+  'BP 12345',
+  'Cotonou',
+  'Littoral',
+  'Bénin',
+  'Akpakpa Kpondéhou',
+  '+2200167698191',
+  'https://edotofamily.com',
+  JSON_OBJECT(
+    'latitude', 4.0511,
+    'longitude', 9.7679,
+    'formatted_address', 'Cotonou, Littoral, Bénin'
+  ),
+  NULL,
+  NULL,
+  0,
+  0,
+  0.00,
+  NOW(),
+  NOW()
+);

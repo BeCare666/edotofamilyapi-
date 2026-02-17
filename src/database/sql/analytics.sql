@@ -8,11 +8,11 @@ CREATE TABLE IF NOT EXISTS analytics (
     totalOrders INT NOT NULL DEFAULT 0,
     newCustomers INT NOT NULL DEFAULT 0,
     shop_id INT DEFAULT NULL,
-    totalYearSaleByMonth JSON NOT NULL DEFAULT ('[]'),
-    todayTotalOrderByStatus JSON NOT NULL DEFAULT ('{}'),
-    weeklyTotalOrderByStatus JSON NOT NULL DEFAULT ('{}'),
-    monthlyTotalOrderByStatus JSON NOT NULL DEFAULT ('{}'),
-    yearlyTotalOrderByStatus JSON NOT NULL DEFAULT ('{}'),
+    totalYearSaleByMonth JSON NULL,
+    todayTotalOrderByStatus JSON NULL,
+    weeklyTotalOrderByStatus JSON NULL,
+    monthlyTotalOrderByStatus JSON NULL,
+    yearlyTotalOrderByStatus JSON NULL,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP

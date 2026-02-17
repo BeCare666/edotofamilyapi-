@@ -259,25 +259,152 @@ export class ShopsService {
   // --- UPDATE SHOP ---
   async update(id: number, updateShopDto: UpdateShopDto): Promise<Shop> {
     const pool = this.DatabaseService.getPool();
-    const fieldsToUpdate: string[] = [];
-    const params: any[] = [];
+    const connection = await pool.getConnection();
+    await connection.beginTransaction();
 
-    for (const [key, value] of Object.entries(updateShopDto)) {
-      fieldsToUpdate.push(`${key} = ?`);
-      params.push(value);
+    try {
+      const fieldsToUpdate: string[] = [];
+      const params: any[] = [];
+
+      const {
+        cover_image,
+        logo_image,
+        address,
+        location,
+        documents,
+        bank,
+        raw_payload,
+        ...rest
+      } = updateShopDto as any;
+
+      // =====================================================
+      // COVER IMAGE — logique identique registerVendor
+      // =====================================================
+      if (cover_image !== undefined) {
+        if (cover_image?.url) {
+          const [cover]: any = await connection.query(
+            `INSERT INTO media
+           (user_id, url, \`key\`, mime_type, size, original_name, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+              cover_image.user_id ?? null,
+              cover_image.url,
+              cover_image.key ?? "",
+              cover_image.mimeType ?? "",
+              cover_image.size ?? 0,
+              cover_image.originalName ?? "",
+            ],
+          );
+
+          fieldsToUpdate.push(`cover_image_id = ?`);
+          params.push(cover.insertId);
+        } else if (cover_image === null) {
+          fieldsToUpdate.push(`cover_image_id = NULL`);
+        }
+      }
+
+      // =====================================================
+      // LOGO IMAGE — logique identique registerVendor
+      // =====================================================
+      if (logo_image !== undefined) {
+        if (logo_image?.url) {
+          const [logo]: any = await connection.query(
+            `INSERT INTO media
+           (user_id, url, \`key\`, mime_type, size, original_name, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+              logo_image.user_id ?? null,
+              logo_image.url,
+              logo_image.key ?? "",
+              logo_image.mimeType ?? "",
+              logo_image.size ?? 0,
+              logo_image.originalName ?? "",
+            ],
+          );
+
+          fieldsToUpdate.push(`logo_image_id = ?`);
+          params.push(logo.insertId);
+        } else if (logo_image === null) {
+          fieldsToUpdate.push(`logo_image_id = NULL`);
+        }
+      }
+
+      // =====================================================
+      // JSON fields — même logique que create
+      // =====================================================
+      if (address !== undefined) {
+        fieldsToUpdate.push(`address = ?`);
+        params.push(JSON.stringify(address));
+      }
+
+      if (location !== undefined) {
+        fieldsToUpdate.push(`location = ?`);
+        params.push(JSON.stringify(location));
+      }
+
+      if (documents !== undefined) {
+        fieldsToUpdate.push(`documents = ?`);
+        params.push(JSON.stringify(documents));
+      }
+
+      if (bank !== undefined) {
+        fieldsToUpdate.push(`bank = ?`);
+        params.push(JSON.stringify(bank));
+      }
+
+      if (raw_payload !== undefined) {
+        fieldsToUpdate.push(`raw_payload = ?`);
+        params.push(JSON.stringify(raw_payload));
+      }
+
+      // =====================================================
+      // Champs simples — uniquement colonnes réelles
+      // ===========================================================
+      const allowedFields = [
+        "name",
+        "slug",
+        "description",
+        "contact",
+        "website",
+        "zip",
+        "city",
+        "state",
+        "country",
+        "street_address",
+        "is_active",
+        "rating"
+      ];
+
+      for (const [key, value] of Object.entries(rest)) {
+        if (allowedFields.includes(key)) {
+          fieldsToUpdate.push(`${key} = ?`);
+          params.push(value);
+        }
+      }
+
+      // =====================================================
+      // EXECUTE UPDATE
+      // =====================================================
+      if (fieldsToUpdate.length > 0) {
+        fieldsToUpdate.push(`updated_at = NOW()`);
+        params.push(id);
+
+        await connection.query(
+          `UPDATE shops SET ${fieldsToUpdate.join(", ")} WHERE id = ?`,
+          params
+        );
+      }
+
+      await connection.commit();
+      connection.release();
+
+      return this.getShopById(id);
+
+    } catch (err) {
+      await connection.rollback();   
+      connection.release();
+      throw err;
     }
-
-    if (fieldsToUpdate.length > 0) {
-      fieldsToUpdate.push('updated_at = NOW()');
-      params.push(id);
-
-      await pool.query(
-        `UPDATE shops SET ${fieldsToUpdate.join(', ')} WHERE id = ?`,
-        params
-      );
-    }
-
-    return this.getShopById(id);
   }
 
   // --- REMOVE SHOP ---
