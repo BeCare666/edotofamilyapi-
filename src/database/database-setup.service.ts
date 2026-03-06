@@ -83,14 +83,14 @@ export class DatabaseSetupService implements OnModuleInit {
       'withdrawals.sql',
       'pending_payments.sql',
       '001_create_campaigns.sql',
-      '002_create_campaign_registrations.sql'    
+      '002_create_campaign_registrations.sql'
     ];
 
     for (const file of files) {
       const filePath = join(sqlFolder, file);
 
       if (!existsSync(filePath)) {
-        console.warn(`⚠️ Fichier manquant: ${file}`);   
+        console.warn(`⚠️ Fichier manquant: ${file}`);
         continue;
       }
 

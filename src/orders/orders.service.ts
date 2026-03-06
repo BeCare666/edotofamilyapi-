@@ -222,7 +222,7 @@ export class OrdersService {
   // Vérifie l'OTP et marque la commande comme livrée si ok
   async verifyOtp(dto: VerifyOtpDto, user: { id: number; permissions: string }) {
     const pool = this.databaseService.getPool();
-console.log("user a verifié", user)
+    console.log("user a verifié", user)
     // Récupérer l'order par id et otp_code
     const [rows]: any = await pool.query(
       `SELECT id, otp_code, otp_used, pickup_point_id, order_status
@@ -318,12 +318,12 @@ console.log("user a verifié", user)
   // =========================
 
 
-// 📌 STATS PICKUP POINT
-async getPickupStats(pickupPointId: number) {
-  const pool = this.databaseService.getPool();
+  // 📌 STATS PICKUP POINT
+  async getPickupStats(pickupPointId: number) {
+    const pool = this.databaseService.getPool();
 
-  const [rows]: any = await pool.query(
-    `
+    const [rows]: any = await pool.query(
+      `
     SELECT 
       COUNT(*) AS total,
       SUM(order_status = 'order-completed') AS completed,
@@ -331,30 +331,30 @@ async getPickupStats(pickupPointId: number) {
     FROM orders
     WHERE pickup_point_id = ? AND is_archived = 0
     `,
-    [pickupPointId]
-  );
+      [pickupPointId]
+    );
 
-  return {
-    total: rows[0].total ?? 0,
-    completed: rows[0].completed ?? 0,
-    pending: rows[0].pending ?? 0,
-  };
-}
-
-
-async getStats(user) {
-  const pool = this.databaseService.getPool();
-
-  let where = `WHERE is_archived = 0`;
-  const params = [];
-
-  if (user.permissions?.includes('super_pickuppoint')) {
-    where += ` AND pickup_point_id = ?`;
-    params.push(user.id);
+    return {
+      total: rows[0].total ?? 0,
+      completed: rows[0].completed ?? 0,
+      pending: rows[0].pending ?? 0,
+    };
   }
 
-  const [statsRows]: any = await pool.query(
-    `
+
+  async getStats(user) {
+    const pool = this.databaseService.getPool();
+
+    let where = `WHERE is_archived = 0`;
+    const params = [];
+
+    if (user.permissions?.includes('super_pickuppoint')) {
+      where += ` AND pickup_point_id = ?`;
+      params.push(user.id);
+    }
+
+    const [statsRows]: any = await pool.query(
+      `
     SELECT
       COUNT(*) AS total_orders,
       SUM(order_status = 'order-completed') AS validated_orders,
@@ -363,167 +363,174 @@ async getStats(user) {
     FROM orders
     ${where}
     `,
-    params
-  );
+      params
+    );
 
-  const stats = statsRows[0];
-  return stats;
-}
+    const stats = statsRows[0];
+    return stats;
+  }
 
-async archiveOrder(orderId: number, user) {
-  const pool = this.databaseService.getPool();
+  async archiveOrder(orderId: number, user) {
+    const pool = this.databaseService.getPool();
 
-  // Sécurité PickupPoint 
-  //Sécurité PickupPoint
-  if (user.permissions?.includes('super_pickuppoint')) {
-    const [orderRows]: any = await pool.query(
-      `SELECT pickup_point_id FROM orders WHERE id = ?`,
+    // Sécurité PickupPoint 
+    //Sécurité PickupPoint
+    if (user.permissions?.includes('super_pickuppoint')) {
+      const [orderRows]: any = await pool.query(
+        `SELECT pickup_point_id FROM orders WHERE id = ?`,
+        [orderId]
+      );
+
+      const order = orderRows[0];
+
+      if (!order || order.pickup_point_id !== user.id) {
+        throw new ForbiddenException("Vous ne pouvez pas archiver cette commande");
+      }
+    }
+
+    await pool.query(
+      `UPDATE orders SET is_archived = 1 WHERE id = ?`,
       [orderId]
     );
 
-    const order = orderRows[0];
+    return { message: "Commande archivée" };
+  }
 
-    if (!order || order.pickup_point_id !== user.id) {
-      throw new ForbiddenException("Vous ne pouvez pas archiver cette commande");
+  async unarchiveOrder(orderId: number) {
+    const pool = this.databaseService.getPool();
+
+    await pool.query(
+      `UPDATE orders SET is_archived = 0 WHERE id = ?`,
+      [orderId]
+    );
+
+    return { message: "Commande restaurée" };
+  }
+
+  async getNewOrders(user) {
+    const pool = this.databaseService.getPool();
+
+    const where = [`is_archived = 0`, `order_status != 'order-completed'`];
+    const params = [];
+
+    if (user.permissions === "super_pickuppoint") {
+      where.push(`pickup_point_id = ?`);
+      params.push(user.id);
     }
-  }
 
-  await pool.query(
-    `UPDATE orders SET is_archived = 1 WHERE id = ?`,
-    [orderId]
-  );
-
-  return { message: "Commande archivée" };
-}
-
-async unarchiveOrder(orderId: number) {
-  const pool = this.databaseService.getPool();
-
-  await pool.query(
-    `UPDATE orders SET is_archived = 0 WHERE id = ?`,
-    [orderId]
-  );
-
-  return { message: "Commande restaurée" };
-}
-
-async getNewOrders(user) {
-  const pool = this.databaseService.getPool();
-
-  const where = [`is_archived = 0`, `order_status != 'order-completed'`];
-  const params = [];
-
-  if (user.permissions === "super_pickuppoint") {
-    where.push(`pickup_point_id = ?`);
-    params.push(user.id);
-  }
-
-  const [rows]: any = await pool.query(
-    `SELECT * FROM orders 
+    const [rows]: any = await pool.query(
+      `SELECT * FROM orders 
      WHERE ${where.join(" AND ")} 
      ORDER BY created_at DESC 
      LIMIT 20`,
-    params
-  );
+      params
+    );
 
-  return rows;
-}
+    return rows;
+  }
 
 
-// 📌 GET ORDERS (pickup + user normal)
-// Compatible MySQL + pool.query
-async getOrders(query: GetOrdersDto, user) {
-  const pool = this.databaseService.getPool();
+  // 📌 GET ORDERS (pickup + user normal)
+  // Compatible MySQL + pool.query
+  async getOrders(query: GetOrdersDto, user) {
+    const pool = this.databaseService.getPool();
 
-  const {
-    limit = 15,
-    page = 1,
-    search,
-    customer_id,
-    pickup_point_id,
-    orderBy = 'created_at',
-    sortedBy = 'DESC',
-  } = query;
+    const {
+      limit = 15,
+      page = 1,
+      search,
+      customer_id,
+      pickup_point_id,
+      orderBy = 'created_at',
+      sortedBy = 'DESC',
+    } = query;
 
-  const offset = (page - 1) * limit;
+    const offset = (page - 1) * limit;
 
-  // ----------------------------
-  // 🔐 Sécurité PickupPoint
-  // ----------------------------
-  if (user.permissions === 'super_pickuppoint') {
-    if (+pickup_point_id !== user.id) {
-      throw new ForbiddenException("Vous ne pouvez accéder qu'à vos commandes");
+    // ----------------------------
+    // 🔐 Sécurité PickupPoint
+    // ----------------------------
+    if (user.permissions === 'super_pickuppoint') {
+      if (+pickup_point_id !== user.id) {
+        throw new ForbiddenException("Vous ne pouvez accéder qu'à vos commandes");
+      }
     }
-  }
 
-  // ----------------------------
-  // 🔥 Base Query
-  // ----------------------------
-  let sql = `SELECT * FROM orders`;
-  const params: any[] = [];
+    // ----------------------------
+    // 🔥 Base Query
+    // ----------------------------
+    let sql = `SELECT * FROM orders`;
+    const params: any[] = [];
 
-  const where: string[] = [`is_archived = 0`];  // 👈 support archive
+    const where: string[] = [`is_archived = 0`];  // 👈 support archive
 
-  // Client filter
-  if (customer_id) {
-    where.push(`customer_id = ?`);
-    params.push(customer_id);
-  }
+    // Client filter
+    if (customer_id) {
+      where.push(`customer_id = ?`);
+      params.push(customer_id);
+    }
 
-  // PickupPoint filter
-  if (pickup_point_id) {
-    where.push(`pickup_point_id = ?`);
-    params.push(pickup_point_id);
-  }
+    // PickupPoint filter
+    if (pickup_point_id) {
+      where.push(`pickup_point_id = ?`);
+      params.push(pickup_point_id);
+    }
 
-  // Search filter
-  if (search) {
-    where.push(`(
+    // Search filter
+    if (search) {
+      where.push(`(
       tracking_number LIKE ?
       OR otp_code LIKE ?
       OR customer_name LIKE ?
       OR customer_contact LIKE ?
     )`);
-    params.push(
-      `%${search}%`,
-      `%${search}%`,
-      `%${search}%`,
-      `%${search}%`
+      params.push(
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`,
+        `%${search}%`
+      );
+    }
+
+    if (where.length > 0) {
+      sql += ` WHERE ` + where.join(' AND ');
+    }
+
+    // whitelist ORDER BY
+    const allowedOrder = {
+      created_at: 'created_at',
+      total: 'total',
+      updated_at: 'updated_at'
+    };
+    const safeOrderBy = allowedOrder[orderBy] || 'created_at';
+
+    sql += ` ORDER BY ${safeOrderBy} ${sortedBy} LIMIT ? OFFSET ?`;
+    params.push(Number(limit), Number(offset));
+
+    const [rows]: any = await pool.query(sql, params);
+
+    // COUNT
+    let countSql = `SELECT COUNT(*) as total FROM orders WHERE ${where.join(' AND ')}`;
+    const [count]: any = await pool.query(countSql, params.slice(0, params.length - 2));
+
+    return {
+      data: rows,
+      total: count[0].total,
+      page,
+      last_page: Math.ceil(count[0].total / limit),
+      next_page_url: page < Math.ceil(count[0].total / limit),
+      prev_page_url: page > 1,
+    };
+  }
+
+  // orders.service.ts
+  async updateDeliveryLocation(orderId: number, lat: number, lng: number) {
+    const pool = this.databaseService.getPool();
+    await pool.query(
+      `UPDATE orders SET delivery_type='CUSTOM', delivery_lat=?, delivery_lng=? WHERE id=?`,
+      [lat, lng, orderId]
     );
   }
-
-  if (where.length > 0) {
-    sql += ` WHERE ` + where.join(' AND ');
-  }
-
-  // whitelist ORDER BY
-  const allowedOrder = {
-    created_at: 'created_at',
-    total: 'total',
-    updated_at: 'updated_at'
-  };
-  const safeOrderBy = allowedOrder[orderBy] || 'created_at';
-
-  sql += ` ORDER BY ${safeOrderBy} ${sortedBy} LIMIT ? OFFSET ?`;
-  params.push(Number(limit), Number(offset));
-
-  const [rows]: any = await pool.query(sql, params);
-
-  // COUNT
-  let countSql = `SELECT COUNT(*) as total FROM orders WHERE ${where.join(' AND ')}`;
-  const [count]: any = await pool.query(countSql, params.slice(0, params.length - 2));
-
-  return {
-    data: rows,
-    total: count[0].total,
-    page,
-    last_page: Math.ceil(count[0].total / limit),
-    next_page_url: page < Math.ceil(count[0].total / limit),
-    prev_page_url: page > 1,
-  };
-}
-
-
   async getOrderByIdOrTrackingNumber(idOrTracking: string | number): Promise<Order | null> {
     console.log('DEBUG >>> Fonction appelée avec idOrTracking =', idOrTracking);
     const pool = this.databaseService.getPool();

@@ -23,7 +23,15 @@ export class CampaignsController {
   getById(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.getCampaignById(id);
   }
+  @Get('campaigns/active/city/:city')
+  getActiveByCity(@Param('city') city: string) {
+    return this.campaignsService.getActiveCampaignByCity(city);
+  }
 
+  @Get('campaigns/active/count')
+  getActiveCount() {
+    return this.campaignsService.getActiveCampaignsCount();
+  }
   @UseGuards(JwtAuthGuard)
   @Post('campaigns/register')
   async register(@Body() dto: RegisterDto, @Req() req) {

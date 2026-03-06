@@ -12,10 +12,10 @@ export class CampaignsService {
 
   async getActiveCampaign() {
     const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-      `SELECT * FROM campaigns WHERE status = 'en_cours' ORDER BY date_start DESC LIMIT 1`
+      `SELECT * FROM campaigns WHERE status = 'en_cours' ORDER BY date_start DESC`
     );
     if (!rows.length) return null;
-    return rows[0];
+    return rows;
   }
 
   async getUpcomingCampaigns() {
@@ -24,7 +24,26 @@ export class CampaignsService {
     );
     return rows;
   }
+  async getActiveCampaignsCount() {
+    const [rows]: [RowDataPacket[], any] =
+      await this.databaseService.getPool().query(
+        `SELECT COUNT(*) as total FROM campaigns WHERE status='en_cours'`
+      );
 
+    return rows[0];
+  }
+  async getActiveCampaignByCity(city: string) {
+    const [rows]: [RowDataPacket[], any] =
+      await this.databaseService.getPool().query(
+        `SELECT * FROM campaigns 
+       WHERE status = 'en_cours' 
+       AND LOWER(location) = LOWER(?) 
+       ORDER BY date_start DESC`,
+        [city]
+      );
+
+    return rows;
+  }
   async getCampaignById(id: number) {
     const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
       `SELECT * FROM campaigns WHERE id = ?`,

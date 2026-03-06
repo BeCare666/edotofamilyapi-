@@ -15,6 +15,10 @@ CREATE TABLE IF NOT EXISTS orders (
   otp_expires_at DATETIME DEFAULT NULL,
   otp_attempts INT DEFAULT 0,
   pickup_point_id INT DEFAULT NULL,
+  delivery_type ENUM('PICKUP','CUSTOM') DEFAULT 'PICKUP',
+  pickup_user_id INT NULL,          
+ delivery_lat DECIMAL(10,8) NULL,  
+  delivery_lng DECIMAL(11,8) NULL,
   campaign_id INT NULL,
   cancelled_amount DECIMAL(10,2) DEFAULT 0,
   cancelled_tax DECIMAL(10,2) DEFAULT 0,
@@ -73,7 +77,7 @@ CREATE TABLE IF NOT EXISTS orders (
   ) DEFAULT 'payment-pending',
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-
+FOREIGN KEY (pickup_point_id) REFERENCES users(id),
   FOREIGN KEY (customer_id) REFERENCES users(id),
   FOREIGN KEY (parent_id) REFERENCES orders(id),
   FOREIGN KEY (shop_id) REFERENCES shops(id)
