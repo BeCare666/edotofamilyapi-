@@ -17,13 +17,14 @@ async function bootstrap() {
   // Applique les validations DTO globalement
   app.useGlobalPipes(new ValidationPipe());
 
-  // Logger simple pour Render (optionnel)
+  // Logger simple pour Render (optionnel)   
   app.use((req, res, next) => {
     console.log(`📥 ${req.method} ${req.url}`);
     next();
   });
 
   // Swagger config (peut être désactivée en prod si souhaité)
+  //
   if (process.env.NODE_ENV !== 'production') {
     const config = new DocumentBuilder()
       .setTitle('edoto family')
