@@ -93,7 +93,17 @@ export class CampaignsService {
       [dto.campaign_id]
     );
     if (!rows.length) throw new NotFoundException('Campagne introuvable');
+    // Récupérer le nom du centre de retrait
+    const [center]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+      `SELECT name FROM users WHERE id = ?`,
+      [dto.pickup_center]
+    );
 
+    if (!center.length) {
+      throw new NotFoundException("Centre de retrait introuvable");
+    }
+
+    const pickupCenterName = center[0].name;
     // 2) Récup user
     const [user]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
       `SELECT name, email FROM users WHERE id = ?`,
@@ -164,7 +174,7 @@ export class CampaignsService {
         Vous êtes inscrit la campagne de kits SSR. </strong>.<br/>
         Pour retirer votre kit gratuit, rendez-vous au point de retrait :
         <br/><br/>
-        <strong style="color:#FF6EA9; font-size:16px;">${dto.pickup_center}</strong>
+        <strong style="color:#FF6EA9; font-size:16px;">${pickupCenterName}</strong>
       </p>
 
       <div style="font-size: 28px; font-weight: 700; color: #FF6EA9; margin: 30px 0; background: #FFF0F5; padding: 14px 24px; border-radius: 12px;">
