@@ -145,8 +145,8 @@ export class AuthService {
   }
 
   async registerPickUpPoint(createUserInput: RegisterDto): Promise<AuthResponse> {
-    const { name, email, password } = createUserInput;
-
+    const { name, email, password, pickup_lat, pickup_lng, pickup_address } = createUserInput;
+    console.log("Registering pickup point with data:", { name, email, pickup_lat, pickup_lng, pickup_address });
     // Vérifier si l'utilisateur existe déjà
     const [existing]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
       'SELECT id FROM users WHERE email = ?',
@@ -240,18 +240,21 @@ export class AuthService {
     // Insertion en base avec le rôle super_pickuppoint
     await this.DatabaseService.query(
       `INSERT INTO users 
-    (name, email, password, role, is_verified, email_verified, email_verified_at, is_active, shop_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    (name, email, password, role, is_verified, email_verified, email_verified_at, is_active, shop_id, pickup_lat, pickup_lng, pickup_address, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         name,
         email,
         hashedPassword,
-        'super_pickuppoint', // rôle
+        'super_pickuppoint',
         false,
         0,
         null,
         1,
-        null
+        null,
+        pickup_lat || null,
+        pickup_lng || null,
+        pickup_address || null
       ]
     );
 

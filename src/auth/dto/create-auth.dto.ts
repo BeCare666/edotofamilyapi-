@@ -11,7 +11,7 @@ enum Permission {
 }
 
 // --------- AUTH ---------
-export class RegisterDto extends PickType(User, ['name', 'email', 'password']) {
+export class RegisterDto extends PickType(User, ['name', 'email', 'password', 'pickup_lat', 'pickup_lng', 'pickup_address']) {
   permission: Permission = Permission.CUSTOMER;
 }
 

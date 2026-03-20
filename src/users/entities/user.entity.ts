@@ -15,6 +15,9 @@ export class User extends CoreEntity {
   address?: Address[];
   permissions?: Permission[];
   // orders?: Order[];
+  pickup_address?: string;
+  pickup_lng?: number;
+  pickup_lat?: number;
   wallet?: any;
 }
 
