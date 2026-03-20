@@ -146,7 +146,7 @@ export class AuthService {
 
   async registerPickUpPoint(createUserInput: RegisterDto): Promise<AuthResponse> {
     const { name, email, password, pickup_lat, pickup_lng, pickup_address } = createUserInput;
-    console.log("Registering pickup point with data:", { name, email, pickup_lat, pickup_lng, pickup_address });
+    //console.log("Registering pickup point with data:", { name, email, pickup_lat, pickup_lng, pickup_address });
     // Vérifier si l'utilisateur existe déjà
     const [existing]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
       'SELECT id FROM users WHERE email = ?',
