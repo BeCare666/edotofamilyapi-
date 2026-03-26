@@ -108,7 +108,7 @@ export class AuthService {
     <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
       <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
         © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
-        <a href="https://edotofamily.netlify.app" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
+        <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
       </p>
     </div>
   </div>
@@ -157,7 +157,7 @@ export class AuthService {
       throw new ForbiddenException('Cet utilisateur existe déjà.');
     }
 
-    // Hash du mot de passe
+    // Hash du mot de passe.
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Génération du token
@@ -225,7 +225,7 @@ export class AuthService {
     <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
       <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
         © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
-        <a href="https://edotofamily.netlify.app" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
+        <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
       </p>
     </div>
   </div>
@@ -616,7 +616,7 @@ export class AuthService {
     <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
       <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
         © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
-        <a href="https://edotofamily.netlify.app" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
+        <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
       </p>
     </div>
 

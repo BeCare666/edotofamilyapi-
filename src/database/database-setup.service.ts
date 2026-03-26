@@ -83,7 +83,8 @@ export class DatabaseSetupService implements OnModuleInit {
       'withdrawals.sql',
       'pending_payments.sql',
       '001_create_campaigns.sql',
-      '002_create_campaign_registrations.sql'
+      '002_create_campaign_registrations.sql',
+      'campaign_sponsors.sql'
     ];
 
     for (const file of files) {

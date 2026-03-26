@@ -19,7 +19,6 @@
     },
     "incremental": true,
     "skipLibCheck": true,
-    // ✅ Ajoute ces deux lignes
     "strictNullChecks": false,
     "noImplicitAny": false
   }

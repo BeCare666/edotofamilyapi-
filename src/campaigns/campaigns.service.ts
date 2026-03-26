@@ -5,7 +5,7 @@ import { CreateCampaignDto } from './dto/create-campaign.dto';
 import { UpdateStatusDto } from './dto/update-status.dto';
 import { RegisterDto } from './dto/register.dto';
 import { sendVerificationEmail } from '../auth/mailer';
-
+import { randomBytes } from 'crypto';
 @Injectable()
 export class CampaignsService {
   constructor(private readonly databaseService: DatabaseService) { }
@@ -44,6 +44,47 @@ export class CampaignsService {
 
     return rows;
   }
+  async getCampaignByAccessCode(code: string) {
+    const [rows]: [RowDataPacket[], any] =
+      await this.databaseService.getPool().query(
+        `SELECT c.*, s.name as sponsor_name, s.amount
+       FROM campaign_sponsors s
+       JOIN campaigns c ON c.id = s.campaign_id
+       WHERE s.access_code = ?`,
+        [code]
+      );
+
+    if (!rows.length) {
+      throw new NotFoundException("Accès invalide");
+    }
+
+    return rows[0];
+  }
+
+  async getAllCampaigns(page = 1, limit = 10, orderBy = 'created_at', sortedBy: 'ASC' | 'DESC' = 'DESC') {
+  const offset = (page - 1) * limit;
+
+  const [rows]: [RowDataPacket[], any] =
+    await this.databaseService.getPool().query(
+      `SELECT * FROM campaigns 
+       ORDER BY ${orderBy} ${sortedBy}
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+  const [count]: [RowDataPacket[], any] =
+    await this.databaseService.getPool().query(
+      `SELECT COUNT(*) as total FROM campaigns`
+    );
+
+  return {
+    data: rows,
+    total: count[0].total,
+    currentPage: page,
+    perPage: limit
+  };
+}
+  // get campaign by id
   async getCampaignById(id: number) {
     const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
       `SELECT * FROM campaigns WHERE id = ?`,
@@ -53,12 +94,13 @@ export class CampaignsService {
     return rows[0];
   }
 
+
   async createCampaign(dto: CreateCampaignDto) {
     try {
       const [result]: any = await this.databaseService.getPool().query(
         `INSERT INTO campaigns
-        (title, description, image_url, location, date_start, date_end, status, objective_kits)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      (title, description, image_url, location, date_start, date_end, status, objective_kits)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           dto.title,
           dto.description ?? null,
@@ -70,12 +112,162 @@ export class CampaignsService {
           dto.objective_kits ?? 0
         ]
       );
-      return { id: result.insertId, message: 'Campagne créée.' };
+
+      const campaignId = result.insertId;
+
+      // 👉 Sponsors
+      if (Array.isArray(dto.sponsors) && dto.sponsors.length > 0) {
+        for (const sponsor of dto.sponsors) {
+          if (!sponsor?.email || !sponsor?.name) continue;
+
+          const accessCode = randomBytes(16).toString('hex');
+
+          await this.databaseService.getPool().query(
+            `INSERT INTO campaign_sponsors 
+          (campaign_id, name, email, amount, access_code)
+          VALUES (?, ?, ?, ?, ?)`,
+            [
+              campaignId,
+              sponsor.name,
+              sponsor.email,
+              sponsor.amount ?? 0,
+              accessCode
+            ]
+          );
+
+          // 👉 Email (ne bloque pas si erreur)
+          try {
+            await sendVerificationEmail({
+              email: sponsor.email,
+              subject: `Accès sponsor – ${dto.title}`,
+              message: this.buildSponsorEmail({
+                name: sponsor.name,
+                campaignTitle: dto.title,
+                amount: sponsor.amount,
+                accessCode
+              })
+            });
+          } catch (e) {
+            console.error("Erreur email sponsor:", e);
+          }
+        }
+      }
+
+      return {
+        id: campaignId,
+        message: 'Campagne créée avec succès.'
+      };
+
     } catch (error) {
-      throw new InternalServerErrorException('Erreur lors de la création de la campagne');
+      throw new InternalServerErrorException(
+        'Erreur lors de la création de la campagne'
+      );
     }
   }
+  buildSponsorEmail({ name, campaignTitle, amount, accessCode }) {
+    return `
+  <div style="font-family: Inter, Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
+    
+    <div style="max-width:620px;margin:auto;background:#ffffff;border-radius:16px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.05);">
 
+      <!-- HEADER -->
+      <div style="background:linear-gradient(135deg,#fff5f8,#ffe4ef);padding:30px;text-align:center;">
+        <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" style="height:70px;margin-bottom:10px;" />
+        <h1 style="color:#FF6EA9;font-size:22px;margin:0;">Accès Sponsor</h1>
+      </div>
+
+      <!-- CONTENT -->
+      <div style="padding:35px 30px;text-align:center;">
+        
+        <h2 style="color:#111827;font-size:20px;">
+          Merci pour votre engagement 🤝
+        </h2>
+
+        <p style="color:#4B5563;font-size:15px;line-height:1.6;max-width:480px;margin:auto;">
+          Bonjour <strong>${name}</strong>,<br/><br/>
+          Nous vous remercions pour votre contribution à la campagne :
+          <br/><br/>
+          <strong style="color:#FF6EA9;">${campaignTitle}</strong>
+        </p>
+
+        <!-- AMOUNT -->
+        <div style="margin:25px 0;">
+          <div style="font-size:14px;color:#6B7280;">Montant contribué</div>
+          <div style="font-size:26px;font-weight:700;color:#111827;">
+            ${Number(amount).toLocaleString()} FCFA
+          </div>
+        </div>
+
+        <!-- CODE -->
+        <div style="margin:30px 0;">
+          <div style="font-size:14px;color:#6B7280;margin-bottom:10px;">
+            Votre code d’accès sécurisé
+          </div>
+
+          <div style="
+            display:inline-block;
+            font-size:22px;
+            font-weight:700;
+            letter-spacing:2px;
+            color:#FF6EA9;
+            background:#FFF0F5;
+            padding:14px 24px;
+            border-radius:12px;
+          ">
+            ${accessCode}
+          </div>
+        </div>
+
+        <p style="color:#6B7280;font-size:14px;line-height:1.6;">
+          Ce code vous permettra d’accéder aux données et statistiques
+          liées à cette campagne.<br/>
+          Veuillez le conserver de manière confidentielle.
+        </p>
+
+      </div>
+
+      <!-- FOOTER -->
+      <div style="background:#fafafa;padding:25px;text-align:center;">
+        
+        <p style="font-size:14px;color:#6B7280;margin-bottom:15px;">
+          Suivez-nous
+        </p>
+
+        <!-- SOCIAL ICONS -->
+        <div style="margin-bottom:15px;">
+
+          <a href="https://www.instagram.com/toncompte" style="margin:0 8px;">
+            <img src="https://cdn.simpleicons.org/instagram/E4405F" width="20"/>
+          </a>
+
+          <a href="https://www.facebook.com/toncompte" style="margin:0 8px;">
+            <img src="https://cdn.simpleicons.org/facebook/1877F2" width="20"/>
+          </a>
+
+          <a href="https://www.linkedin.com/in/toncompte" style="margin:0 8px;">
+            <img src="https://cdn.simpleicons.org/linkedin/0077B5" width="20"/>
+          </a>
+
+          <a href="https://x.com/toncompte" style="margin:0 8px;">
+            <img src="https://cdn.simpleicons.org/x/000000" width="20"/>
+          </a>
+
+          <a href="https://www.tiktok.com/@toncompte" style="margin:0 8px;">
+            <img src="https://cdn.simpleicons.org/tiktok/000000" width="20"/>
+          </a>
+
+        </div>
+
+        <p style="font-size:12px;color:#9CA3AF;">
+          © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés
+        </p>
+
+      </div>
+
+    </div>
+  </div>
+  `;
+  }
   async updateStatus(id: number, dto: UpdateStatusDto) {
     const [res]: any = await this.databaseService.getPool().query(
       `UPDATE campaigns SET status = ? WHERE id = ?`,
@@ -166,7 +358,7 @@ export class CampaignsService {
       <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700;">Retrait de votre kit gratuit</h1>
     </div>
 
-    <!-- CONTENT -->
+    <!-- CONTENT. --> 
     <div style="padding: 40px 30px; text-align: center;">
       <h2 style="color: #111827; font-size: 20px;">Votre code de retrait 🎁</h2>
 

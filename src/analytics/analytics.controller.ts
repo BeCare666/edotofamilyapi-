@@ -10,10 +10,12 @@ export class AnalyticsController {
 
   @Get()
   async findAll(@Req() req: any) {
-    const userId = req.user?.userId;
-    if (!userId) return { error: 'Utilisateur non identifié' };
+    const userId = req.user?.id;
+    console.log('req de user', req.user)
+    if (!userId) return { error: req.user }
+    //if (!userId) return { error: 'Utilisateur non identifié' };        
 
-    // On délègue la logique de rôle au service
+    // On délègue la logique de rôle au service       
     return this.analyticsService.findAllByUser(userId);
   }
 
