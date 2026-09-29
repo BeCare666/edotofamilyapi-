@@ -10,8 +10,9 @@ import {
 } from './orders.controller';
 import { OrdersService } from './orders.service';
 import { DatabaseModule } from 'src/database/database.module';
+import { DeliveryModule } from 'src/delivery/delivery.module';
 @Module({
-  imports: [AuthModule, PaymentModule, DatabaseModule],
+  imports: [AuthModule, PaymentModule, DatabaseModule, DeliveryModule],
   controllers: [
     OrdersController,
     OrderStatusController,

@@ -21,6 +21,17 @@ export class CreateOrderDto {
   shipping_address?: UserAddressInput;
   payment_intent: PaymentIntent;
   language?: string;
+  // Lieu choisi avant le paiement
+  delivery?: DeliveryChoiceInput;
+}
+
+export class DeliveryChoiceInput {
+  type: 'PICKUP' | 'CUSTOM';
+  pickup_point_id?: number;
+  lat?: number;
+  lng?: number;
+  description?: string;
+  phone?: string;
 }
 
 export class UserAddressInput {

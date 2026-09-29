@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
 import { Pool, RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
 import axios, { AxiosError } from 'axios';
@@ -9,6 +9,8 @@ import { Cron } from '@nestjs/schedule';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
 import { sendVerificationEmail } from '../auth/mailer';
+import { randomInt } from 'crypto';
+import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PICKUP_OTP_TTL_MS } from '../orders/pickup-otp-email';
 interface FlutterwavePaymentData {
   id: number;
   tx_ref: string;
@@ -20,11 +22,6 @@ interface FlutterwavePaymentData {
   created_at: string;
   [key: string]: any;
 }
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME || 'dxug9vkcd',
-  api_key: process.env.CLOUDINARY_API_KEY || '157518177599353',
-  api_secret: process.env.CLOUDINARY_API_SECRET || 'in7j-BzRT8z_nCHWQ1JXpDuYhfU',
-});
 @Injectable()
 export class PaymentIntentService {
   private pool: Pool;
@@ -32,6 +29,11 @@ export class PaymentIntentService {
 
   constructor(private readonly databaseService: DatabaseService) {
     this.pool = this.databaseService.getPool();
+    cloudinary.config({
+      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+      api_key: process.env.CLOUDINARY_API_KEY,
+      api_secret: process.env.CLOUDINARY_API_SECRET,
+    });
   }
 
   // ---------------------------
@@ -100,6 +102,38 @@ export class PaymentIntentService {
       payment_intent_info: paymentIntentInfo,
     };
   }
+  // Entrée HTTP de POST /payments/feexpay/complete :
+  // seul le client de la commande (ou l'admin) peut la déclencher, une seule fois,
+  // et l'OTP n'est jamais renvoyé dans la réponse (il part uniquement par e-mail).
+  // ⚠️ La transaction n'est pas encore vérifiée auprès de FeexPay (endpoint à confirmer).
+  async completeFeexPayForUser(
+    body: { transaction_id: string; custom_id: string; feexpay_response?: any },
+    user: any,
+  ) {
+    if (!body?.transaction_id || !body?.custom_id) {
+      throw new BadRequestException('Invalid payload');
+    }
+    const [orderRows] = await this.pool.query<RowDataPacket[]>(
+      `SELECT id, customer_id, payment_status FROM orders WHERE tracking_number = ? LIMIT 1`,
+      [body.custom_id]
+    );
+    const order = orderRows[0];
+    if (!order) throw new NotFoundException('Order not found');
+
+    const isAdmin = Array.isArray(user?.permissions) && user.permissions.includes('super_admin');
+    if (!isAdmin && Number(order.customer_id) !== Number(user?.id)) {
+      throw new ForbiddenException('Accès refusé.');
+    }
+
+    // Idempotence : un second appel ne régénère pas d'OTP et ne renvoie pas d'e-mail
+    if (order.payment_status === 'payment-success') {
+      return { success: true, processed: true, orderId: order.id, alreadyProcessed: true };
+    }
+
+    const { otp, ...result } = await this.completeFeexPayPayment(body) as any;
+    return result;
+  }
+
   // POST /payments/feexpay/complete
   // service.ts (extrait) - méthode completeFeexPayPayment améliorée
   async completeFeexPayPayment(
@@ -159,8 +193,8 @@ export class PaymentIntentService {
       const paymentIntentId = insert.insertId;
 
       // 4) OTP
-      const otp = Math.floor(100000 + Math.random() * 900000).toString();
-      const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const otp = randomInt(100000, 1000000).toString();
+      const expiresAt = new Date(Date.now() + PICKUP_OTP_TTL_MS);
       await conn.query(
         `UPDATE orders SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, updated_at=NOW() WHERE id=?`,
         [otp, expiresAt, orderId]
@@ -179,45 +213,8 @@ export class PaymentIntentService {
         // 5️⃣ Envoyer l’email avec OTP
         await sendVerificationEmail({
           email: customer.email,
-          subject: `Votre code de retrait - E·Doto Family`,
-          message: `
-<div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
-  
-  <!-- Header -->
-  <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
-    <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
-    <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
-    <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Harmonie, bien-être et santé au féminin</p>
-  </div>
-
-  <!-- Body -->
-  <div style="padding: 40px 30px; background-color: #ffffff; text-align: center;">
-    <h2 style="color: #111827; font-size: 20px; margin-bottom: 12px;">Retrait de votre commande 🌸</h2>
-    <p style="color: #4B5563; font-size: 15px; line-height: 1.7; margin: 0 auto; max-width: 460px;">
-      Pour retirer votre commande <strong>${order.tracking_number}</strong>, utilisez le code ci-dessous :
-    </p>
-
-    <!-- OTP / Code -->
-    <div style="font-size: 28px; font-weight: 700; color: #FF6EA9; margin: 30px 0; padding: 14px 24px; background: #FFF0F5; border-radius: 12px; display: inline-block; letter-spacing: 2px;">
-      ${otp}
-    </div>
-
-    <p style="color: #6B7280; font-size: 14px; line-height: 1.6;">
-      Ce code est valable pendant <strong>48 heures</strong> et ne peut être utilisé qu'une seule fois.<br/>
-      Présentez-le au livreur ou au point de retrait lors de la récupération.
-    </p>
-  </div>
-
-  <!-- Footer -->
-  <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
-    <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-      © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
-      <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
-    </p>
-  </div>
-
-</div>
-      `,
+          subject: PICKUP_OTP_EMAIL_SUBJECT,
+          message: buildPickupOtpEmail(order.tracking_number, otp),
         });
       } catch (e) {
         throw new Error("Failed to send OTP email: " + e);

@@ -6,8 +6,10 @@ CREATE TABLE IF NOT EXISTS settings (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ); 
+-- Réglages par défaut : insérés UNE SEULE FOIS (table vide). Avant, une ligne identique
+-- était ajoutée à chaque démarrage de l'API (261 lignes en base au 24/09/2026).
 INSERT INTO settings (options, language, created_at, updated_at)
-VALUES (
+SELECT * FROM (SELECT
   '{
     "isProductReview": true,
     "useGoogleMap": false,
@@ -138,8 +140,9 @@ VALUES (
       "trust": true
     },
     "maxShopDistance": null
-  }',
-  'fr',
-  NOW(),
-  NOW()
-);
+  }' AS options,
+  'fr' AS language,
+  NOW() AS created_at,
+  NOW() AS updated_at
+) AS defaults
+WHERE NOT EXISTS (SELECT 1 FROM settings);

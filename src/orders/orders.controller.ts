@@ -29,7 +29,10 @@ import { Order } from './entities/order.entity';
 import { OrdersService } from './orders.service';
 import { VerifyOtpDto } from './dto/verify-otp.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
-@UseGuards(JwtAuthGuard)
+import { RolesGuard } from '../auth/roles.guard';
+import { ActivePickupGuard } from '../auth/active-pickup.guard';
+import { Roles, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
+@UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
 @Controller('orders')
 export class OrdersController {
   constructor(private readonly ordersService: OrdersService) {}
@@ -38,8 +41,9 @@ export class OrdersController {
   async create(
     @Body() createOrderDto: CreateOrderDto,
     @Headers('authorization') token: string,
+    @Req() req: any,
   ): Promise<Order> {
-    return this.ordersService.create(createOrderDto, token);
+    return this.ordersService.create(createOrderDto, token, req.user);
   }
 
   // ---------------------- STATS PICKUP POINT ----------------------
@@ -48,27 +52,19 @@ async getPickupStats(
   @Query('pickup_point_id', ParseIntPipe) pickupPointId: number,
   @Req() req,
 ) {
-  console.log("📥 Incoming request stats:");
-  console.log("req.user =", req.user);
-  console.log("pickup_point_id =", pickupPointId);
-
   if (!req.user) {
-    console.log("❌ NO USER IN REQUEST");
     throw new BadRequestException();
   }
 
 if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('super_pickuppoint')) {
-  console.log("❌ WRONG PERMISSIONS:", req.user.permissions);
   throw new ForbiddenException('Not super_pickuppoint');
 }
 
   // 🚨 CLÉ : compare req.user?.userId !
   if (Number(req.user?.id) !== Number(pickupPointId)) {
-    console.log("❌ USER-ID ≠ PICKUP-ID:", req.user?.id, pickupPointId);
     throw new ForbiddenException('Pickup point mismatch');
   }
 
-  console.log("✅ ACCESS GRANTED");
   return this.ordersService.getPickupStats(pickupPointId);
 }
 
@@ -76,6 +72,7 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
 
 
   // ---------------------- ARCHIVE ORDER ----------------------
+  @Roles(SUPER_ADMIN, SUPER_PICKUPPOINT)
   @Patch(':id/archive')
   async archiveOrder(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     if (!req.user) throw new BadRequestException('Utilisateur non authentifié');
@@ -83,16 +80,18 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
   }
 
   // ---------------------- UNARCHIVE ORDER ----------------------
+  @Roles(SUPER_ADMIN, SUPER_PICKUPPOINT)
   @Patch(':id/unarchive')
   async unarchiveOrder(
     @Param('id', ParseIntPipe) id: number,
     @Req() req: any,
   ) {
     if (!req.user) throw new BadRequestException('Utilisateur non authentifié');
-    return this.ordersService.unarchiveOrder(id);
+    return this.ordersService.unarchiveOrder(id, req.user);
   }
 
   // ---------------------- NEW ORDERS ----------------------
+  @Roles(SUPER_ADMIN, SUPER_PICKUPPOINT)
   @Get('new')
   async getNewOrders(@Req() req: any) {
     if (!req.user) throw new BadRequestException('Utilisateur non authentifié');
@@ -100,6 +99,7 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
   }
 
   // ---------------------- VERIFY OTP ----------------------
+  @Roles(SUPER_PICKUPPOINT)
   @Post('verify-otp')
   async verifyOtp(@Body() dto: VerifyOtpDto, @Req() req: any) {
     if (!req.user) throw new BadRequestException('Utilisateur non authentifié');
@@ -108,6 +108,12 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
       id: req.user?.id,
       permissions: req.user.permissions,
     });
+  }
+
+  // ---------------------- REGENERATE OTP (client) ----------------------
+  @Post(':id/regenerate-otp')
+  regenerateOtp(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.ordersService.regenerateOtp(id, req.user);
   }
 
   // ---------------------- LIST ORDERS ----------------------
@@ -136,27 +142,25 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
 
   // ---------------------- TRACKING NUMBER FIRST ----------------------
   @Get('tracking-number/:tracking_id')
-  getOrderByTrackingNumber(@Param('tracking_id') tracking_id: string) {
-    return this.ordersService.getOrderByIdOrTrackingNumber(tracking_id);
+  getOrderByTrackingNumber(@Param('tracking_id') tracking_id: string, @Req() req: any) {
+    return this.ordersService.getOrderForUser(tracking_id, req.user);
   }
 
   // ---------------------- ORDER BY ID ----------------------
   @Get(':id')
-  getOrderById(@Param('id') id: string) {
+  getOrderById(@Param('id') id: string, @Req() req: any) {
     const parsedId = Number(id);
-    if (!isNaN(parsedId)) {
-      return this.ordersService.getOrderByIdOrTrackingNumber(parsedId);
-    }
-    return this.ordersService.getOrderByIdOrTrackingNumber(id);
+    return this.ordersService.getOrderForUser(!isNaN(parsedId) ? parsedId : id, req.user);
   }
 
   // ---------------------- UPDATE ORDER ----------------------
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
-    return this.ordersService.update(+id, updateOrderDto);
+  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto, @Req() req: any) {
+    return this.ordersService.updateForUser(+id, updateOrderDto as any, req.user);
   }
 
   // ---------------------- DELETE ORDER ----------------------
+  @Roles(SUPER_ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(+id);
@@ -199,6 +203,8 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
 export class OrderStatusController {
   constructor(private readonly ordersService: OrdersService) {}
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN)
   @Post()
   create(@Body() createOrderStatusDto: CreateOrderStatusDto) {
     return this.ordersService.createOrderStatus(createOrderStatusDto);
@@ -214,11 +220,15 @@ export class OrderStatusController {
     return this.ordersService.getOrderStatus(param, language);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto) {
-    return this.ordersService.update(+id, updateOrderDto);
+  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto, @Req() req: any) {
+    return this.ordersService.updateForUser(+id, updateOrderDto as any, req.user);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN)
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(+id);
@@ -228,6 +238,8 @@ export class OrderStatusController {
 // ====================================================================
 //                            ORDER FILES
 // ====================================================================
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles(SUPER_ADMIN)
 @Controller('downloads')
 export class OrderFilesController {
   constructor(private ordersService: OrdersService) {}

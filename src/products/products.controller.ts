@@ -9,7 +9,13 @@ import {
   Put,
   BadRequestException,
   NotFoundException,
+  ForbiddenException,
+  UseGuards,
+  Req,
 } from '@nestjs/common';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { Roles, hasRole, SUPER_ADMIN, STORE_OWNER, STAFF } from '../auth/roles.decorator';
 import { ProductsService } from './products.service';
 import { DatabaseService } from '../database/database.services';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -48,8 +54,42 @@ export class ProductsController {
       search ?? undefined,
     );
   }
+  // super_admin : toutes les boutiques ; store_owner : ses boutiques (shops.owner_id) ;
+  // staff : la boutique à laquelle il est rattaché (users.shop_id)
+  private async assertCanManageShop(user: any, shopId: number) {
+    if (hasRole(user, SUPER_ADMIN)) return;
+    if (!shopId) throw new ForbiddenException('Accès refusé.');
+
+    if (hasRole(user, STORE_OWNER)) {
+      const [rows]: any[] = await this.databaseService.query(
+        'SELECT id FROM shops WHERE id = ? AND owner_id = ?',
+        [shopId, user.id],
+      );
+      if (rows.length) return;
+    }
+    if (hasRole(user, STAFF)) {
+      const [rows]: any[] = await this.databaseService.query(
+        'SELECT id FROM users WHERE id = ? AND shop_id = ?',
+        [user.id, shopId],
+      );
+      if (rows.length) return;
+    }
+    throw new ForbiddenException('Accès refusé.');
+  }
+
+  private async assertCanManageProduct(user: any, productId: number) {
+    const [rows]: any[] = await this.databaseService.query(
+      'SELECT shop_id FROM products WHERE id = ?',
+      [productId],
+    );
+    if (!rows.length) throw new NotFoundException('Product not found');
+    await this.assertCanManageShop(user, rows[0].shop_id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN, STORE_OWNER, STAFF)
   @Post()
-  async createProduct(@Body() createProductDto: CreateProductDto) {
+  async createProduct(@Body() createProductDto: CreateProductDto, @Req() req: any) {
     const { shop_id } = createProductDto;
 
     if (!shop_id) {
@@ -67,6 +107,7 @@ export class ProductsController {
     }
 
     const owner_id = shops[0].owner_id;
+    await this.assertCanManageShop(req.user, Number(shop_id));
 
     // Passer owner_id et shop_id au service
     return this.productsService.create({
@@ -89,13 +130,23 @@ export class ProductsController {
     return this.productsService.getProductBySlug(slug);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN, STORE_OWNER, STAFF)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto) {
+  async update(@Param('id') id: string, @Body() updateProductDto: UpdateProductDto, @Req() req: any) {
+    await this.assertCanManageProduct(req.user, +id);
+    // Un non-admin ne peut pas déplacer le produit vers une boutique qui n'est pas la sienne
+    if ((updateProductDto as any).shop_id !== undefined) {
+      await this.assertCanManageShop(req.user, Number((updateProductDto as any).shop_id));
+    }
     return this.productsService.update(+id, updateProductDto);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN, STORE_OWNER, STAFF)
   @Delete(':id')
-  remove(@Param('id') id: string) {
+  async remove(@Param('id') id: string, @Req() req: any) {
+    await this.assertCanManageProduct(req.user, +id);
     return this.productsService.remove(+id);
   }
 }

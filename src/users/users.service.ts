@@ -10,15 +10,18 @@ import { BadRequestException } from '@nestjs/common';
 import { sendVerificationEmail } from '../auth/mailer';
 import * as jwt from 'jsonwebtoken';
 import { createPool } from 'mysql2/promise';
+import * as bcrypt from 'bcrypt';
 @Injectable()
 export class UsersService {
   constructor(private readonly DatabaseService: DatabaseService) { }
   async create(createUserDto: CreateUserDto): Promise<User> {
     const { name, email, password, profile, address, permission } = createUserDto;
+    // Même hachage que /register : sans lui, le compte créé ne peut pas se connecter (bcrypt.compare)
+    const hashedPassword = password ? await bcrypt.hash(password, 10) : null;
 
     const [result]: [OkPacket, any] = await this.DatabaseService.query<OkPacket>(
       `INSERT INTO users (name, email, password, is_active, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())`,
-      [name, email, password, true]
+      [name, email, hashedPassword, true]
     );
     const userId = result.insertId;
 
@@ -79,7 +82,88 @@ export class UsersService {
     return rows[0] as User;
   }
 
-async getUsers({ limit = 30, page = 1, role }: GetUsersDto): Promise<UserPaginator> {
+  // Liste publique : uniquement les colonnes nécessaires à la sélection d'un point de retrait
+  // Liste publique des points de retrait.
+  // Avec lat/lng : triée du plus proche au plus loin (distance_km, formule de haversine).
+  // Avec en plus radius_km : seulement les points situés dans ce rayon (0 < rayon <= 50 km).
+  async getPublicUsersByRole({
+    limit = 30,
+    page = 1,
+    role,
+    lat,
+    lng,
+    radius_km,
+  }: GetUsersDto & { role?: string; lat?: any; lng?: any; radius_km?: any }): Promise<UserPaginator> {
+    const pool = this.DatabaseService.getPool();
+    const pageNumber = Math.max(1, Number(page) || 1);
+    const limitNumber = Math.min(200, Math.max(1, Number(limit) || 30));
+    const offset = (pageNumber - 1) * limitNumber;
+
+    const latNum = lat === undefined || lat === '' ? NaN : Number(lat);
+    const lngNum = lng === undefined || lng === '' ? NaN : Number(lng);
+    const hasPosition =
+      Number.isFinite(latNum) && Number.isFinite(lngNum) && Math.abs(latNum) <= 90 && Math.abs(lngNum) <= 180;
+    const radius = Number(radius_km);
+    const hasRadius = hasPosition && Number.isFinite(radius) && radius > 0 && radius <= 50;
+
+    // Les inscriptions en attente de validation ne sont pas des points de retrait :
+    // elles n'apparaissent pas. Les points bloqués restent visibles avec status = 'blocked'.
+    const base = `FROM users WHERE role = ? AND pickup_approved = 1`;
+    // D3 : retraits déjà effectués par le point =
+    //   commandes retirées (orders.pickup_point_id, order_status 'order-completed', validées par OTP)
+    // + kits de campagne retirés (campaign_registrations.picked_up = 1 ; le point est stocké en texte
+    //   dans pickup_center) — décision du 24/09/2026.
+    const withdrawals = (idColumn: string) =>
+      `((SELECT COUNT(*) FROM orders o WHERE o.pickup_point_id = ${idColumn} AND o.order_status = 'order-completed')
+        + (SELECT COUNT(*) FROM campaign_registrations cr WHERE cr.pickup_center = CAST(${idColumn} AS CHAR) AND cr.picked_up = 1))`;
+    let rows: RowDataPacket[];
+    let total: number;
+
+    if (hasPosition) {
+      const distance = `(6371 * 2 * ASIN(LEAST(1, SQRT(
+          POW(SIN(RADIANS(pickup_lat - ?) / 2), 2) +
+          COS(RADIANS(?)) * COS(RADIANS(pickup_lat)) * POW(SIN(RADIANS(pickup_lng - ?) / 2), 2)
+        ))))`;
+      const inner = `SELECT id, name, pickup_address, pickup_lat, pickup_lng, is_active,
+          CASE WHEN pickup_lat IS NULL OR pickup_lng IS NULL THEN NULL ELSE ${distance} END AS distance_km
+        ${base}`;
+      const innerParams = [latNum, latNum, lngNum, role];
+      const filter = hasRadius ? `WHERE t.distance_km IS NOT NULL AND t.distance_km <= ?` : '';
+      const filterParams = hasRadius ? [radius] : [];
+
+      [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT t.*, ${withdrawals('t.id')} AS withdrawals_count FROM (${inner}) t ${filter}
+         ORDER BY t.distance_km IS NULL, t.distance_km ASC, t.id ASC
+         LIMIT ? OFFSET ?`,
+        [...innerParams, ...filterParams, limitNumber, offset]
+      );
+      const [countRows] = await pool.query<RowDataPacket[]>(
+        `SELECT COUNT(*) as total FROM (${inner}) t ${filter}`,
+        [...innerParams, ...filterParams]
+      );
+      total = countRows[0].total;
+    } else {
+      [rows] = await pool.query<RowDataPacket[]>(
+        `SELECT id, name, pickup_address, pickup_lat, pickup_lng, is_active,
+                ${withdrawals('users.id')} AS withdrawals_count ${base} LIMIT ? OFFSET ?`,
+        [role, limitNumber, offset]
+      );
+      const [countRows] = await pool.query<RowDataPacket[]>(`SELECT COUNT(*) as total ${base}`, [role]);
+      total = countRows[0].total;
+    }
+
+    return {
+      data: rows.map((r) => ({
+        ...r,
+        distance_km: r.distance_km === null || r.distance_km === undefined ? null : Math.round(Number(r.distance_km) * 100) / 100,
+        status: Number(r.is_active) === 0 ? 'blocked' : 'active',
+        withdrawals_count: Number(r.withdrawals_count) || 0,
+      })) as unknown as User[],
+      ...paginate(total, pageNumber, limitNumber, rows.length, `/users?role=${role}&limit=${limitNumber}`),
+    };
+  }
+
+async getUsers({ limit = 30, page = 1, role }: GetUsersDto & { role?: string }): Promise<UserPaginator> {
   const pool = this.DatabaseService.getPool();
 
   const pageNumber = Number(page);

@@ -47,4 +47,13 @@ export class GetProductsByCorridorDto {
     @Type(() => Number)
     sub_categories_id?: number;
 
+    // Filtre sur le prix payé (prix promo, sinon prix)
+    @IsOptional()
+    @Type(() => Number)
+    min_price?: number;
+
+    @IsOptional()
+    @Type(() => Number)
+    max_price?: number;
+
 }

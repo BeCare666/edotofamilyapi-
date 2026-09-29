@@ -1,49 +1,56 @@
-import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, InternalServerErrorException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { RowDataPacket } from 'mysql2';
 import { DatabaseService } from '../database/database.services';
-import { CreateCampaignDto } from './dto/create-campaign.dto';
-import { UpdateStatusDto } from './dto/update-status.dto';
 import { RegisterDto } from './dto/register.dto';
 import { sendVerificationEmail } from '../auth/mailer';
-import { randomBytes } from 'crypto';
+import { randomInt } from 'crypto';
+import { maskOtp } from '../common/sanitize';
+import { buildCampaignOtpEmail, CAMPAIGN_OTP_EMAIL_SUBJECT, CAMPAIGN_OTP_TTL_MS } from './campaign-otp-email';
+import { statusSql } from './campaign-rules';
+import { KIT_AMOUNT_SQL } from '../commissions/commission-rules';
+import { campaignExtraColumns, decorateCampaign } from './campaign-sql';
 @Injectable()
 export class CampaignsService {
   constructor(private readonly databaseService: DatabaseService) { }
 
-  async getActiveCampaign() {
+  // Statut calculé à partir des dates (décision du 24/09/2026) : la colonne status n'est plus lue.
+  // Villes : table campaign_locations (une campagne peut se dérouler dans plusieurs villes).
+  private async selectCampaigns(where: string, params: any[] = [], order = 'c.date_start DESC') {
     const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-      `SELECT * FROM campaigns WHERE status = 'en_cours' ORDER BY date_start DESC`
+      `SELECT c.*, ${campaignExtraColumns('c')} FROM campaigns c WHERE ${where} ORDER BY ${order}`,
+      params,
     );
+    return rows.map((r) => decorateCampaign(r));
+  }
+
+  async getActiveCampaign() {
+    const rows = await this.selectCampaigns(`${statusSql('c')} = 'en_cours'`);
     if (!rows.length) return null;
     return rows;
   }
 
   async getUpcomingCampaigns() {
-    const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-      `SELECT * FROM campaigns WHERE status IN ('a_venir', 'planifie') ORDER BY date_start ASC`
-    );
-    return rows;
+    return this.selectCampaigns(`${statusSql('c')} = 'a_venir'`, [], 'c.date_start ASC');
   }
+
   async getActiveCampaignsCount() {
     const [rows]: [RowDataPacket[], any] =
       await this.databaseService.getPool().query(
-        `SELECT COUNT(*) as total FROM campaigns WHERE status='en_cours'`
+        `SELECT COUNT(*) as total FROM campaigns c WHERE ${statusSql('c')} = 'en_cours'`
       );
 
     return rows[0];
   }
-  async getActiveCampaignByCity(city: string) {
-    const [rows]: [RowDataPacket[], any] =
-      await this.databaseService.getPool().query(
-        `SELECT * FROM campaigns 
-       WHERE status = 'en_cours' 
-       AND LOWER(location) = LOWER(?) 
-       ORDER BY date_start DESC`,
-        [city]
-      );
 
-    return rows;
+  // Campagnes en cours dans une ville : la campagne apparaît dans chacune de ses villes
+  async getActiveCampaignByCity(city: string) {
+    return this.selectCampaigns(
+      `${statusSql('c')} = 'en_cours'
+       AND EXISTS (SELECT 1 FROM campaign_locations l WHERE l.campaign_id = c.id AND LOWER(l.city) = LOWER(?))`,
+      [city],
+    );
   }
+
   async getCampaignByAccessCode(code: string) {
     const [rows]: [RowDataPacket[], any] =
       await this.databaseService.getPool().query(
@@ -61,109 +68,14 @@ export class CampaignsService {
     return rows[0];
   }
 
-  async getAllCampaigns(page = 1, limit = 10, orderBy = 'created_at', sortedBy: 'ASC' | 'DESC' = 'DESC') {
-  const offset = (page - 1) * limit;
-
-  const [rows]: [RowDataPacket[], any] =
-    await this.databaseService.getPool().query(
-      `SELECT * FROM campaigns 
-       ORDER BY ${orderBy} ${sortedBy}
-       LIMIT ? OFFSET ?`,
-      [limit, offset]
-    );
-
-  const [count]: [RowDataPacket[], any] =
-    await this.databaseService.getPool().query(
-      `SELECT COUNT(*) as total FROM campaigns`
-    );
-
-  return {
-    data: rows,
-    total: count[0].total,
-    currentPage: page,
-    perPage: limit
-  };
-}
   // get campaign by id
   async getCampaignById(id: number) {
-    const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-      `SELECT * FROM campaigns WHERE id = ?`,
-      [id]
-    );
+    const rows = await this.selectCampaigns('c.id = ?', [id]);
     if (!rows.length) throw new NotFoundException('Campagne introuvable');
     return rows[0];
   }
 
 
-  async createCampaign(dto: CreateCampaignDto) {
-    try {
-      const [result]: any = await this.databaseService.getPool().query(
-        `INSERT INTO campaigns
-      (title, description, image_url, location, date_start, date_end, status, objective_kits)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-        [
-          dto.title,
-          dto.description ?? null,
-          dto.image_url ?? null,
-          dto.location,
-          dto.date_start,
-          dto.date_end ?? null,
-          dto.status ?? 'a_venir',
-          dto.objective_kits ?? 0
-        ]
-      );
-
-      const campaignId = result.insertId;
-
-      // 👉 Sponsors
-      if (Array.isArray(dto.sponsors) && dto.sponsors.length > 0) {
-        for (const sponsor of dto.sponsors) {
-          if (!sponsor?.email || !sponsor?.name) continue;
-
-          const accessCode = randomBytes(16).toString('hex');
-
-          await this.databaseService.getPool().query(
-            `INSERT INTO campaign_sponsors 
-          (campaign_id, name, email, amount, access_code)
-          VALUES (?, ?, ?, ?, ?)`,
-            [
-              campaignId,
-              sponsor.name,
-              sponsor.email,
-              sponsor.amount ?? 0,
-              accessCode
-            ]
-          );
-
-          // 👉 Email (ne bloque pas si erreur)
-          try {
-            await sendVerificationEmail({
-              email: sponsor.email,
-              subject: `Accès sponsor – ${dto.title}`,
-              message: this.buildSponsorEmail({
-                name: sponsor.name,
-                campaignTitle: dto.title,
-                amount: sponsor.amount,
-                accessCode
-              })
-            });
-          } catch (e) {
-            console.error("Erreur email sponsor:", e);
-          }
-        }
-      }
-
-      return {
-        id: campaignId,
-        message: 'Campagne créée avec succès.'
-      };
-
-    } catch (error) {
-      throw new InternalServerErrorException(
-        'Erreur lors de la création de la campagne'
-      );
-    }
-  }
   buildSponsorEmail({ name, campaignTitle, amount, accessCode }) {
     return `
   <div style="font-family: Inter, Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
@@ -268,15 +180,6 @@ export class CampaignsService {
   </div>
   `;
   }
-  async updateStatus(id: number, dto: UpdateStatusDto) {
-    const [res]: any = await this.databaseService.getPool().query(
-      `UPDATE campaigns SET status = ? WHERE id = ?`,
-      [dto.status, id]
-    );
-    if (res.affectedRows === 0) throw new NotFoundException('Campagne introuvable');
-    return { message: 'Statut mis à jour.' };
-  }
-
   async register(dto: RegisterDto, userId: number) {
 
     // 1) Vérifier campagne
@@ -285,14 +188,31 @@ export class CampaignsService {
       [dto.campaign_id]
     );
     if (!rows.length) throw new NotFoundException('Campagne introuvable');
+
+    // Ville du participant : obligatoire et parmi les villes de la campagne (décision du 24/09/2026)
+    const wantedCity = typeof dto.city === 'string' ? dto.city.trim() : '';
+    if (!wantedCity) throw new BadRequestException('Indiquez votre ville.');
+    const [cityRows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+      `SELECT city FROM campaign_locations WHERE campaign_id = ? AND LOWER(city) = LOWER(?) LIMIT 1`,
+      [dto.campaign_id, wantedCity]
+    );
+    if (!cityRows.length) throw new BadRequestException("Cette campagne ne se déroule pas dans cette ville.");
+    const city = cityRows[0].city;
     // Récupérer le nom du centre de retrait
     const [center]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-      `SELECT name FROM users WHERE id = ?`,
+      `SELECT name, role, is_active, pickup_approved FROM users WHERE id = ?`,
       [dto.pickup_center]
     );
 
     if (!center.length) {
       throw new NotFoundException("Centre de retrait introuvable");
+    }
+    // Même règle que pour les commandes : point en attente de validation ou bloqué non sélectionnable
+    if (center[0].role === 'super_pickuppoint') {
+      if (Number(center[0].pickup_approved) === 0) throw new NotFoundException("Centre de retrait introuvable");
+      if (Number(center[0].is_active) === 0) {
+        throw new BadRequestException('Ce point de retrait est actuellement bloqué.');
+      }
     }
 
     const pickupCenterName = center[0].name;
@@ -319,16 +239,16 @@ export class CampaignsService {
     // 4) Enregistrer la participation
     const [result]: any = await this.databaseService.getPool().query(
       `INSERT INTO campaign_registrations
-     (campaign_id, full_name, email, pickup_center)
-     VALUES (?, ?, ?, ?)`,
-      [dto.campaign_id, fullName, email, dto.pickup_center]
+     (campaign_id, full_name, email, pickup_center, city)
+     VALUES (?, ?, ?, ?, ?)`,
+      [dto.campaign_id, fullName, email, dto.pickup_center, city]
     );
 
     const registrationId = result.insertId;
 
     // 5) Générer OTP
-    const otp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const otp = randomInt(100000, 1000000).toString();
+    const expiresAt = new Date(Date.now() + CAMPAIGN_OTP_TTL_MS);
 
     // 6) Enregistrer OTP
     await this.databaseService.getPool().query(
@@ -338,57 +258,15 @@ export class CampaignsService {
       [otp, expiresAt, registrationId]
     );
 
-    // 8) Ajouter +1 aux kits distribués
-    await this.databaseService.getPool().query(
-      `UPDATE campaigns SET distributed_kits = distributed_kits + 1 WHERE id = ?`,
-      [dto.campaign_id]
-    );
+    // L'ancien compteur distributed_kits n'est plus utilisé : inscrits et kits retirés sont
+    // comptés dans campaign_registrations.
 
     // 7) Envoyer OTP par email
     try {
       await sendVerificationEmail({
         email,
-        subject: `Code de retrait de campagne - E·Doto Family`,
-        message: `
-  <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden;">
-
-    <!-- HEADER -->
-    <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
-      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px;" />
-      <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700;">Retrait de votre kit gratuit</h1>
-    </div>
-
-    <!-- CONTENT. --> 
-    <div style="padding: 40px 30px; text-align: center;">
-      <h2 style="color: #111827; font-size: 20px;">Votre code de retrait 🎁</h2>
-
-      <p style="color: #4B5563; font-size: 15px; max-width: 460px; margin: auto;">
-        Vous êtes inscrit la campagne de kits SSR. </strong>.<br/>
-        Pour retirer votre kit gratuit, rendez-vous au point de retrait :
-        <br/><br/>
-        <strong style="color:#FF6EA9; font-size:16px;">${pickupCenterName}</strong>
-      </p>
-
-      <div style="font-size: 28px; font-weight: 700; color: #FF6EA9; margin: 30px 0; background: #FFF0F5; padding: 14px 24px; border-radius: 12px;">
-        ${otp}
-      </div>
-
-      <p style="color: #6B7280; font-size: 14px;">
-        Présentez ce code à l’agent sur place pour récupérer votre kit.<br/>
-        Le code est valable <strong>48 heures</strong>.<br/>
-        Gardez-le confidentiel.
-      </p>
-    </div>
-
-    <!-- FOOTER -->
-    <div style="background: #fafafa; padding: 20px; text-align: center;">
-      <p style="color: #9CA3AF; font-size: 12px;">
-        © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés
-      </p>
-    </div>
-
-  </div>
-  `
+        subject: CAMPAIGN_OTP_EMAIL_SUBJECT,
+        message: buildCampaignOtpEmail(pickupCenterName, otp)
       });
 
     } catch (e) {
@@ -403,13 +281,108 @@ export class CampaignsService {
     };
   }
 
+  // Inscriptions de l'utilisateur connecté (rattachées par e-mail, comme à l'inscription).
+  // Le code n'est pas renvoyé : il est transmis uniquement par e-mail.
+  async getMyRegistrations(userId: number) {
+    const pool = this.databaseService.getPool();
+    const [users]: [RowDataPacket[], any] = await pool.query(`SELECT email FROM users WHERE id = ?`, [userId]);
+    if (!users.length) throw new NotFoundException('Utilisateur introuvable');
+
+    const [rows]: [RowDataPacket[], any] = await pool.query(
+      `SELECT r.id, r.campaign_id, c.title AS campaign_title, c.location AS campaign_location,
+              r.pickup_center, pc.name AS pickup_center_name, pc.pickup_lat, pc.pickup_lng,
+              r.otp_used, r.otp_expires_at, r.verified_at, r.picked_up, r.picked_up_at,
+              r.order_status, r.created_at
+       FROM campaign_registrations r
+       JOIN campaigns c ON c.id = r.campaign_id
+       LEFT JOIN users pc ON pc.id = r.pickup_center
+       WHERE r.email = ?
+       ORDER BY r.created_at DESC`,
+      [users[0].email],
+    );
+    return rows;
+  }
+
+  // Nouveau code de retrait de kit : même règle que pour les commandes.
+  // Autorisé seulement si le code a expiré et que le retrait n'a pas eu lieu
+  // (code non validé par le point de retrait : otp_used = 0, et kit non remis : picked_up = 0).
+  async regenerateRegistrationOtp(registrationId: number, userId: number) {
+    const pool = this.databaseService.getPool();
+    const [users]: [RowDataPacket[], any] = await pool.query(`SELECT email FROM users WHERE id = ?`, [userId]);
+    if (!users.length) throw new NotFoundException('Utilisateur introuvable');
+
+    const [rows]: [RowDataPacket[], any] = await pool.query(
+      `SELECT r.*, pc.name AS pickup_center_name
+       FROM campaign_registrations r
+       LEFT JOIN users pc ON pc.id = r.pickup_center
+       WHERE r.id = ? LIMIT 1`,
+      [registrationId],
+    );
+    const reg = rows[0];
+    if (!reg) throw new NotFoundException('Inscription introuvable.');
+    if (reg.email !== users[0].email) throw new ForbiddenException("Vous n'avez pas accès à cette inscription.");
+
+    if (Number(reg.picked_up) === 1 || reg.order_status === 'order-completed') {
+      throw new BadRequestException('Ce kit a déjà été retiré.');
+    }
+    if (Number(reg.otp_used) === 1) {
+      throw new BadRequestException('Votre code a déjà été validé par le point de retrait : aucun nouveau code nécessaire.');
+    }
+    if (['order-cancelled', 'order-refunded', 'order-failed'].includes(reg.order_status)) {
+      throw new BadRequestException('Cette inscription ne peut plus être retirée.');
+    }
+    if (!reg.otp_code || !reg.otp_expires_at) {
+      throw new BadRequestException("Aucun code de retrait n'a été émis pour cette inscription.");
+    }
+    if (new Date(reg.otp_expires_at).getTime() >= Date.now()) {
+      throw new BadRequestException(
+        `Votre code est encore valable jusqu'au ${new Date(reg.otp_expires_at).toLocaleString('fr-FR')}.`,
+      );
+    }
+
+    const otp = randomInt(100000, 1000000).toString();
+    const expiresAt = new Date(Date.now() + CAMPAIGN_OTP_TTL_MS);
+    // Conditions revérifiées dans le WHERE (validation concurrente par le point de retrait)
+    const [result]: any = await pool.query(
+      `UPDATE campaign_registrations
+       SET otp_code = ?, otp_expires_at = ?, otp_attempts = 0, updated_at = NOW()
+       WHERE id = ? AND otp_code = ? AND otp_used = 0 AND picked_up = 0`,
+      [otp, expiresAt, reg.id, reg.otp_code],
+    );
+    if (!result?.affectedRows) {
+      throw new BadRequestException("L'inscription a changé entre-temps. Rechargez la page.");
+    }
+
+    try {
+      await sendVerificationEmail({
+        email: reg.email,
+        subject: CAMPAIGN_OTP_EMAIL_SUBJECT,
+        message: buildCampaignOtpEmail(reg.pickup_center_name ?? '', otp),
+      });
+    } catch (e) {
+      // Sans e-mail le participant ne connaîtrait pas le code : on remet l'ancien (expiré)
+      await pool.query(
+        `UPDATE campaign_registrations SET otp_code = ?, otp_expires_at = ? WHERE id = ? AND otp_code = ? AND otp_used = 0`,
+        [reg.otp_code, reg.otp_expires_at, reg.id, otp],
+      );
+      throw new InternalServerErrorException("Impossible d'envoyer l'e-mail. Réessayez dans quelques instants.");
+    }
+
+    return {
+      success: true,
+      otp_expires_at: expiresAt,
+      message: 'Un nouveau code de retrait vous a été envoyé par e-mail.',
+    };
+  }
+
   // Récupère toutes les inscriptions pour un point de retrait donné
   async getRegistrationsByPickupCenter(pickupCenterId: number) {
     const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
       `SELECT * FROM campaign_registrations WHERE pickup_center = ? ORDER BY created_at DESC`,
       [pickupCenterId]
     );
-    return rows;
+    // Le point de retrait doit recevoir l'OTP du participant, pas le lire en base
+    return rows.map((r) => maskOtp(r));
   }
 
 
@@ -424,7 +397,7 @@ export class CampaignsService {
     return rows;
   }
 
-  async verifyCampaignOtp(dto: { registration_id: number; otp: string }) {
+  async verifyCampaignOtp(dto: { registration_id: number; otp: string }, pickupUserId: number) {
     const { registration_id, otp } = dto;
 
     if (!registration_id || !otp) {
@@ -441,6 +414,11 @@ export class CampaignsService {
 
     const reg = rows[0];
 
+    // pickup_center contient l'id du point de retrait choisi à l'inscription
+    if (String(reg.pickup_center) !== String(pickupUserId)) {
+      throw new NotFoundException("Inscription introuvable.");
+    }
+
     // 2) Déjà validé ?
     if (reg.otp_used === 1) {
       throw new BadRequestException("OTP déjà utilisé.");
@@ -448,7 +426,7 @@ export class CampaignsService {
 
     // 3) Expiré ?
     if (new Date(reg.otp_expires_at) < new Date()) {
-      throw new BadRequestException("Code expiré.");
+      throw new BadRequestException("Code expiré. Le participant doit générer un nouveau code depuis son espace (Mes commandes).");
     }
 
     // 4) Trop de tentatives
@@ -479,7 +457,7 @@ export class CampaignsService {
   // -------------------------------------------
   //  MARK PICKUP
   // -------------------------------------------
-  async markPickup(dto: { registration_id: number }) {
+  async markPickup(dto: { registration_id: number }, pickupUserId: number) {
     const { registration_id } = dto;
 
     if (!registration_id) {
@@ -496,6 +474,10 @@ export class CampaignsService {
 
     const reg = rows[0];
 
+    if (String(reg.pickup_center) !== String(pickupUserId)) {
+      throw new NotFoundException("Inscription introuvable.");
+    }
+
     // 2) Vérifier OTP validé
     if (reg.otp_used !== 1) {
       throw new BadRequestException("OTP non validé — retrait impossible.");
@@ -507,10 +489,12 @@ export class CampaignsService {
     }
 
     // 4) Marquer comme retiré // 4)
+    // Commission du point figée au moment du retrait (montant fixe par kit)
     await this.databaseService.getPool().query(
-      `UPDATE campaign_registrations
-       SET picked_up = 1, order_status = 'order-completed', picked_up_at = NOW(), updated_at = NOW()
-       WHERE id = ?`,
+      `UPDATE campaign_registrations r
+       SET r.picked_up = 1, r.order_status = 'order-completed', r.picked_up_at = NOW(), r.updated_at = NOW(),
+           r.commission_amount = ${KIT_AMOUNT_SQL}
+       WHERE r.id = ?`,
       [registration_id]
     );
 

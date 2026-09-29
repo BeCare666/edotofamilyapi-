@@ -2,6 +2,7 @@
 
 import {
   ForbiddenException,
+  BadRequestException,
   Injectable,
   UnauthorizedException,
   InternalServerErrorException,
@@ -27,25 +28,81 @@ import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from './mailer';
 import * as jwt from 'jsonwebtoken';
 import { RowDataPacket } from 'mysql2';
+import { omitPassword } from '../common/sanitize';
+import {
+  buildCustomerVerificationEmail,
+  buildPickupVerificationEmail,
+  CUSTOMER_VERIFICATION_SUBJECT,
+  PICKUP_VERIFICATION_SUBJECT,
+} from './verification-emails';
+// Anti-abus du renvoi : un e-mail au plus par adresse et par minute (mémoire du processus)
+const RESEND_COOLDOWN_MS = 60 * 1000;
+const lastResendAt = new Map<string, number>();
+
+// Lien de confirmation : même jeton que l'inscription (JWT { email }, 5 minutes)
+export async function sendVerificationLink(user: { email: string; name?: string; role?: string }) {
+  const verificationToken = jwt.sign({ email: user.email }, process.env.JWT_SECRET_KEY, { expiresIn: '5m' });
+  const verificationLink = `${process.env.BASE_URL}/verify-email?token=${verificationToken}`;
+  const isPickup = user.role === 'super_pickuppoint';
+  await sendVerificationEmail({
+    email: user.email,
+    subject: isPickup ? PICKUP_VERIFICATION_SUBJECT : CUSTOMER_VERIFICATION_SUBJECT,
+    message: isPickup
+      ? buildPickupVerificationEmail(user.name ?? '', verificationLink)
+      : buildCustomerVerificationEmail(verificationLink),
+  });
+}
+
 @Injectable()
 export class AuthService {
   constructor(private readonly DatabaseService: DatabaseService) { }
 
+  // Renvoi du lien de confirmation. Réponse identique que le compte existe ou non
+  // (ne pas révéler quelles adresses sont inscrites).
+  async resendVerificationEmail(email: string): Promise<CoreResponse> {
+    const generic = {
+      success: true,
+      message: "Si un compte non confirmé existe pour cette adresse, un nouveau lien vient d'être envoyé.",
+    };
+    const trimmed = String(email || '').trim();
+    const normalized = trimmed.toLowerCase();
+    if (!trimmed) throw new BadRequestException('Adresse e-mail requise.');
+
+    const last = lastResendAt.get(normalized) ?? 0;
+    if (Date.now() - last < RESEND_COOLDOWN_MS) {
+      throw new BadRequestException('Patientez une minute avant de demander un nouvel e-mail.');
+    }
+    lastResendAt.set(normalized, Date.now());
+
+    const [rows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
+      'SELECT email, name, role, is_verified FROM users WHERE email = ? LIMIT 1',
+      [trimmed]
+    );
+    const user = rows[0];
+    if (!user || Number(user.is_verified) === 1) return generic;
+
+    try {
+      await sendVerificationLink(user as any);
+    } catch (error) {
+      console.error("Erreur lors du renvoi de l'e-mail :", error);
+      lastResendAt.delete(normalized);
+      throw new InternalServerErrorException("Impossible d'envoyer l'e-mail de vérification.");
+    }
+    return generic;
+  }
+
   async register(createUserInput: RegisterDto): Promise<AuthResponse> {
     const { name, email, password } = createUserInput;
 
-    // Vérifier si l'utilisateur existe déjà
-    const [existing]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
-      'SELECT id FROM users WHERE email = ?',
-      [email]
-    );
+    // Vérification de l'adresse (base) et hachage du mot de passe (calcul) en parallèle
+    const [[existing], hashedPassword]: [[RowDataPacket[], any], string] = await Promise.all([
+      this.DatabaseService.query<RowDataPacket[]>('SELECT id FROM users WHERE email = ?', [email]),
+      bcrypt.hash(password, 10),
+    ]);
 
     if (existing.length > 0) {
       throw new ForbiddenException('Cet utilisateur existe déjà.');
     }
-
-    // Hasher le mot de passe de l'utilisateur
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Générer le token de vérification 
     const verificationToken = jwt.sign(
@@ -57,72 +114,8 @@ export class AuthService {
     // Lien de vérification
     const verificationLink = `${process.env.BASE_URL}/verify-email?token=${verificationToken}`;
 
-    // Envoie l'e-mail de vérification (toujours, même si l'utilisateur existe déjà)
-    try {
-      await sendVerificationEmail({
-        email,
-        subject: "Confirme ton adresse e-mail - E·Doto Family",
-        message: `
-  <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
-    
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
-      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
-      <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
-      <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Harmonie, bien-être et santé au féminin</p>
-    </div>
-
-    <!-- Body -->
-    <div style="padding: 40px 30px; background-color: #ffffff;">
-      <h2 style="color: #111827; font-size: 20px; margin-bottom: 12px; text-align: center;">Bienvenue dans la famille 🌸</h2>
-      <p style="color: #4B5563; font-size: 15px; line-height: 1.7; text-align: center; margin: 0 auto; max-width: 460px;">
-        Merci de t’être inscrite sur <strong>E·Doto Family</strong>.  
-        Pour activer ton compte et rejoindre notre communauté,  
-        confirme ton adresse e-mail en cliquant sur le bouton ci-dessous :
-      </p>
-
-      <!-- Call to Action -->
-      <div style="text-align: center; margin: 36px 0;">
-        <a href="${verificationLink}"
-          style="background: linear-gradient(135deg, #FF6EA9, #ff579d); color: #fff; padding: 14px 36px;
-                 border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px;
-                 display: inline-block; box-shadow: 0 3px 10px rgba(255,110,169,0.3); transition: all 0.3s ease;">
-          Confirmer mon e-mail
-        </a>
-      </div>
-
-      <p style="color: #6B7280; font-size: 14px; line-height: 1.6; text-align: center;">
-        Ce lien expirera dans <strong>5 minutes</strong> pour des raisons de sécurité.  
-        Si tu n’as pas créé de compte, ignore simplement cet e-mail.
-      </p>
-
-      <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 36px 0;" />
-
-      <p style="color: #9CA3AF; font-size: 13px; text-align: center;">
-        Merci pour ta confiance 💖<br />
-        L’équipe <strong style="color: #FF6EA9;">E·Doto Family</strong>
-      </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
-      <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-        © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
-        <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
-      </p>
-    </div>
-  </div>
-  `,
-      })
-
-
-    } catch (error) {
-      console.error("Erreur lors de l'envoi de l'e-mail :", error);
-      throw new InternalServerErrorException("Impossible d'envoyer l'e-mail de vérification.");
-    }
-
-
-    // Insertion dans la table users 
+    // Décision B2 (a) du 24/09/2026 : le compte est enregistré AVANT l'envoi de l'e-mail
+    // (plus d'e-mail envoyé pour un compte qui n'a pas pu être créé).
     await this.DatabaseService.query(
       `INSERT INTO users 
     (name, email, password, is_verified, email_verified, email_verified_at, is_active, shop_id, created_at, updated_at)
@@ -139,6 +132,20 @@ export class AuthService {
       ]
     );
 
+    // Si l'envoi échoue, le compte existe : l'utilisateur redemande le lien (« Renvoyer l'e-mail »).
+    try {
+      await sendVerificationEmail({
+        email,
+        subject: CUSTOMER_VERIFICATION_SUBJECT,
+        message: buildCustomerVerificationEmail(verificationLink),
+      });
+    } catch (error) {
+      console.error("Erreur lors de l'envoi de l'e-mail :", error);
+      throw new InternalServerErrorException(
+        "Votre compte est créé, mais l'e-mail de confirmation n'a pas pu être envoyé. Cliquez sur « Renvoyer l'e-mail de confirmation ».",
+      );
+    }
+
     return {
       message: 'Inscription réussie. Vérifie ton email.',
     };
@@ -146,7 +153,19 @@ export class AuthService {
 
   async registerPickUpPoint(createUserInput: RegisterDto): Promise<AuthResponse> {
     const { name, email, password, pickup_lat, pickup_lng, pickup_address } = createUserInput;
-    //console.log("Registering pickup point with data:", { name, email, pickup_lat, pickup_lng, pickup_address });
+
+    if (!name || !String(name).trim() || !email || !password) {
+      throw new BadRequestException('Nom, e-mail et mot de passe sont obligatoires.');
+    }
+    // Coordonnées facultatives (compatibilité avec /admin/add-pickup-point) mais valides si fournies
+    const lat = pickup_lat === null || pickup_lat === undefined || (pickup_lat as any) === '' ? null : Number(pickup_lat);
+    const lng = pickup_lng === null || pickup_lng === undefined || (pickup_lng as any) === '' ? null : Number(pickup_lng);
+    if ((lat === null) !== (lng === null)) {
+      throw new BadRequestException('Latitude et longitude doivent être fournies ensemble.');
+    }
+    if (lat !== null && (!Number.isFinite(lat) || lat < -90 || lat > 90 || !Number.isFinite(lng) || lng < -180 || lng > 180)) {
+      throw new BadRequestException('Coordonnées GPS invalides.');
+    }
     // Vérifier si l'utilisateur existe déjà
     const [existing]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
       'SELECT id FROM users WHERE email = ?',
@@ -174,62 +193,8 @@ export class AuthService {
     try {
       await sendVerificationEmail({
         email,
-        subject: "Activez votre compte Point de Retrait - E·Doto Family",
-        message: `
-  <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
-    
-    <!-- Header -->
-    <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
-      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
-      <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
-      <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Partenaire officiel — Point de Retrait</p>
-    </div>
-
-    <!-- Body -->
-    <div style="padding: 40px 30px; background-color: #ffffff;">
-      <h2 style="color: #111827; font-size: 20px; margin-bottom: 12px; text-align: center;">
-        Bienvenue parmi nos Points de Retrait ✨
-      </h2>
-
-      <p style="color: #4B5563; font-size: 15px; line-height: 1.7; text-align: center; margin: 0 auto; max-width: 480px;">
-        Bonjour <strong>${name}</strong>,<br/><br/>
-        Vous venez de rejoindre notre réseau de <strong>Points de Retrait E·Doto Family</strong>.  
-        Pour finaliser votre inscription et accéder à votre espace partenaire,  
-        merci de confirmer votre adresse e-mail en cliquant sur le bouton ci-dessous :
-      </p>
-
-      <!-- Call to Action -->
-      <div style="text-align: center; margin: 36px 0;">
-        <a href="${verificationLink}"
-          style="background: linear-gradient(135deg, #FF6EA9, #ff579d); color: #fff; padding: 14px 36px;
-                 border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 16px;
-                 display: inline-block; box-shadow: 0 3px 10px rgba(255,110,169,0.3); transition: all 0.3s ease;">
-          Activer mon compte
-        </a>
-      </div>
-
-      <p style="color: #6B7280; font-size: 14px; line-height: 1.6; text-align: center;">
-        Ce lien est valable pendant <strong>5 minutes</strong>.  
-        Si vous n’êtes pas à l’origine de cette demande, vous pouvez ignorer cet e-mail.
-      </p>
-
-      <hr style="border: none; border-top: 1px solid #f3f4f6; margin: 36px 0;" />
-
-      <p style="color: #9CA3AF; font-size: 13px; text-align: center;">
-        Merci de contribuer à offrir une meilleure expérience aux membres de la communauté 💖<br />
-        L’équipe <strong style="color: #FF6EA9;">E·Doto Family</strong>
-      </p>
-    </div>
-
-    <!-- Footer -->
-    <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
-      <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-        © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
-        <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
-      </p>
-    </div>
-  </div>
-      `,
+        subject: PICKUP_VERIFICATION_SUBJECT,
+        message: buildPickupVerificationEmail(name, verificationLink),
       });
 
     } catch (error) {
@@ -240,8 +205,8 @@ export class AuthService {
     // Insertion en base avec le rôle super_pickuppoint
     await this.DatabaseService.query(
       `INSERT INTO users 
-    (name, email, password, role, is_verified, email_verified, email_verified_at, is_active, shop_id, pickup_lat, pickup_lng, pickup_address, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    (name, email, password, role, is_verified, email_verified, email_verified_at, is_active, shop_id, pickup_lat, pickup_lng, pickup_address, pickup_approved, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         name,
         email,
@@ -252,14 +217,15 @@ export class AuthService {
         null,
         1,
         null,
-        pickup_lat || null,
-        pickup_lng || null,
-        pickup_address || null
+        lat,
+        lng,
+        pickup_address || null,
+        0, // en attente de validation par l'admin
       ]
     );
 
     return {
-      message: 'Inscription réussie. Vérifiez votre e-mail pour activer votre compte Point de Retrait.',
+      message: "Inscription enregistrée. Confirmez votre e-mail : votre compte sera activé après validation par l'équipe E·Doto Family.",
     };
   }
 
@@ -358,6 +324,17 @@ export class AuthService {
         permissions: ['customer'],
       };
     } else if (user.role === "super_pickuppoint") {
+      // pickup_approved = 0 : inscription pas encore validée dans l'admin
+      if (Number(user.pickup_approved) === 0) {
+        throw new ForbiddenException(
+          "Votre point de retrait est en attente de validation par l'équipe E·Doto Family.",
+        );
+      }
+      if (Number(user.is_active) === 0) {
+        throw new ForbiddenException(
+          "Votre point de retrait est bloqué. Contactez l'équipe E·Doto Family.",
+        );
+      }
       const token = jwt.sign({
         id: user.id,
         email: user.email,
@@ -408,6 +385,21 @@ export class AuthService {
         token,
         permissions: ['store_owner'],
         redirect: process.env.FRONTEND_ADMIN_CALLBACK_URL,
+      };
+    } else if (user.role === "sponsor") {
+      // Espace sponsor : compte créé sur invitation de l'admin (mot de passe choisi via le lien)
+      if (Number(user.is_active) === 0) {
+        throw new ForbiddenException("Votre espace sponsor est désactivé. Contactez l'équipe E·Doto Family.");
+      }
+      const token = jwt.sign({
+        id: user.id,
+        email: user.email,
+        permissions: ['sponsor'],
+      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+
+      return {
+        token,
+        permissions: ['sponsor'],
       };
     } else if (user.role === "super_admin") {
       const token = jwt.sign({
@@ -488,33 +480,34 @@ export class AuthService {
     try {
       const decoded: any = jwt.verify(extractToken, process.env.JWT_SECRET_KEY);
 
-      // 1️⃣ Récupérer user de base //
-      const [rows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
-        'SELECT * FROM users WHERE id = ?',
-        [decoded.id]
-      );
+      // Utilisateur, profil et boutiques ne dépendent que de l'id du jeton : requêtes en parallèle
+      // (un aller-retour vers la base au lieu de trois à cinq à la suite).
+      const [[rows], [profileRows], [shopsRows]] = await Promise.all([
+        this.DatabaseService.query<RowDataPacket[]>('SELECT * FROM users WHERE id = ?', [decoded.id]),
+        this.DatabaseService.query<RowDataPacket[]>('SELECT * FROM profiles WHERE customer_id = ?', [decoded.id]),
+        this.DatabaseService.query<RowDataPacket[]>(
+          `SELECT
+            s.*,
+            ci.url AS cover_image_url,
+            li.url AS logo_image_url
+          FROM shops s
+          LEFT JOIN media ci ON s.cover_image_id = ci.id
+          LEFT JOIN media li ON s.logo_image_id = li.id
+          WHERE s.owner_id = ?`,
+          [decoded.id]
+        ),
+      ]);
       const user = rows[0];
       if (!user) {
         throw new UnauthorizedException('Utilisateur non trouvé');
       }
-
-      // 2️⃣ Récupérer profile lié
-      const [profileRows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
-        'SELECT * FROM profiles WHERE customer_id = ?',
-        [decoded.id]
-      );
+      if (user.role === 'super_pickuppoint' && Number(user.is_active) === 0) {
+        throw new UnauthorizedException('Point de retrait bloqué');
+      }
       const profile = profileRows[0] ?? null;
 
-      // 3️⃣ Récupérer avatar s'il existe
-      let avatar = null;
-      if (profile?.avatar_id) {
-        const [avatarRows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
-          'SELECT * FROM avatars WHERE id = ?',
-          [profile.avatar_id]
-        );
-        avatar = avatarRows[0] ?? null;
-      }
-      // 3️⃣ Récupérer avatar s'il existe
+      // Avatar (média) seulement s'il existe. L'ancienne lecture de la table avatars n'était
+      // jamais renvoyée : supprimée.
       let avatarMedia = null;
       if (profile?.avatar_id) {
         const [mediaRows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
@@ -524,22 +517,9 @@ export class AuthService {
         avatarMedia = mediaRows[0] ?? null;
       }
 
-      // 4️⃣ Récupérer les shops où user est owner
-      const [shopsRows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
-        `SELECT 
-          s.*, 
-          ci.url AS cover_image_url, 
-          li.url AS logo_image_url 
-        FROM shops s
-        LEFT JOIN media ci ON s.cover_image_id = ci.id
-        LEFT JOIN media li ON s.logo_image_id = li.id
-        WHERE s.owner_id = ?`,
-        [decoded.id]
-      );
-
       // ✅ Retourne user enrichi sans mentir au type
       return {
-        ...user,
+        ...omitPassword(user),
         profile: {
           ...profile,
           avatar: avatarMedia, // objet media complet
@@ -548,6 +528,7 @@ export class AuthService {
       };
 
     } catch (error) {
+      if (error instanceof UnauthorizedException) throw error;
       throw new UnauthorizedException('Token invalide');
     }
   }

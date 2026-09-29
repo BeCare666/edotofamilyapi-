@@ -105,6 +105,8 @@ export class Order extends CoreEntity {
   discount?: number;
   delivery_fee: number;
   delivery_time: string;
+  pickup_point_id?: number;
+  delivery_type?: 'PICKUP' | 'CUSTOM';
   products: Product[];
   billing_address: UserAddress;
   shipping_address: UserAddress;

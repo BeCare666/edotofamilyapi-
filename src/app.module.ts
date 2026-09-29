@@ -50,6 +50,10 @@ import { CorridorsModule } from './corridors/corridors.module';
 import { CountriesModule } from './countries/countries.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
 import { ProductCorridorModule } from './product-corridors/product-corridor.module';
+import { PickupModule } from './pickup/pickup.module';
+import { DeliveryModule } from './delivery/delivery.module';
+import { CommissionsModule } from './commissions/commissions.module';
+import { SponsorsModule } from './sponsors/sponsors.module';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
   imports: [
@@ -105,7 +109,11 @@ import { ProductCorridorModule } from './product-corridors/product-corridor.modu
     ProductCorridorModule,
     CorridorsModule,
     CountriesModule,
-    CampaignsModule
+    CampaignsModule,
+    PickupModule,
+    DeliveryModule,
+    CommissionsModule,
+    SponsorsModule
     //DatabaseService
   ],
   controllers: [],

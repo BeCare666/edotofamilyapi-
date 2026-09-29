@@ -7,7 +7,18 @@ import { join } from 'path';
 export class DatabaseSetupService implements OnModuleInit {
   private connection: mysql.Connection;
 
+  // Les scripts SQL (création des tables, migrations) ne tournent plus à chaque démarrage :
+  // ~45 requêtes à la suite retardaient chaque démarrage à froid de l'API.
+  // Pour les exécuter : `npm run db:setup`, ou DB_SETUP_ON_BOOT=true au démarrage.
   async onModuleInit() {
+    if (process.env.DB_SETUP_ON_BOOT !== 'true') {
+      console.log('ℹ️ Scripts SQL non exécutés au démarrage (npm run db:setup ou DB_SETUP_ON_BOOT=true).');
+      return;
+    }
+    await this.run();
+  }
+
+  async run() {
     const isProd = process.env.NODE_ENV === 'production';
 
     // ✅ chemin cert compatible Nest build (dist ou src).               
@@ -84,7 +95,13 @@ export class DatabaseSetupService implements OnModuleInit {
       'pending_payments.sql',
       '001_create_campaigns.sql',
       '002_create_campaign_registrations.sql',
-      'campaign_sponsors.sql'
+      'campaign_sponsors.sql',
+      '003_pickup_point_approval.sql',
+      '004_custom_delivery.sql',
+      '005_campaigns_admin.sql',
+      '006_pickup_commissions.sql',
+      '007_sponsor_space.sql',
+      'ai_chat_logs.sql'
     ];
 
     for (const file of files) {

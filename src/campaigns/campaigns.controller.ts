@@ -1,9 +1,10 @@
 import { Controller, Get, Post, Patch, Body, Param, ParseIntPipe, UseGuards, Req } from '@nestjs/common';
 import { CampaignsService } from './campaigns.service';
-import { CreateCampaignDto } from './dto/create-campaign.dto';
-import { UpdateStatusDto } from './dto/update-status.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { RolesGuard } from '../auth/roles.guard';
+import { ActivePickupGuard } from '../auth/active-pickup.guard';
+import { Roles, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
 
 @Controller()
 export class CampaignsController {
@@ -38,38 +39,48 @@ export class CampaignsController {
     return this.campaignsService.register(dto, req.user.id);
   }
 
-  @Post('admin/campaigns')
-  create(@Body() dto: CreateCampaignDto) {
-    return this.campaignsService.createCampaign(dto);
-  }
+  // Création, modification, suppression, liste, détail et exports : CampaignsAdminController.
+  // Le statut n'est plus modifiable : il est calculé à partir des dates.
 
-  @Patch('admin/campaigns/:id/status')
-  updateStatus(
-    @Param('id', ParseIntPipe) id: number,
-    @Body() dto: UpdateStatusDto
-  ) {
-    return this.campaignsService.updateStatus(id, dto);
-  }
-
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN)
   @Get('admin/campaigns/:id/registrations')
   getRegistrations(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.getRegistrationsForCampaign(id);
   }
 
+  // Inscriptions du participant connecté
   @UseGuards(JwtAuthGuard)
+  @Get('campaign-registrations/mine')
+  getMine(@Req() req) {
+    return this.campaignsService.getMyRegistrations(req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('campaign-registrations/:id/regenerate-otp')
+  regenerateOtp(@Param('id', ParseIntPipe) id: number, @Req() req) {
+    return this.campaignsService.regenerateRegistrationOtp(id, req.user.id);
+  }
+
+  @UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
+  @Roles(SUPER_PICKUPPOINT)
   @Get('campaign-registrations/my')
   async getMyRegistrations(@Req() req) {
     // récupère les inscriptions pour le point de retrait connecté
     return this.campaignsService.getRegistrationsByPickupCenter(req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
+  @Roles(SUPER_PICKUPPOINT)
   @Post('campaigns/verify-otp')
-  async verifyCampaignOtp(@Body() body: { registration_id: number; otp: string }) {
-    return this.campaignsService.verifyCampaignOtp(body);
+  async verifyCampaignOtp(@Body() body: { registration_id: number; otp: string }, @Req() req) {
+    return this.campaignsService.verifyCampaignOtp(body, req.user.id);
   }
 
+  @UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
+  @Roles(SUPER_PICKUPPOINT)
   @Post('campaigns/mark-pickup')
-  async markPickup(@Body() body: { registration_id: number }) {
-    return this.campaignsService.markPickup(body);
+  async markPickup(@Body() body: { registration_id: number }, @Req() req) {
+    return this.campaignsService.markPickup(body, req.user.id);
   }
 }

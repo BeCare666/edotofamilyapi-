@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
 import { OkPacket, RowDataPacket } from 'mysql2';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -321,7 +321,8 @@ export class ProductsService {
     }
 
     if (name && name.trim() !== '') {
-      where.push(`p.name LIKE ?`);
+      // Recherche insensible aux majuscules et aux accents (colonnes en utf8mb4_bin)
+      where.push(`p.name COLLATE utf8mb4_general_ci LIKE ?`);
       params.push(`%${name}%`);
     }
 
@@ -514,6 +515,10 @@ export class ProductsService {
     for (const [key, value] of Object.entries(updateProductDto)) {
       // 🔒 1. Ignorer les champs non définis ou null
       if (value === null || value === undefined) continue;
+      // 🔒 Le nom de colonne est interpolé dans le SQL : n'accepter qu'un identifiant simple
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
+        throw new BadRequestException(`Champ invalide : ${key}`);
+      }
 
       // 🔧 2. Sérialiser uniquement les objets/arrays
       if (typeof value === 'object' && !(value instanceof Date)) {
@@ -595,7 +600,8 @@ export class ProductsService {
     }
 
     if (search) {
-      query += ' AND (p.name LIKE ? OR p.description LIKE ?)';
+      // Recherche insensible aux majuscules et aux accents (colonnes en utf8mb4_bin)
+      query += ' AND (p.name COLLATE utf8mb4_general_ci LIKE ? OR p.description COLLATE utf8mb4_general_ci LIKE ?)';
       values.push(`%${search}%`, `%${search}%`);
     }
 
@@ -607,8 +613,11 @@ export class ProductsService {
 
 
 
+  // Liste publique des produits (page catégorie). Une seule série de requêtes en parallèle :
+  // total et page de résultats (avant : 3 requêtes à la suite, jointure corridors + DISTINCT
+  // sur toutes les colonnes même sans filtre corridor). Prix filtré et trié sur le prix payé
+  // (prix promo, sinon prix), comme à la commande.
   async getProductsByCorridor(query: GetProductsByCorridorDto) {
-    console.log('Query reçue :', query);
     const {
       corridor_id,
       countries_id,
@@ -617,109 +626,77 @@ export class ProductsService {
       sub_categories_id,
       search,
       is_origin,
-      limit = 20,
-      offset = 0,
+      min_price,
+      max_price,
       orderBy = 'created_at',
       sortedBy = 'desc',
     } = query;
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 20));
+    const offset = Math.max(0, Number(query.offset) || 0);
 
     const pool = this.DatabaseService.getPool();
-    const where: string[] = [];
-    const values: any[] = [];
+    const where: string[] = ['p.status = ?'];
+    const values: any[] = ['publish'];
+    const effectivePrice = 'COALESCE(p.sale_price, p.price)';
 
-    // 🔹 Filtre corridor
     if (corridor_id) {
-      where.push(`pc.corridor_id = ?`);
-      values.push(corridor_id);
+      where.push('p.id IN (SELECT produit_id FROM corridors_produits WHERE corridor_id = ?)');
+      values.push(Number(corridor_id));
     }
-
-    // 🔹 Filtre pays
     if (countries_id) {
-      where.push(`p.countries_id = ?`);
-      values.push(countries_id);
+      where.push('p.countries_id = ?');
+      values.push(Number(countries_id));
     }
-    // 🔹 Filtre is_origin
-    if (is_origin) {
-      where.push(`p.is_origin = ?`);
+    // « true » / « 1 » uniquement (avant, la chaîne « false » activait aussi le filtre)
+    if (is_origin === true || String(is_origin) === 'true' || String(is_origin) === '1') {
+      where.push('p.is_origin = ?');
       values.push(true);
     }
-    // 🔹 Filtre statut "publish"
-    where.push(`p.status = ?`);
-    values.push('publish');
-    // 🔹 Filtre catégories / sous-catégories / sous-sous-catégories
     if (categories_id || sous_categories_id || sub_categories_id) {
-      const subWhere: string[] = [];
-      const subValues: any[] = [];
-
-      if (categories_id) {
-        subWhere.push(`categories_id = ?`);
-        subValues.push(categories_id);
-      }
-
-      if (sous_categories_id) {
-        subWhere.push(`sous_categories_id = ?`);
-        subValues.push(sous_categories_id);
-      }
-
-      if (sub_categories_id) {
-        subWhere.push(`sub_categories_id = ?`);
-        subValues.push(sub_categories_id);
-      }
-
-      const [linkedProducts] = await pool.query(
-        `SELECT DISTINCT product_id FROM product_categories WHERE ${subWhere.join(' AND ')}`,
-        subValues
-      );
-
-      const productIds = (linkedProducts as any[]).map((row) => row.product_id);
-
-      if (productIds.length > 0) {
-        where.push(`p.id IN (${productIds.map(() => '?').join(',')})`);
-        values.push(...productIds);
-      } else {
-        return {
-          data: [],
-          total: 0,
-          limit,
-          offset,
-        };
-      }
+      const sub: string[] = [];
+      if (categories_id) { sub.push('categories_id = ?'); values.push(Number(categories_id)); }
+      if (sous_categories_id) { sub.push('sous_categories_id = ?'); values.push(Number(sous_categories_id)); }
+      if (sub_categories_id) { sub.push('sub_categories_id = ?'); values.push(Number(sub_categories_id)); }
+      where.push(`p.id IN (SELECT product_id FROM product_categories WHERE ${sub.join(' AND ')})`);
+    }
+    if (search && String(search).trim()) {
+      // Recherche insensible aux majuscules et aux accents (colonnes en utf8mb4_bin)
+      where.push('p.name COLLATE utf8mb4_general_ci LIKE ?');
+      values.push(`%${String(search).trim()}%`);
+    }
+    const min = Number(min_price);
+    if (min_price !== undefined && min_price !== null && String(min_price) !== '' && Number.isFinite(min)) {
+      where.push(`${effectivePrice} >= ?`);
+      values.push(min);
+    }
+    const max = Number(max_price);
+    if (max_price !== undefined && max_price !== null && String(max_price) !== '' && Number.isFinite(max)) {
+      where.push(`${effectivePrice} <= ?`);
+      values.push(max);
     }
 
-    // 🔹 Filtre recherche textuelle
-    if (search) {
-      where.push(`p.name LIKE ?`);
-      values.push(`%${search}%`);
-    }
+    const whereSql = `WHERE ${where.join(' AND ')}`;
+    const orderColumns: Record<string, string> = {
+      created_at: 'p.created_at',
+      updated_at: 'p.updated_at',
+      name: 'p.name',
+      price: effectivePrice,
+    };
+    const orderSql = orderColumns[orderBy] ?? 'p.created_at';
+    const direction = String(sortedBy).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
-    const allowedOrderFields = ['created_at', 'name', 'price', 'updated_at'];
-    const orderBySafe = allowedOrderFields.includes(orderBy) ? orderBy : 'created_at';
-    const sortedBySafe = sortedBy?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-
-    // 🔹 Total des résultats
-    const countSql = `
-    SELECT COUNT(DISTINCT p.id) AS total
-    FROM products p
-    LEFT JOIN corridors_produits pc ON p.id = pc.produit_id
-    ${whereSql}
-  `;
-
-    const [countRows]: any = await pool.query(countSql, values);
-    const total = countRows[0]?.total ?? 0;
-
-    // 🔹 Récupération des produits
-    const dataSql = `
-    SELECT DISTINCT p.*, s.id AS shop_id, s.slug AS shop_slug, s.name AS shop_name
-    FROM products p
-    LEFT JOIN corridors_produits pc ON p.id = pc.produit_id
-    LEFT JOIN shops s ON p.shop_id = s.id
-    ${whereSql}
-    ORDER BY p.${orderBySafe} ${sortedBySafe}
-    LIMIT ? OFFSET ?
-  `;
-
-    const [rows]: any = await pool.query(dataSql, [...values, Number(limit), Number(offset)]);
+    const [[countRows], [rows]]: any = await Promise.all([
+      pool.query(`SELECT COUNT(*) AS total FROM products p ${whereSql}`, values),
+      pool.query(
+        `SELECT p.*, s.id AS shop_id, s.slug AS shop_slug, s.name AS shop_name
+         FROM products p
+         LEFT JOIN shops s ON p.shop_id = s.id
+         ${whereSql}
+         ORDER BY ${orderSql} ${direction}, p.id DESC
+         LIMIT ? OFFSET ?`,
+        [...values, limit, offset],
+      ),
+    ]);
 
     return {
       data: rows.map((row: any) => ({
@@ -730,7 +707,7 @@ export class ProductsService {
           name: row.shop_name,
         },
       })),
-      total,
+      total: Number(countRows[0]?.total ?? 0),
       limit,
       offset,
     };

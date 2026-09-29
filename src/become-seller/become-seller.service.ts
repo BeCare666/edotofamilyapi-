@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
 import { CreateBecomeSellerDto } from './dto/create-become-seller.dto';
 import * as jwt from 'jsonwebtoken';
@@ -8,12 +8,18 @@ export class BecomeSellerService {
 
   async create(createBecomeSellerDto: CreateBecomeSellerDto) {
     const { userId } = createBecomeSellerDto;
-    console.log('→ Utilisateur userId :', userId);
 
-    // Mise à jour du rôle
+    // Même règle que users/became-seller : seul un client devient vendeur
+    // (un admin ou un point de retrait ne doit jamais perdre son rôle ici)
+    const [current]: any = await this.database.query('SELECT role FROM users WHERE id = ?', [userId]);
+    const role = current?.[0]?.role;
+    if (!role) throw new NotFoundException('Utilisateur non trouvé.');
+    if (role === 'store_owner') throw new BadRequestException('Vous êtes déjà vendeur.');
+    if (role !== 'customer') throw new BadRequestException('Seul un compte client peut devenir vendeur.');
+
     await this.database.query(
-      'UPDATE users SET role = ? WHERE id = ?',
-      ['store_owner', userId],
+      'UPDATE users SET role = ? WHERE id = ? AND role = ?',
+      ['store_owner', userId, 'customer'],
     );
 
     // Récupération des informations de l'utilisateur
@@ -48,7 +54,7 @@ export class BecomeSellerService {
 
   async findAll() {
     const [rows] = await this.database.query(
-      'SELECT * FROM users WHERE role = ?',
+      'SELECT id, name, email, is_active, is_verified, created_at FROM users WHERE role = ?',
       ['store_owner'],
     );
     return rows;
