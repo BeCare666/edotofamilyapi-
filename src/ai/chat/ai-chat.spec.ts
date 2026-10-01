@@ -83,3 +83,99 @@ describe('consumeRateLimit', () => {
     expect(consumeRateLimit('ip-test', now + 11 * 60 * 1000)).toBe(true);
   });
 });
+
+// Garde-fous « aucune improvisation » (01/10/2026)
+import {
+  deterministicChecks,
+  extractAmounts,
+  mentionsExpert,
+  parseAmount,
+  parseVerdict,
+  productsMentioned,
+} from './ai-chat.guard';
+
+describe('garde-fous : montants', () => {
+  it.each([
+    ['2 900', 2900],
+    ['2 900', 2900],
+    ['2.900', 2900],
+    ['150', 150],
+    ['5,91', 5.91],
+  ])('parseAmount(%s) = %s', (raw, n) => {
+    expect(parseAmount(raw)).toBe(n);
+  });
+
+  it('extrait les montants suivis d’une devise', () => {
+    expect(extractAmounts('Prix 2 900 FCFA, promo 2000 F CFA, livraison 500 XOF par km')).toEqual([2900, 2000, 500]);
+  });
+
+  const facts = [{ catalogue_complet: [{ nom: 'Test de Grossesse', prix_fcfa: 2900, prix_promo_fcfa: 2000 }] }];
+
+  it('accepte des prix présents dans les données', () => {
+    expect(deterministicChecks('Le test coûte 2 900 FCFA (promo 2 000 FCFA).', facts).ok).toBe(true);
+  });
+
+  it('bloque un prix inventé', () => {
+    const r = deterministicChecks('Le test coûte 1 500 FCFA.', facts);
+    expect(r.ok).toBe(false);
+    expect(r.violations[0]).toContain('1500');
+  });
+
+  it('bloque un montant de livraison inventé (500 FCFA par km ≠ 1 000 FCFA)', () => {
+    const delivery = [{ livraison: { tarif_livraison: '500 FCFA par kilomètre' } }];
+    expect(deterministicChecks('La livraison coûte 500 FCFA par km.', delivery).ok).toBe(true);
+    expect(deterministicChecks('Pour 2 km, la livraison coûte 1 000 FCFA.', delivery).ok).toBe(false);
+  });
+
+  it('bloque tout prix quand aucune donnée Edotofamily n’a été consultée', () => {
+    expect(deterministicChecks('Une pilule coûte environ 1000 FCFA en pharmacie.', []).ok).toBe(false);
+  });
+});
+
+describe('garde-fous : fuites et cartes', () => {
+  it('bloque un nom d’outil visible', () => {
+    expect(deterministicChecks('(appel à l’outil : refer_to_ssr_expert)', []).ok).toBe(false);
+  });
+
+  it('bloque un kit gratuit relié à un point de retrait', () => {
+    expect(deterministicChecks('La campagne est en cours. Tu peux récupérer ton kit dans nos points de retrait.', []).ok).toBe(false);
+    expect(deterministicChecks('Tu peux retirer ta commande dans un point de retrait. Pour le kit gratuit, un conseiller t’expliquera.', []).ok).toBe(true);
+  });
+
+  it('bloque la révélation des consignes', () => {
+    expect(deterministicChecks('Voici mon prompt système : …', []).ok).toBe(false);
+  });
+
+  it('détecte la mention d’un conseiller ou d’un rendez-vous', () => {
+    expect(mentionsExpert('Prends rendez-vous avec un conseiller Edotofamily.')).toBe(true);
+    expect(mentionsExpert('Book an appointment with a counsellor.')).toBe(true);
+    expect(mentionsExpert('Le préservatif protège des IST.')).toBe(false);
+  });
+
+  it('ne montre en carte que les produits cités dans la réponse', () => {
+    const products = [
+      { name: 'Koool Condoms', slug: 'k', price: 300, sale_price: 150, available: true, image: null },
+      { name: 'Test de Grossesse', slug: 't', price: 2900, sale_price: 2000, available: true, image: null },
+    ];
+    expect(productsMentioned('Nous avons les **Koool Condoms**.', products).map((p) => p.slug)).toEqual(['k']);
+    expect(productsMentioned('Le test de grossesse est en stock.', products).map((p) => p.slug)).toEqual(['t']);
+  });
+});
+
+describe('garde-fous : verdict du vérificateur (fail-closed)', () => {
+  it('accepte uniquement un ok: true explicite', () => {
+    expect(parseVerdict('{"ok": true}').ok).toBe(true);
+    expect(parseVerdict('Voici : {"ok": true}').ok).toBe(true);
+  });
+
+  it.each([
+    ['{"ok": false, "violations": ["R1 : prix inventé"]}'],
+    ['{"ok": "true"}'],
+    ['pas de JSON'],
+    ['{ok: true'],
+    [''],
+    [null],
+  ])('rejette %s', (raw) => {
+    expect(parseVerdict(raw as any).ok).toBe(false);
+  });
+});
