@@ -163,57 +163,75 @@ export class UsersService {
     };
   }
 
-async getUsers({ limit = 30, page = 1, role }: GetUsersDto & { role?: string }): Promise<UserPaginator> {
+// Liste admin des utilisateurs, filtres réels : recherche (nom, e-mail — avant ignorée),
+// rôle, compte actif/bloqué, e-mail confirmé, période d'inscription (UTC+1), tri sécurisé.
+async getUsers(query: GetUsersDto & { role?: string; [k: string]: any }): Promise<UserPaginator> {
   const pool = this.DatabaseService.getPool();
-
-  const pageNumber = Number(page);
-  const limitNumber = Number(limit);
+  const q: any = query;
+  const pageNumber = Math.max(1, Number(q.page) || 1);
+  const limitNumber = Math.min(100, Math.max(1, Number(q.limit) || 30));
   const offset = (pageNumber - 1) * limitNumber;
 
-  // --- SI role est fourni → filtrage ---
-  if (role) {
-    const [rows] = await pool.query<RowDataPacket[]>(
-      `SELECT * FROM users WHERE role = ? LIMIT ? OFFSET ?`,
-      [role, limitNumber, offset]
-    );
-
-    const [countRows] = await pool.query<RowDataPacket[]>(
-      `SELECT COUNT(*) as total FROM users WHERE role = ?`,
-      [role]
-    );
-
-    const total = countRows[0].total;
-
-    return {
-      data: rows as User[],
-      ...paginate(
-        total,
-        pageNumber,
-        limitNumber,
-        rows.length,
-        `/users?role=${role}&limit=${limitNumber}`
-      ),
-    };
+  const where: string[] = [];
+  const params: any[] = [];
+  let text = q.text ?? q.name;
+  if (!text && typeof q.search === 'string') {
+    const m = q.search.split(';').map((p: string) => p.split(':')).find(([k]: string[]) => k === 'name');
+    if (m?.[1]) text = m[1];
   }
+  if (text && String(text).trim()) {
+    const term = `%${String(text).trim()}%`;
+    where.push('(name COLLATE utf8mb4_general_ci LIKE ? OR email COLLATE utf8mb4_general_ci LIKE ?)');
+    params.push(term, term);
+  }
+  if (q.role) { where.push('role = ?'); params.push(String(q.role)); }
+  if (q.is_active === '1' || q.is_active === '0') { where.push(q.is_active === '1' ? 'is_active = 1' : '(is_active = 0 OR is_active IS NULL)'); }
+  if (q.is_verified === '1' || q.is_verified === '0') { where.push(q.is_verified === '1' ? 'is_verified = 1' : '(is_verified = 0 OR is_verified IS NULL)'); }
+  const day = (s: any) => (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null);
+  const beninDayUtc = (s: string, add = 0) => {
+    const [y, m, d] = s.split('-').map(Number);
+    return new Date(Date.UTC(y, m - 1, d + add) - 3600 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+  };
+  if (day(q.date_from)) { where.push('created_at >= ?'); params.push(beninDayUtc(q.date_from)); }
+  if (day(q.date_to)) { where.push('created_at < ?'); params.push(beninDayUtc(q.date_to, 1)); }
+  const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+  const SORTS: Record<string, string> = { created_at: 'created_at', name: 'name', orders_count: 'orders_count' };
+  const orderCol = SORTS[String(q.orderBy)] ?? 'created_at';
+  const dir = String(q.sortedBy).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-  // --- SINON → comportement normal ---
-  const [rows] = await pool.query<RowDataPacket[]>(
-    'SELECT * FROM users LIMIT ? OFFSET ?',
-    [limitNumber, offset]
-  );
-
-  const [countRows] = await pool.query<RowDataPacket[]>(
-    'SELECT COUNT(*) as total FROM users'
-  );
-
-  const total = countRows[0].total;
-
+  const [[rows], [countRows]]: any = await Promise.all([
+    pool.query(
+      `SELECT users.*, (SELECT COUNT(*) FROM orders o WHERE o.customer_id = users.id AND o.is_archived = 0) AS orders_count
+       FROM users ${whereSql} ORDER BY ${orderCol} ${dir}, id DESC LIMIT ? OFFSET ?`,
+      [...params, limitNumber, offset],
+    ),
+    pool.query(`SELECT COUNT(*) as total FROM users ${whereSql}`, params),
+  ]);
+  const total = Number(countRows[0].total);
   return {
-    data: rows as User[],
+    data: rows.map((r: any) => ({ ...r, orders_count: Number(r.orders_count ?? 0) })) as User[],
     ...paginate(total, pageNumber, limitNumber, rows.length, `/users?limit=${limitNumber}`),
   };
 }
 
+// Compteurs réels des filtres de la liste admin
+async getUserFacets(role?: string) {
+  const pool = this.DatabaseService.getPool();
+  const where = role ? 'WHERE role = ?' : '';
+  const params = role ? [role] : [];
+  const [[roles], [sum]]: any = await Promise.all([
+    pool.query(`SELECT role, COUNT(*) AS n FROM users ${where} GROUP BY role ORDER BY n DESC`, params),
+    pool.query(`SELECT COUNT(*) AS total, SUM(is_active = 1) AS active, SUM(is_verified = 1) AS verified FROM users ${where}`, params),
+  ]);
+  const n = (v: any) => Number(v ?? 0);
+  const s = sum[0] ?? {};
+  return {
+    total: n(s.total),
+    roles: roles.map((r: any) => ({ value: r.role, count: n(r.n) })),
+    active: { yes: n(s.active), no: n(s.total) - n(s.active) },
+    verified: { yes: n(s.verified), no: n(s.total) - n(s.verified) },
+  };
+}
 
 
 

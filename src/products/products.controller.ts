@@ -117,6 +117,18 @@ export class ProductsController {
     });
   }
 
+  // Compteurs des filtres de la liste admin (déclaré avant « :slug »)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN, STORE_OWNER, STAFF)
+  @Get('admin-facets')
+  async getAdminFacets(@Query('shop_id') shopId: string | undefined, @Req() req: any) {
+    if (!hasRole(req.user, SUPER_ADMIN)) {
+      if (!shopId) throw new ForbiddenException('Accès refusé.');
+      await this.assertCanManageShop(req.user, Number(shopId));
+    }
+    return this.productsService.getAdminProductFacets(shopId ? Number(shopId) : undefined);
+  }
+
   @Get()
   async getProducts(@Query() query: GetProductsDto): Promise<ProductPaginator> {
     return this.productsService.getProducts(query);

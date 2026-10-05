@@ -32,9 +32,16 @@ export class CampaignsAdminController {
   }
 
   // ?status=a_venir|en_cours|terminee (sans filtre : toutes)
+  // Filtres réels : recherche (titre), ville, sponsor, tri ; « facets » = compteurs
   @Get('campaigns')
-  list(@Query('status') status?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.admin.list({ status, page, limit });
+  list(@Query() q: any) {
+    return this.admin.list({ status: q.status, page: q.page, limit: q.limit, search: q.search, city: q.city, sponsor: q.sponsor, sort: q.sort });
+  }
+
+  // Déclarée avant campaigns/:id
+  @Get('campaigns/facets')
+  facets() {
+    return this.admin.facets();
   }
 
   // Déclarée avant campaigns/:id

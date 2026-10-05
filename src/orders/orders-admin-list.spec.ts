@@ -43,3 +43,41 @@ describe('G2 — liste des commandes côté admin', () => {
     expect(res.data[0].otp_code).toBe(MASKED_OTP);
   });
 });
+
+describe('Filtres réels de la liste des commandes', () => {
+  it('statut, paiement, retrait, campagne, période (UTC+1) et montant, dans le périmètre du client', async () => {
+    const { db, calls } = fakeDb(handler);
+    const svc = new OrdersService({} as any, {} as any, {} as any, db);
+    await svc.getOrders({
+      order_status: 'order-pending,order-completed,piratage', payment_status: 'payment-success', delivery_type: 'CUSTOM',
+      kind: 'campaign', date_from: '2026-10-01', date_to: '2026-10-05', min_total: '1000', max_total: '9000',
+    } as any, { id: 10, permissions: ['customer'] });
+    const list = calls.find((c) => c.sql.startsWith('SELECT * FROM orders'))!;
+    expect(list.sql).toContain('customer_id = ?');
+    expect(list.sql).toContain('order_status IN (?,?)');
+    expect(list.sql).toContain('payment_status IN (?)');
+    expect(list.sql).toContain('delivery_type = ?');
+    expect(list.sql).toContain('campaign_id IS NOT NULL');
+    expect(list.params).toEqual([10, 'order-pending', 'order-completed', 'payment-success', 'CUSTOM',
+      '2026-09-30 23:00:00', '2026-10-05 23:00:00', 1000, 9000, 15, 0]);
+  });
+
+  it('admin : « none » = commandes sans point de retrait ; un client ne peut pas filtrer un autre point', async () => {
+    const { db, calls } = fakeDb(handler);
+    const svc = new OrdersService({} as any, {} as any, {} as any, db);
+    await svc.getOrders({ pickup_point_id: 'none' } as any, { id: 1, permissions: ['super_admin'] });
+    expect(calls.find((c) => c.sql.startsWith('SELECT * FROM orders'))!.sql).toContain('pickup_point_id IS NULL');
+  });
+
+  it('compteurs : mêmes conditions de périmètre que la liste', async () => {
+    const { db, calls } = fakeDb(() => [{ v: 'order-pending', n: 2, campaign: 1, shop: 1, total: 2, min: 100, max: 900 }]);
+    const svc = new OrdersService({} as any, {} as any, {} as any, db);
+    const res: any = await svc.getOrderFacets({}, { id: 20, permissions: ['super_pickuppoint'] });
+    for (const c of calls) {
+      expect(c.sql).toContain('pickup_point_id = ?');
+      expect(c.sql).toContain("payment_status = 'payment-success'");
+    }
+    expect(res.pickup_points).toEqual([]);
+    expect(res.kind).toEqual({ campaign: 1, shop: 1 });
+  });
+});

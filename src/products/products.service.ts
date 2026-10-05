@@ -152,7 +152,14 @@ export class ProductsService {
     }
 
     // --- Slug ---
-    const finalSlug = slug && slug.trim() !== '' ? slug : this.formatSlug(name);
+    // Slug unique : la fiche produit et l'édition admin se chargent par slug
+    const baseSlug = slug && slug.trim() !== '' ? slug.trim() : this.formatSlug(name);
+    let finalSlug = baseSlug;
+    for (let i = 2; ; i++) {
+      const [taken]: any = await this.DatabaseService.getPool().query('SELECT id FROM products WHERE slug = ? LIMIT 1', [finalSlug]);
+      if (!taken.length) break;
+      finalSlug = `${baseSlug}-${i}`;
+    }
     const parsedPrice = price ? Number(price) : null;
     const parsedSalePrice = sale_price ? Number(sale_price) : null;
 
@@ -273,29 +280,16 @@ export class ProductsService {
 
 
 
-  // --- GET ALL PRODUCTS ---
-  async getProducts(query: GetProductsDto): Promise<ProductPaginator> {
-    const {
-      shop_id,
-      language,
-      name: rawName,
-      status: rawStatus,
-      product_type,
-      categories,
-      limit = 20,
-      page = 1,
-      orderBy = 'created_at',
-      sortedBy = 'desc',
-      search, // si le front envoie "search=name:Merc;status:publish"
-    } = query;
-
-    let name = rawName;
-    let status = rawStatus;
-
-    // 🔹 Parser le paramètre `search` si fourni
-    if (search) {
-      const searchParts = search.split(';');
-      searchParts.forEach(part => {
+  // --- GET ALL PRODUCTS (liste admin) ---
+  // Filtres réels : nom/SKU, statut, catégorie et étiquette (tables de liaison), état du stock
+  // (rupture < 1, faible 1-9, disponible ≥ 10 — mêmes seuils que les alertes stock), promo,
+  // prix payé (promo sinon prix), origine locale, boutique. Tri sécurisé (liste blanche).
+  private buildAdminProductFilters(query: Record<string, any>) {
+    const q: any = query;
+    let name = q.name;
+    let status = q.status;
+    if (q.search) {
+      String(q.search).split(';').forEach((part: string) => {
         const [key, value] = part.split(':');
         if (key && value) {
           if (key === 'name') name = value;
@@ -303,76 +297,86 @@ export class ProductsService {
         }
       });
     }
-
-    const offset = (page - 1) * limit;
     const where: string[] = [];
     const params: any[] = [];
-    const pool = this.DatabaseService.getPool();
-
-    // 🔹 Conditions
-    if (shop_id) {
-      where.push(`p.shop_id = ?`);
-      params.push(Number(shop_id));
-    }
-
-    if (language) {
-      where.push(`(p.language = ? OR p.language IS NULL)`);
-      params.push(language);
-    }
-
-    if (name && name.trim() !== '') {
+    const effectivePrice = 'COALESCE(p.sale_price, p.price)';
+    if (q.shop_id) { where.push('p.shop_id = ?'); params.push(Number(q.shop_id)); }
+    if (q.language) { where.push('(p.language = ? OR p.language IS NULL)'); params.push(q.language); }
+    if (name && String(name).trim() !== '') {
       // Recherche insensible aux majuscules et aux accents (colonnes en utf8mb4_bin)
-      where.push(`p.name COLLATE utf8mb4_general_ci LIKE ?`);
-      params.push(`%${name}%`);
+      const term = `%${String(name).trim()}%`;
+      where.push('(p.name COLLATE utf8mb4_general_ci LIKE ? OR p.sku COLLATE utf8mb4_general_ci LIKE ?)');
+      params.push(term, term);
     }
-
     if (status) {
-      where.push(`p.status = ?`);
-      params.push(status);
+      const list = String(status).split(',').map((s) => s.trim()).filter(Boolean);
+      if (list.length) { where.push(`p.status IN (${list.map(() => '?').join(', ')})`); params.push(...list); }
     }
-
-    if (product_type) {
-      where.push(`p.product_type = ?`);
-      params.push(product_type);
+    if (q.product_type) { where.push('p.product_type = ?'); params.push(q.product_type); }
+    const categoryId = Number(q.categories);
+    if (q.categories && Number.isInteger(categoryId) && categoryId > 0) {
+      where.push('p.id IN (SELECT product_id FROM product_categories WHERE categories_id = ?)');
+      params.push(categoryId);
     }
-
-    if (categories) {
-      where.push(`FIND_IN_SET(?, p.categories)`);
-      params.push(categories);
+    const tagId = Number(q.tag);
+    if (q.tag && Number.isInteger(tagId) && tagId > 0) {
+      where.push('p.id IN (SELECT product_id FROM product_tags WHERE tag_id = ?)');
+      params.push(tagId);
     }
+    if (q.stock === 'out') where.push('COALESCE(p.quantity, 0) < 1');
+    if (q.stock === 'low') where.push('p.quantity BETWEEN 1 AND 9');
+    if (q.stock === 'ok') where.push('p.quantity >= 10');
+    if (String(q.on_sale) === 'true') where.push('p.sale_price IS NOT NULL AND p.sale_price < p.price');
+    if (String(q.on_sale) === 'false') where.push('(p.sale_price IS NULL OR p.sale_price >= p.price)');
+    if (String(q.is_origin) === 'true' || String(q.is_origin) === '1') where.push('p.is_origin = 1');
+    if (String(q.is_origin) === 'false' || String(q.is_origin) === '0') where.push('p.is_origin = 0');
+    const min = Number(q.min_price);
+    if (q.min_price !== undefined && String(q.min_price) !== '' && Number.isFinite(min)) { where.push(`${effectivePrice} >= ?`); params.push(min); }
+    const max = Number(q.max_price);
+    if (q.max_price !== undefined && String(q.max_price) !== '' && Number.isFinite(max)) { where.push(`${effectivePrice} <= ?`); params.push(max); }
+    return { where, params, effectivePrice };
+  }
 
+  async getProducts(query: GetProductsDto): Promise<ProductPaginator> {
+    const { orderBy = 'created_at', sortedBy = 'desc' } = query;
+    const limit = Math.min(200, Math.max(1, Number(query.limit) || 20));
+    const page = Math.max(1, Number(query.page) || 1);
+    const offset = (page - 1) * limit;
+    const pool = this.DatabaseService.getPool();
+    const { where, params, effectivePrice } = this.buildAdminProductFilters(query as any);
     const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
-    // 🔹 Order sécurisé
-    const allowedOrderFields = ['created_at', 'name', 'price', 'updated_at'];
-    const orderBySafe = allowedOrderFields.includes(orderBy) ? orderBy : 'created_at';
-    const sortedBySafe = sortedBy?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    const orderColumns: Record<string, string> = {
+      created_at: 'p.created_at',
+      updated_at: 'p.updated_at',
+      name: 'p.name',
+      price: effectivePrice,
+      quantity: 'p.quantity',
+    };
+    const orderSql = orderColumns[orderBy] ?? 'p.created_at';
+    const sortedBySafe = String(sortedBy).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // 🔹 Count total
-    const countSql = `SELECT COUNT(*) as total FROM products p ${whereSql}`;
-    console.log('COUNT SQL:', countSql, 'Params:', params);
-    const [countRows]: any = await pool.query(countSql, params);
-    const total = countRows[0]?.total ?? 0;
-
-    // 🔹 Charger les données
-    const dataSql = `
-    SELECT p.*, s.id AS shop_id, s.slug AS shop_slug, s.name AS shop_name
-    FROM products p
-    LEFT JOIN shops s ON p.shop_id = s.id
-    ${whereSql}
-    ORDER BY p.${orderBySafe} ${sortedBySafe}
-    LIMIT ? OFFSET ?
-  `;
-    console.log('DATA SQL:', dataSql, 'Params:', [...params, Number(limit), Number(offset)]);
-
-    const [rows]: any = await pool.query(dataSql, [...params, Number(limit), Number(offset)]);
-
-    const last_page = Math.ceil(total / limit);
+    const [[countRows], [rows]]: any = await Promise.all([
+      pool.query(`SELECT COUNT(*) as total FROM products p ${whereSql}`, params),
+      pool.query(
+        `SELECT p.*, s.id AS shop_id, s.slug AS shop_slug, s.name AS shop_name,
+                (SELECT COUNT(*) FROM order_children oc WHERE oc.product_id = p.id) AS order_lines
+         FROM products p
+         LEFT JOIN shops s ON p.shop_id = s.id
+         ${whereSql}
+         ORDER BY ${orderSql} ${sortedBySafe}, p.id DESC
+         LIMIT ? OFFSET ?`,
+        [...params, limit, offset],
+      ),
+    ]);
+    const total = Number(countRows[0]?.total ?? 0);
+    const last_page = Math.max(1, Math.ceil(total / limit));
     const baseUrl = `/products?limit=${limit}`;
 
     return {
       data: rows.map((row: any) => ({
         ...row,
+        order_lines: Number(row.order_lines ?? 0),
         shop: {
           id: row.shop_id,
           slug: row.shop_slug,
@@ -382,7 +386,7 @@ export class ProductsService {
       count: total,
       total,
       current_page: page,
-      firstItem: offset + 1,
+      firstItem: total ? offset + 1 : 0,
       lastItem: offset + rows.length,
       per_page: limit,
       last_page,
@@ -390,13 +394,48 @@ export class ProductsService {
       last_page_url: `${baseUrl}&page=${last_page}`,
       next_page_url: page < last_page ? `${baseUrl}&page=${page + 1}` : null,
       prev_page_url: page > 1 ? `${baseUrl}&page=${page - 1}` : null,
-    };
+    } as any;
   }
 
-
-
-
-
+  // Compteurs réels pour les filtres de la liste admin (seules les valeurs présentes en base)
+  async getAdminProductFacets(shopId?: number) {
+    const pool = this.DatabaseService.getPool();
+    const shopWhere = shopId ? 'WHERE p.shop_id = ?' : '';
+    const shopParams = shopId ? [shopId] : [];
+    const [[statusRows], [catRows], [tagRows], [summaryRows]]: any = await Promise.all([
+      pool.query(`SELECT p.status, COUNT(*) AS n FROM products p ${shopWhere} GROUP BY p.status ORDER BY n DESC`, shopParams),
+      pool.query(
+        `SELECT pc.categories_id AS id, COUNT(DISTINCT pc.product_id) AS n
+         FROM product_categories pc JOIN products p ON p.id = pc.product_id ${shopWhere}
+         GROUP BY pc.categories_id ORDER BY n DESC`, shopParams),
+      pool.query(
+        `SELECT t.id, t.name, COUNT(DISTINCT pt.product_id) AS n
+         FROM product_tags pt JOIN tags t ON t.id = pt.tag_id JOIN products p ON p.id = pt.product_id ${shopWhere}
+         GROUP BY t.id, t.name ORDER BY n DESC, t.name`, shopParams),
+      pool.query(
+        `SELECT COUNT(*) AS total,
+                SUM(COALESCE(p.quantity, 0) < 1) AS out_of_stock,
+                SUM(p.quantity BETWEEN 1 AND 9) AS low_stock,
+                SUM(p.quantity >= 10) AS in_stock,
+                SUM(p.sale_price IS NOT NULL AND p.sale_price < p.price) AS on_sale,
+                SUM(p.is_origin = 1) AS local_origin,
+                MIN(COALESCE(p.sale_price, p.price)) AS min_price,
+                MAX(COALESCE(p.sale_price, p.price)) AS max_price
+         FROM products p ${shopWhere}`, shopParams),
+    ]);
+    const s = summaryRows[0] ?? {};
+    const num = (v: any) => Number(v ?? 0);
+    return {
+      total: num(s.total),
+      statuses: statusRows.map((r: any) => ({ value: r.status, count: num(r.n) })),
+      categories: catRows.map((r: any) => ({ id: Number(r.id), count: num(r.n) })),
+      tags: tagRows.map((r: any) => ({ id: Number(r.id), name: r.name, count: num(r.n) })),
+      stock: { out: num(s.out_of_stock), low: num(s.low_stock), ok: num(s.in_stock) },
+      on_sale: num(s.on_sale),
+      local_origin: num(s.local_origin),
+      price: { min: s.min_price != null ? Number(s.min_price) : null, max: s.max_price != null ? Number(s.max_price) : null },
+    };
+  }
 
 
   // --- GET PRODUCT BY SLUG ----
@@ -413,9 +452,35 @@ export class ProductsService {
       if (!rows.length) throw new NotFoundException('Product not found');
 
       const row = rows[0];
+      const pool = this.DatabaseService.getPool();
+
+      // Catégories, étiquettes et type depuis leurs vraies tables (les colonnes JSON
+      // products.categories / tags / type sont vides) : le formulaire d'édition s'en sert.
+      const [[catRows], [tagRows], [typeRows]]: any = await Promise.all([
+        pool.query(
+          'SELECT categories_id, sous_categories_id, sub_categories_id FROM product_categories WHERE product_id = ? ORDER BY id',
+          [row.id],
+        ),
+        pool.query(
+          'SELECT t.id, t.name, t.slug FROM product_tags pt JOIN tags t ON t.id = pt.tag_id WHERE pt.product_id = ? ORDER BY t.name',
+          [row.id],
+        ),
+        row.type_id ? pool.query('SELECT id, name, slug FROM types WHERE id = ?', [row.type_id]) : Promise.resolve([[]]),
+      ]);
+      const byCategory = new Map<number, { categories_id: number; sous_categories_id: number[]; sub_categories_id: number[] }>();
+      for (const c of catRows) {
+        const key = Number(c.categories_id);
+        if (!byCategory.has(key)) byCategory.set(key, { categories_id: key, sous_categories_id: [], sub_categories_id: [] });
+        const entry = byCategory.get(key)!;
+        if (c.sous_categories_id != null && !entry.sous_categories_id.includes(Number(c.sous_categories_id))) entry.sous_categories_id.push(Number(c.sous_categories_id));
+        if (c.sub_categories_id != null && !entry.sub_categories_id.includes(Number(c.sub_categories_id))) entry.sub_categories_id.push(Number(c.sub_categories_id));
+      }
 
       const product: Product = {
         ...row,
+        categories: [...byCategory.values()],
+        tags: tagRows,
+        type: typeRows[0] ?? row.type ?? null,
         shop: {
           slug: row.shop_slug,
           name: row.shop_name,
@@ -506,51 +571,139 @@ export class ProductsService {
   }
 
   // --- UPDATE PRODUCT ---
-  // --- UPDATE PRODUCT ---
-  // --- UPDATE PRODUCT ---
+  // Colonnes réelles de la table products que le formulaire peut modifier. Avant, chaque clé reçue
+  // devenait une colonne : l'admin envoie « variation_options » (colonne absente) → erreur SQL 500
+  // à chaque mise à jour. Les autres clés (variation_options, in_flash_sale, type, shop…) sont ignorées.
+  static readonly EDITABLE_COLUMNS = new Set([
+    'name', 'slug', 'description', 'type_id', 'price', 'shop_id', 'sale_price', 'language',
+    'min_price', 'max_price', 'sku', 'preview_url', 'quantity', 'in_stock', 'is_taxable',
+    'shipping_class_id', 'status', 'product_type', 'unit', 'height', 'width', 'length',
+    'image', 'video', 'gallery', 'author_id', 'manufacturer_id', 'is_digital', 'is_external',
+    'external_product_url', 'external_product_button_text', 'digital_file', 'countries_id', 'is_origin',
+  ]);
+  // Colonnes qu'un null envoyé explicitement doit vider (ex. retirer le prix promo)
+  static readonly CLEARABLE_COLUMNS = new Set(['sale_price', 'video', 'preview_url']);
+  static readonly JSON_COLUMNS = new Set(['image', 'video', 'gallery', 'digital_file']);
+
   async update(id: number, updateProductDto: UpdateProductDto): Promise<Product> {
     const fieldsToUpdate: string[] = [];
     const params: any[] = [];
+    const input: any = updateProductDto;
 
-    for (const [key, value] of Object.entries(updateProductDto)) {
-      // 🔒 1. Ignorer les champs non définis ou null
-      if (value === null || value === undefined) continue;
-      // 🔒 Le nom de colonne est interpolé dans le SQL : n'accepter qu'un identifiant simple
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) {
-        throw new BadRequestException(`Champ invalide : ${key}`);
-      }
-
-      // 🔧 2. Sérialiser uniquement les objets/arrays
-      if (typeof value === 'object' && !(value instanceof Date)) {
-        fieldsToUpdate.push(`${key} = ?`);
-        params.push(JSON.stringify(value));
-      } else {
-        fieldsToUpdate.push(`${key} = ?`);
-        params.push(value);
-      }
+    if (typeof input.slug === 'string' && input.slug.trim() !== '') {
+      const [dup]: any = await this.DatabaseService.getPool().query(
+        'SELECT id FROM products WHERE slug = ? AND id <> ? LIMIT 1',
+        [input.slug.trim(), id],
+      );
+      if (dup.length) throw new BadRequestException('Ce slug est déjà utilisé par un autre produit.');
+      input.slug = input.slug.trim();
     }
 
-    // 🔁 3. Exécuter la requête seulement s’il y a quelque chose à mettre à jour
+    for (const [key, raw] of Object.entries(input)) {
+      if (!ProductsService.EDITABLE_COLUMNS.has(key)) continue;
+      let value: any = raw === '' && key !== 'description' && key !== 'preview_url' ? null : raw;
+      if (value === undefined) continue;
+      if (value === null && !ProductsService.CLEARABLE_COLUMNS.has(key)) continue;
+      if (typeof value === 'boolean') value = value ? 1 : 0;
+      else if (value !== null && typeof value === 'object' && !(value instanceof Date)) value = JSON.stringify(value);
+      else if (value !== null && ProductsService.JSON_COLUMNS.has(key)) value = JSON.stringify(value);
+      fieldsToUpdate.push(`${key} = ?`);
+      params.push(value);
+    }
+
+    const pool = this.DatabaseService.getPool();
     if (fieldsToUpdate.length > 0) {
       fieldsToUpdate.push('updated_at = NOW()');
-      params.push(id);
-
-      await this.DatabaseService.getPool().query(
-        `UPDATE products SET ${fieldsToUpdate.join(', ')} WHERE id = ?`,
-        params,
-      );
+      await pool.query(`UPDATE products SET ${fieldsToUpdate.join(', ')} WHERE id = ?`, [...params, id]);
     }
 
-    // 🔙 4. Retourner le produit mis à jour
+    // Catégories et étiquettes : tables de liaison (lues par le site et les filtres), jamais réécrites
+    // si le formulaire ne les envoie pas. Une liste vide n'efface rien (garde-fou : le formulaire
+    // d'édition peut s'afficher avant le chargement des catégories).
+    if (Array.isArray(input.categories) && input.categories.length > 0) {
+      await this.replaceProductCategories(id, input.categories);
+    }
+    if (Array.isArray(input.tags)) {
+      await this.replaceProductTags(id, input.tags);
+    }
+
     return this.getProductById(id);
   }
 
+  /** Accepte [{ categories_id, sous_categories_id[], sub_categories_id[] }] ou une liste d'ids. */
+  private normalizeCategoryRows(categories: any[]) {
+    return categories
+      .map((c: any) => {
+        if (c !== null && typeof c === 'object') {
+          const toIds = (v: any) => (Array.isArray(v) ? v : v != null && v !== '' ? [v] : [])
+            .map(Number).filter((n: number) => Number.isInteger(n) && n > 0);
+          return {
+            categories_id: Number(c.categories_id ?? c.id),
+            sous: toIds(c.sous_categories_id),
+            sub: toIds(c.sub_categories_id),
+          };
+        }
+        return { categories_id: Number(c), sous: [] as number[], sub: [] as number[] };
+      })
+      .filter((r) => Number.isInteger(r.categories_id) && r.categories_id > 0);
+  }
 
+  private async replaceProductCategories(productId: number, categories: any[]) {
+    const rows = this.normalizeCategoryRows(categories);
+    if (!rows.length) return;
+    const pool = this.DatabaseService.getPool();
+    const [validSous]: any = await pool.query('SELECT id FROM sous_categories');
+    const [validSub]: any = await pool.query('SELECT id FROM sub_categories');
+    const sousOk = new Set(validSous.map((r: any) => Number(r.id)));
+    const subOk = new Set(validSub.map((r: any) => Number(r.id)));
+    const values: any[] = [];
+    for (const r of rows) {
+      const sous = r.sous.filter((x) => sousOk.has(x));
+      const sub = r.sub.filter((x) => subOk.has(x));
+      for (const s of sous.length ? sous : [null]) {
+        for (const u of sub.length ? sub : [null]) values.push([productId, r.categories_id, s, u]);
+      }
+    }
+    await pool.query('DELETE FROM product_categories WHERE product_id = ?', [productId]);
+    await pool.query(
+      `INSERT INTO product_categories (product_id, categories_id, sous_categories_id, sub_categories_id) VALUES ${values.map(() => '(?, ?, ?, ?)').join(', ')}`,
+      values.flat(),
+    );
+  }
+
+  private async replaceProductTags(productId: number, tags: any[]) {
+    const ids = [...new Set(
+      tags.map((t: any) => Number(t !== null && typeof t === 'object' ? t.id : t))
+        .filter((n) => Number.isInteger(n) && n > 0),
+    )];
+    const pool = this.DatabaseService.getPool();
+    await pool.query('DELETE FROM product_tags WHERE product_id = ?', [productId]);
+    if (ids.length) {
+      await pool.query(
+        `INSERT INTO product_tags (product_id, tag_id) VALUES ${ids.map(() => '(?, ?)').join(', ')}`,
+        ids.flatMap((t) => [productId, t]),
+      );
+    }
+  }
 
   // --- REMOVE PRODUCT ---
-  async remove(id: number): Promise<string> {
-    await this.DatabaseService.getPool().query(`DELETE FROM products WHERE id = ?`, [id]);
-    return `This action removes product #${id}`;
+  // Un produit présent dans des commandes n'est pas supprimé (les commandes, retraits et
+  // commissions s'y réfèrent) : l'admin le passe en « Non publié ». Sinon, on supprime aussi
+  // ses liaisons (catégories, étiquettes, corridors).
+  async remove(id: number): Promise<{ success: true; message: string }> {
+    const pool = this.DatabaseService.getPool();
+    const [used]: any = await pool.query('SELECT COUNT(*) AS n FROM order_children WHERE product_id = ?', [id]);
+    const n = Number(used[0]?.n ?? 0);
+    if (n > 0) {
+      throw new BadRequestException(
+        `Suppression impossible : ce produit figure dans ${n} commande${n > 1 ? 's' : ''}. Passez-le en « Non publié » pour le retirer du site.`,
+      );
+    }
+    await pool.query('DELETE FROM product_categories WHERE product_id = ?', [id]);
+    await pool.query('DELETE FROM product_tags WHERE product_id = ?', [id]);
+    await pool.query('DELETE FROM corridors_produits WHERE produit_id = ?', [id]);
+    await pool.query('DELETE FROM products WHERE id = ?', [id]);
+    return { success: true, message: 'Produit supprimé.' };
   }
 
   // ----GETPRODUCTBUYSEARCH ---

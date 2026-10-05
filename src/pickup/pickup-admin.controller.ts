@@ -11,9 +11,15 @@ export class PickupAdminController {
   constructor(private readonly pickupAdminService: PickupAdminService) { }
 
   // ?status=pending|active|blocked (sans filtre : tous)
+  // + search, verified (1/0), located (1/0), sort
   @Get()
-  list(@Query('status') status?: string, @Query('page') page?: string, @Query('limit') limit?: string) {
-    return this.pickupAdminService.list({ status, page, limit });
+  list(@Query() q: any) {
+    return this.pickupAdminService.list({ status: q.status, page: q.page, limit: q.limit, search: q.search, verified: q.verified, located: q.located, sort: q.sort });
+  }
+
+  @Get('facets')
+  facets() {
+    return this.pickupAdminService.facets();
   }
 
   @Post(':id/resend-verification')

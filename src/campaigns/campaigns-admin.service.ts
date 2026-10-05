@@ -61,12 +61,36 @@ export class CampaignsAdminService {
   // =========================
   // LISTE / DÉTAIL
   // =========================
-  async list({ status, page = 1, limit = 20 }: { status?: string; page?: any; limit?: any }) {
+  async list({ status, page = 1, limit = 20, search, city, sponsor, sort }: { status?: string; page?: any; limit?: any; search?: string; city?: string; sponsor?: string; sort?: string }) {
     const pool = this.db.getPool();
     const pageNumber = Math.max(1, Number(page) || 1);
     const limitNumber = Math.min(100, Math.max(1, Number(limit) || 20));
-    const filter = CAMPAIGN_STATUSES.includes(status as any) ? `WHERE ${statusSql('c')} = ?` : '';
-    const params = filter ? [status] : [];
+    const where: string[] = [];
+    const params: any[] = [];
+    if (CAMPAIGN_STATUSES.includes(status as any)) { where.push(`${statusSql('c')} = ?`); params.push(status); }
+    if (search && String(search).trim()) {
+      where.push('c.title COLLATE utf8mb4_general_ci LIKE ?');
+      params.push(`%${String(search).trim()}%`);
+    }
+    if (city && String(city).trim()) {
+      where.push('c.id IN (SELECT campaign_id FROM campaign_locations WHERE city = ?)');
+      params.push(String(city).trim());
+    }
+    if (sponsor && String(sponsor).trim()) {
+      // Sponsor réutilisable (id) ou nom saisi sur la campagne
+      const id = Number(sponsor);
+      if (Number.isInteger(id) && id > 0) { where.push('c.id IN (SELECT campaign_id FROM campaign_sponsors WHERE sponsor_id = ?)'); params.push(id); }
+      else { where.push('c.id IN (SELECT campaign_id FROM campaign_sponsors WHERE name = ?)'); params.push(String(sponsor).trim()); }
+    }
+    const filter = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const SORTS: Record<string, string> = {
+      date_desc: 'c.date_start DESC',
+      date_asc: 'c.date_start ASC',
+      title: 'c.title ASC',
+      registrations: 'registrations_count DESC',
+      budget: 'budget DESC',
+    };
+    const orderSql = SORTS[String(sort)] ?? SORTS.date_desc;
 
     const [[rows], [countRows]]: any = await Promise.all([
       pool.query(
@@ -74,7 +98,7 @@ export class CampaignsAdminService {
                 ${campaignExtraColumns('c')},
                 (SELECT GROUP_CONCAT(cs.name ORDER BY cs.name SEPARATOR ', ') FROM campaign_sponsors cs WHERE cs.campaign_id = c.id) AS sponsor_names
          FROM campaigns c ${filter}
-         ORDER BY c.date_start DESC, c.id DESC
+         ORDER BY ${orderSql}, c.id DESC
          LIMIT ? OFFSET ?`,
         [...params, limitNumber, (pageNumber - 1) * limitNumber],
       ),
@@ -86,6 +110,29 @@ export class CampaignsAdminService {
       total,
       page: pageNumber,
       last_page: Math.max(1, Math.ceil(total / limitNumber)),
+    };
+  }
+
+  // Compteurs réels des filtres : statuts (calculés par dates), villes et sponsors utilisés
+  async facets() {
+    const pool = this.db.getPool();
+    const [[statusRows], [cityRows], [sponsorRows]]: any = await Promise.all([
+      pool.query(`SELECT t.status, COUNT(*) AS n FROM (SELECT ${statusSql('c')} AS status FROM campaigns c) t GROUP BY t.status`),
+      pool.query('SELECT city, COUNT(DISTINCT campaign_id) AS n FROM campaign_locations GROUP BY city ORDER BY n DESC, city'),
+      pool.query(
+        `SELECT COALESCE(CAST(cs.sponsor_id AS CHAR), cs.name) AS value, COALESCE(s.name, cs.name) AS name, COUNT(DISTINCT cs.campaign_id) AS n
+         FROM campaign_sponsors cs LEFT JOIN sponsors s ON s.id = cs.sponsor_id
+         GROUP BY value, name ORDER BY n DESC, name`,
+      ),
+    ]);
+    const status: Record<string, number> = {};
+    let total = 0;
+    for (const r of statusRows) { status[r.status] = Number(r.n); total += Number(r.n); }
+    return {
+      total,
+      status,
+      cities: cityRows.map((r: any) => ({ value: r.city, count: Number(r.n) })),
+      sponsors: sponsorRows.map((r: any) => ({ value: String(r.value), label: r.name, count: Number(r.n) })),
     };
   }
 

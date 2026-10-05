@@ -22,32 +22,74 @@ const STATUS_FILTERS: Record<string, string> = {
 export class PickupAdminService {
   constructor(private readonly db: DatabaseService) { }
 
-  async list({ status, page = 1, limit = 20 }: { status?: string; page?: any; limit?: any }) {
+  async list({ status, page = 1, limit = 20, search, verified, located, sort }: { status?: string; page?: any; limit?: any; search?: string; verified?: string; located?: string; sort?: string }) {
     const pool = this.db.getPool();
     const pageNumber = Math.max(1, Number(page) || 1);
     const limitNumber = Math.min(100, Math.max(1, Number(limit) || 20));
-    const filter = STATUS_FILTERS[status as string] ?? '';
+    // Filtres réels : statut, recherche (nom, e-mail, adresse), e-mail confirmé, position GPS
+    let filter = STATUS_FILTERS[status as string] ?? '';
+    const params: any[] = [];
+    if (search && String(search).trim()) {
+      const term = `%${String(search).trim()}%`;
+      filter += ' AND (name COLLATE utf8mb4_general_ci LIKE ? OR email COLLATE utf8mb4_general_ci LIKE ? OR pickup_address COLLATE utf8mb4_general_ci LIKE ?)';
+      params.push(term, term, term);
+    }
+    if (verified === '1') filter += ' AND is_verified = 1';
+    if (verified === '0') filter += ' AND (is_verified = 0 OR is_verified IS NULL)';
+    if (located === '1') filter += ' AND pickup_lat IS NOT NULL AND pickup_lng IS NOT NULL';
+    if (located === '0') filter += ' AND (pickup_lat IS NULL OR pickup_lng IS NULL)';
+    const SORTS: Record<string, string> = {
+      default: 'pickup_approved ASC, created_at DESC',
+      recent: 'created_at DESC',
+      oldest: 'created_at ASC',
+      name: 'name ASC',
+      orders: 'orders_count DESC',
+    };
+    const orderSql = SORTS[String(sort)] ?? SORTS.default;
 
     const [rows]: any = await pool.query(
       `SELECT id, name, email, pickup_address, pickup_lat, pickup_lng,
-              is_verified, is_active, pickup_approved, created_at
+              is_verified, is_active, pickup_approved, created_at,
+              (SELECT COUNT(*) FROM orders o WHERE o.pickup_point_id = users.id AND o.is_archived = 0) AS orders_count
        FROM users
        WHERE role = 'super_pickuppoint' ${filter}
-       ORDER BY pickup_approved ASC, created_at DESC
+       ORDER BY ${orderSql}, id DESC
        LIMIT ? OFFSET ?`,
-      [limitNumber, (pageNumber - 1) * limitNumber],
+      [...params, limitNumber, (pageNumber - 1) * limitNumber],
     );
     const [countRows]: any = await pool.query(
       `SELECT COUNT(*) AS total FROM users WHERE role = 'super_pickuppoint' ${filter}`,
+      params,
     );
     const total = Number(countRows[0]?.total ?? 0);
 
     return {
-      data: rows.map((r) => ({ ...r, status: pickupPointStatus(r) })),
+      data: rows.map((r) => ({ ...r, orders_count: Number(r.orders_count ?? 0), status: pickupPointStatus(r) })),
       total,
       current_page: pageNumber,
       per_page: limitNumber,
       last_page: Math.max(1, Math.ceil(total / limitNumber)),
+    };
+  }
+
+  // Compteurs réels des filtres de la liste
+  async facets() {
+    const [rows]: any = await this.db.getPool().query(
+      `SELECT COUNT(*) AS total,
+              SUM(pickup_approved = 0) AS pending,
+              SUM(pickup_approved = 1 AND is_active = 1) AS active,
+              SUM(pickup_approved = 1 AND is_active = 0) AS blocked,
+              SUM(is_verified = 1) AS verified,
+              SUM(pickup_lat IS NOT NULL AND pickup_lng IS NOT NULL) AS located
+       FROM users WHERE role = 'super_pickuppoint'`,
+    );
+    const r = rows[0] ?? {};
+    const n = (v: any) => Number(v ?? 0);
+    return {
+      total: n(r.total),
+      status: { pending: n(r.pending), active: n(r.active), blocked: n(r.blocked) },
+      verified: { yes: n(r.verified), no: n(r.total) - n(r.verified) },
+      located: { yes: n(r.located), no: n(r.total) - n(r.located) },
     };
   }
 

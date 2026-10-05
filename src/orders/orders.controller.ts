@@ -122,6 +122,12 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
     return this.ordersService.getOrders(query, req.user);
   }
 
+  // Compteurs réels des filtres de la liste (même périmètre que la liste ; avant « :id »)
+  @Get('facets')
+  async getOrderFacets(@Query() query: GetOrdersDto, @Req() req) {
+    return this.ordersService.getOrderFacets(query, req.user);
+  }
+
   /**
    * OLD BLOCK — maintenant proprement commenté
    *

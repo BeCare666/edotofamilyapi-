@@ -637,96 +637,19 @@ export class OrdersService {
   // Compatible MySQL + pool.query
   async getOrders(query: GetOrdersDto, user) {
     const pool = this.databaseService.getPool();
-
-    const {
-      limit = 15,
-      page = 1,
-      search,
-      customer_id,
-      pickup_point_id,
-      orderBy = 'created_at',
-      sortedBy = 'DESC',
-    } = query;
-
+    const limit = Math.min(100, Math.max(1, Number(query.limit) || 15));
+    const page = Math.max(1, Number(query.page) || 1);
+    const { orderBy = 'created_at', sortedBy = 'DESC' } = query;
     const offset = (page - 1) * limit;
 
-    // ----------------------------
-    // 🔐 Périmètre imposé par le rôle (jamais par les paramètres du client)
-    // ----------------------------
-    const isAdmin = hasRole(user, SUPER_ADMIN);
-    const isPickup = !isAdmin && hasRole(user, SUPER_PICKUPPOINT);
-    const isShop = !isAdmin && !isPickup && hasRole(user, STORE_OWNER, STAFF);
-    let scopedCustomerId = customer_id;
-    let scopedPickupId = pickup_point_id;
-    let shopIds: number[] = [];
-
-    if (isPickup) {
-      if (pickup_point_id && +pickup_point_id !== Number(user.id)) {
-        throw new ForbiddenException("Vous ne pouvez accéder qu'à vos commandes");
-      }
-      scopedPickupId = Number(user.id);
-    } else if (isShop) {
-      shopIds = await this.getUserShopIds(user);
-    } else if (!isAdmin) {
-      if (customer_id && +customer_id !== Number(user.id)) {
-        throw new ForbiddenException("Vous ne pouvez accéder qu'à vos commandes");
-      }
-      scopedCustomerId = Number(user.id);
+    const scope = await this.orderScope(query, user);
+    if (scope.empty) {
+      return { data: [], total: 0, page, last_page: 0, next_page_url: false, prev_page_url: false };
     }
+    const { where, params, isAdmin, isPickup, isShop } = scope;
+    this.applyOrderFilters(query, where, params, isAdmin);
 
-    // ----------------------------
-    // 🔥 Base Query
-    // ----------------------------
-    let sql = `SELECT * FROM orders`;
-    const params: any[] = [];
-
-    const where: string[] = [`is_archived = 0`];  // 👈 support archive
-
-    // Client filter
-    if (scopedCustomerId) {
-      where.push(`customer_id = ?`);
-      params.push(scopedCustomerId);
-    }
-
-    // PickupPoint filter
-    if (scopedPickupId) {
-      where.push(`pickup_point_id = ?`);
-      params.push(scopedPickupId);
-    }
-    // Le point de retrait est choisi avant le paiement : un point ne voit que les commandes payées
-    if (isPickup) {
-      where.push(`payment_status = 'payment-success'`);
-    }
-
-    // Boutique : commandes contenant au moins un produit d'une boutique gérée
-    if (isShop) {
-      if (shopIds.length === 0) {
-        return { data: [], total: 0, page, last_page: 0, next_page_url: false, prev_page_url: false };
-      }
-      where.push(`id IN (SELECT order_id FROM order_children WHERE shop_id IN (${shopIds.map(() => '?').join(',')}))`);
-      params.push(...shopIds);
-    }
-
-    // Search filter
-    // L'OTP n'est cherchable qu'à l'identique hors admin : un LIKE permettrait de le deviner caractère par caractère
-    if (search) {
-      where.push(`(
-      tracking_number LIKE ?
-      OR ${isAdmin ? 'otp_code LIKE ?' : 'otp_code = ?'}
-      OR customer_name LIKE ?
-      OR customer_contact LIKE ?
-    )`);
-      params.push(
-        `%${search}%`,
-        isAdmin ? `%${search}%` : String(search),
-        `%${search}%`,
-        `%${search}%`
-      );
-    }
-
-    if (where.length > 0) {
-      sql += ` WHERE ` + where.join(' AND ');
-    }
+    let sql = `SELECT * FROM orders WHERE ` + where.join(' AND ');
 
     // whitelist ORDER BY
     const allowedOrder = {
@@ -736,14 +659,13 @@ export class OrdersService {
     };
     const safeOrderBy = allowedOrder[orderBy] || 'created_at';
 
-    sql += ` ORDER BY ${safeOrderBy} ${safeSortDirection(sortedBy)} LIMIT ? OFFSET ?`;
-    params.push(Number(limit), Number(offset));
+    sql += ` ORDER BY ${safeOrderBy} ${safeSortDirection(sortedBy)}, id DESC LIMIT ? OFFSET ?`;
 
-    const [rows]: any = await pool.query(sql, params);
-
-    // COUNT
-    let countSql = `SELECT COUNT(*) as total FROM orders WHERE ${where.join(' AND ')}`;
-    const [count]: any = await pool.query(countSql, params.slice(0, params.length - 2));
+    const [[rows], [count]]: any = await Promise.all([
+      pool.query(sql, [...params, limit, offset]),
+      pool.query(`SELECT COUNT(*) as total FROM orders WHERE ${where.join(' AND ')}`, params),
+    ]);
+    const total = Number(count[0].total);
 
     const relation = isAdmin ? 'admin' : isPickup ? 'pickup' : isShop ? 'shop' : 'customer';
 
@@ -768,12 +690,157 @@ export class OrdersService {
 
     return {
       data: rows.map((r) => presentOrderForRelation(r, relation)),
-      total: count[0].total,
+      total,
       page,
-      last_page: Math.ceil(count[0].total / limit),
-      next_page_url: page < Math.ceil(count[0].total / limit),
+      last_page: Math.ceil(total / limit),
+      next_page_url: page < Math.ceil(total / limit),
       prev_page_url: page > 1,
     };
+  }
+
+  // Filtres réels (colonnes de la table orders), appliqués à l'intérieur du périmètre du rôle :
+  // statut, paiement, mode de retrait, commande de campagne ou boutique, point de retrait (admin),
+  // période (jours au Bénin, UTC+1) et montant total.
+  applyOrderFilters(query: any, where: string[], params: any[], isAdmin: boolean) {
+    const list = (v: any) => String(v ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+    const ORDER_STATUSES = ['order-pending', 'order-processing', 'order-completed', 'order-cancelled', 'order-refunded', 'order-failed', 'order-at-local-facility', 'order-out-for-delivery'];
+    const PAYMENT_STATUSES = ['payment-pending', 'payment-processing', 'payment-success', 'payment-failed', 'payment-cash-on-delivery', 'payment-cash', 'payment-wallet', 'payment-awaiting-for-approval'];
+    const statuses = list(query.order_status).filter((s) => ORDER_STATUSES.includes(s));
+    if (statuses.length) { where.push(`order_status IN (${statuses.map(() => '?').join(',')})`); params.push(...statuses); }
+    const payments = list(query.payment_status).filter((s) => PAYMENT_STATUSES.includes(s));
+    if (payments.length) { where.push(`payment_status IN (${payments.map(() => '?').join(',')})`); params.push(...payments); }
+    if (query.delivery_type === 'PICKUP' || query.delivery_type === 'CUSTOM') { where.push('delivery_type = ?'); params.push(query.delivery_type); }
+    if (query.kind === 'campaign') where.push('campaign_id IS NOT NULL');
+    if (query.kind === 'shop') where.push('campaign_id IS NULL');
+    const campaignId = Number(query.campaign_id);
+    if (query.campaign_id && Number.isInteger(campaignId) && campaignId > 0) { where.push('campaign_id = ?'); params.push(campaignId); }
+    // Point de retrait précis : déjà appliqué par le périmètre (imposé pour un point, libre pour l'admin)
+    if (isAdmin && query.pickup_point_id === 'none') where.push('pickup_point_id IS NULL');
+    const day = (s: any) => (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null);
+    const beninDayUtc = (s: string, addDays = 0) => {
+      const [y, m, d] = s.split('-').map(Number);
+      return new Date(Date.UTC(y, m - 1, d + addDays) - 60 * 60 * 1000).toISOString().slice(0, 19).replace('T', ' ');
+    };
+    const from = day(query.date_from);
+    const to = day(query.date_to);
+    if (from) { where.push('created_at >= ?'); params.push(beninDayUtc(from)); }
+    if (to) { where.push('created_at < ?'); params.push(beninDayUtc(to, 1)); }
+    const min = Number(query.min_total);
+    if (query.min_total !== undefined && String(query.min_total) !== '' && Number.isFinite(min)) { where.push('total >= ?'); params.push(min); }
+    const max = Number(query.max_total);
+    if (query.max_total !== undefined && String(query.max_total) !== '' && Number.isFinite(max)) { where.push('total <= ?'); params.push(max); }
+  }
+
+  // Compteurs réels pour les filtres (dans le périmètre du rôle, hors filtres déjà choisis)
+  async getOrderFacets(query: any, user) {
+    const pool = this.databaseService.getPool();
+    const scope = await this.orderScope(query, user);
+    if (scope.empty) return { total: 0, order_status: [], payment_status: [], delivery_type: [], kind: { campaign: 0, shop: 0 }, pickup_points: [], total_range: { min: null, max: null } };
+    const { where, params, isAdmin } = scope;
+    const w = where.join(' AND ');
+    const [[st], [pay], [del], [kind], [range], points]: any = await Promise.all([
+      pool.query(`SELECT order_status AS v, COUNT(*) AS n FROM orders WHERE ${w} GROUP BY order_status ORDER BY n DESC`, params),
+      pool.query(`SELECT payment_status AS v, COUNT(*) AS n FROM orders WHERE ${w} GROUP BY payment_status ORDER BY n DESC`, params),
+      pool.query(`SELECT delivery_type AS v, COUNT(*) AS n FROM orders WHERE ${w} GROUP BY delivery_type ORDER BY n DESC`, params),
+      pool.query(`SELECT SUM(campaign_id IS NOT NULL) AS campaign, SUM(campaign_id IS NULL) AS shop, COUNT(*) AS total FROM orders WHERE ${w}`, params),
+      pool.query(`SELECT MIN(total) AS min, MAX(total) AS max FROM orders WHERE ${w}`, params),
+      isAdmin
+        ? pool.query(
+            `SELECT o.pickup_point_id AS id, u.name, COUNT(*) AS n FROM orders o LEFT JOIN users u ON u.id = o.pickup_point_id
+             WHERE ${where.map((c) => c.replace(/\b(is_archived|pickup_point_id|customer_id|payment_status)\b/g, 'o.$1')).join(' AND ')}
+             GROUP BY o.pickup_point_id, u.name ORDER BY n DESC`,
+            params,
+          )
+        : Promise.resolve([[]]),
+    ]);
+    const num = (v: any) => Number(v ?? 0);
+    return {
+      total: num(kind[0]?.total),
+      order_status: st.map((r: any) => ({ value: r.v, count: num(r.n) })),
+      payment_status: pay.map((r: any) => ({ value: r.v, count: num(r.n) })),
+      delivery_type: del.filter((r: any) => r.v).map((r: any) => ({ value: r.v, count: num(r.n) })),
+      kind: { campaign: num(kind[0]?.campaign), shop: num(kind[0]?.shop) },
+      pickup_points: (points[0] ?? []).map((r: any) => ({ id: r.id == null ? null : Number(r.id), name: r.name ?? null, count: num(r.n) })),
+      total_range: { min: range[0]?.min != null ? Number(range[0].min) : null, max: range[0]?.max != null ? Number(range[0].max) : null },
+    };
+  }
+
+  // Périmètre imposé par le rôle (jamais par les paramètres du client) + recherche
+  private async orderScope(query: GetOrdersDto, user) {
+    const { search, customer_id, pickup_point_id } = query;
+
+    // ----------------------------
+    // 🔐 Périmètre imposé par le rôle (jamais par les paramètres du client)
+    // ----------------------------
+    const isAdmin = hasRole(user, SUPER_ADMIN);
+    const isPickup = !isAdmin && hasRole(user, SUPER_PICKUPPOINT);
+    const isShop = !isAdmin && !isPickup && hasRole(user, STORE_OWNER, STAFF);
+    let scopedCustomerId = customer_id;
+    // « none » (admin) = commandes sans point de retrait, traité dans applyOrderFilters
+    let scopedPickupId = String(pickup_point_id) === 'none' ? undefined : pickup_point_id;
+    let shopIds: number[] = [];
+
+    if (isPickup) {
+      if (pickup_point_id && +pickup_point_id !== Number(user.id)) {
+        throw new ForbiddenException("Vous ne pouvez accéder qu'à vos commandes");
+      }
+      scopedPickupId = Number(user.id);
+    } else if (isShop) {
+      shopIds = await this.getUserShopIds(user);
+    } else if (!isAdmin) {
+      if (customer_id && +customer_id !== Number(user.id)) {
+        throw new ForbiddenException("Vous ne pouvez accéder qu'à vos commandes");
+      }
+      scopedCustomerId = Number(user.id);
+    }
+
+    const params: any[] = [];
+
+    const where: string[] = [`is_archived = 0`];  // 👈 support archive
+
+    // Client filter
+    if (scopedCustomerId) {
+      where.push(`customer_id = ?`);
+      params.push(scopedCustomerId);
+    }
+
+    // PickupPoint filter
+    if (scopedPickupId) {
+      where.push(`pickup_point_id = ?`);
+      params.push(scopedPickupId);
+    }
+    // Le point de retrait est choisi avant le paiement : un point ne voit que les commandes payées
+    if (isPickup) {
+      where.push(`payment_status = 'payment-success'`);
+    }
+
+    // Boutique : commandes contenant au moins un produit d'une boutique gérée
+    if (isShop) {
+      if (shopIds.length === 0) {
+        return { where, params, isAdmin, isPickup, isShop, empty: true };
+      }
+      where.push(`id IN (SELECT order_id FROM order_children WHERE shop_id IN (${shopIds.map(() => '?').join(',')}))`);
+      params.push(...shopIds);
+    }
+
+    // Search filter
+    // L'OTP n'est cherchable qu'à l'identique hors admin : un LIKE permettrait de le deviner caractère par caractère
+    if (search) {
+      where.push(`(
+      tracking_number LIKE ?
+      OR ${isAdmin ? 'otp_code LIKE ?' : 'otp_code = ?'}
+      OR customer_name LIKE ?
+      OR customer_contact LIKE ?
+    )`);
+      params.push(
+        `%${search}%`,
+        isAdmin ? `%${search}%` : String(search),
+        `%${search}%`,
+        `%${search}%`
+      );
+    }
+
+    return { where, params, isAdmin, isPickup, isShop, empty: false };
   }
 
   // Boutiques gérées par l'utilisateur : shops.owner_id (store_owner) ou users.shop_id (staff)

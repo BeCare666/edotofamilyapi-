@@ -94,7 +94,8 @@ describe('PickupAdminService', () => {
   });
 
   it('liste filtrée par statut, sans mot de passe', async () => {
-    const { db, calls } = fakeDb((sql) => (sql.includes('COUNT(*)') ? [{ total: 1 }] : [{ id: 5, pickup_approved: 0, is_active: 1 }]));
+    // La liste contient aussi un sous-comptage des commandes : seule la requête de total commence par COUNT
+    const { db, calls } = fakeDb((sql) => (sql.trim().startsWith('SELECT COUNT(*)') ? [{ total: 1 }] : [{ id: 5, pickup_approved: 0, is_active: 1 }]));
     const res = await new PickupAdminService(db).list({ status: 'pending' });
     expect(calls[0].sql).toContain("role = 'super_pickuppoint' AND pickup_approved = 0");
     expect(calls[0].sql).not.toContain('password');

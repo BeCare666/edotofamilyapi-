@@ -91,6 +91,14 @@ export class UsersController {
     throw new ForbiddenException('Accès refusé.');
   }
 
+  // Compteurs des filtres de la liste admin (déclaré avant « :id »)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN)
+  @Get('facets')
+  async getUserFacets(@Query('role') role?: string) {
+    return this.usersService.getUserFacets(role || undefined);
+  }
+
   @UseGuards(JwtAuthGuard)
   @Get(':id')
   async getUser(@Param('id') id: string, @Req() req: any) {

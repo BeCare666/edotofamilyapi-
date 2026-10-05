@@ -54,6 +54,7 @@ import { PickupModule } from './pickup/pickup.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { CommissionsModule } from './commissions/commissions.module';
 import { SponsorsModule } from './sponsors/sponsors.module';
+import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
   imports: [
@@ -113,7 +114,8 @@ import { SponsorsModule } from './sponsors/sponsors.module';
     PickupModule,
     DeliveryModule,
     CommissionsModule,
-    SponsorsModule
+    SponsorsModule,
+    AdminNotificationsModule
     //DatabaseService
   ],
   controllers: [],
