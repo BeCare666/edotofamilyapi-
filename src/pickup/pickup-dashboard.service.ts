@@ -217,7 +217,7 @@ export class PickupDashboardService {
     ]);
     const items = [
       ...orders.data.map((o: any) => ({ type: 'order', id: o.id, title: `Commande ${o.tracking_number}`, subtitle: o.customer_name, created_at: o.created_at, data: o })),
-      ...kits.map((k: any) => ({ type: 'kit', id: k.id, title: `Kit — ${k.campaign_title}`, subtitle: k.full_name, created_at: k.created_at, data: k })),
+      ...kits.map((k: any) => ({ type: 'kit', id: k.id, title: `Kit · ${k.campaign_title}`, subtitle: k.full_name, created_at: k.created_at, data: k })),
     ]
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
       .slice(0, 10);

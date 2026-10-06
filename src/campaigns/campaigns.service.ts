@@ -594,7 +594,7 @@ export class CampaignsService {
 
     // 2) Vérifier OTP validé
     if (reg.otp_used !== 1) {
-      throw new BadRequestException("OTP non validé — retrait impossible.");
+      throw new BadRequestException("OTP non validé : retrait impossible.");
     }
 
     // 3) Déjà retiré ?

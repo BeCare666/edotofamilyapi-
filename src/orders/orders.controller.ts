@@ -90,6 +90,26 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
     return this.ordersService.unarchiveOrder(id, req.user);
   }
 
+  // ---------------------- TRAITEMENT ADMIN (colis préparé) ----------------------
+  @Roles(SUPER_ADMIN)
+  @Patch(':id/process')
+  process(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.ordersService.setProcessed(id, true, req.user.id);
+  }
+
+  @Roles(SUPER_ADMIN)
+  @Patch(':id/unprocess')
+  unprocess(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.ordersService.setProcessed(id, false, req.user.id);
+  }
+
+  // ---------------------- FACTURE CLIENT (admin) ----------------------
+  @Roles(SUPER_ADMIN)
+  @Get(':id/invoice')
+  invoice(@Param('id', ParseIntPipe) id: number) {
+    return this.ordersService.getClientInvoice(id);
+  }
+
   // ---------------------- NEW ORDERS ----------------------
   @Roles(SUPER_ADMIN, SUPER_PICKUPPOINT)
   @Get('new')

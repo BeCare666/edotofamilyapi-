@@ -36,6 +36,7 @@ import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PICKUP_OTP_TTL_MS } from
 import { DeliveryService } from '../delivery/delivery.service';
 import { parseCustomDelivery } from '../delivery/delivery-rules';
 import { ORDER_COMMISSION_SET_SQL } from '../commissions/commission-rules';
+import { ORDER_WITHDRAWN_SQL, assertCanChangeProcessing, stageCountsSql, stageSql } from './order-stage';
 
 // Le retrait est effectué quand le point de retrait a validé l'OTP (verifyOtp) :
 // otp_used = 1, order_status = 'order-completed', delivered_at renseigné.
@@ -714,6 +715,9 @@ export class OrdersService {
     if (query.kind === 'shop') where.push('campaign_id IS NULL');
     const campaignId = Number(query.campaign_id);
     if (query.campaign_id && Number.isInteger(campaignId) && campaignId > 0) { where.push('campaign_id = ?'); params.push(campaignId); }
+    // Étape de suivi admin : à traiter / traitées / retirées (order-stage.ts)
+    const stage = isAdmin ? stageSql(query.stage, ORDER_WITHDRAWN_SQL) : null;
+    if (stage) where.push(stage);
     // Point de retrait précis : déjà appliqué par le périmètre (imposé pour un point, libre pour l'admin)
     if (isAdmin && query.pickup_point_id === 'none') where.push('pickup_point_id IS NULL');
     const day = (s: any) => (typeof s === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null);
@@ -735,8 +739,13 @@ export class OrdersService {
   async getOrderFacets(query: any, user) {
     const pool = this.databaseService.getPool();
     const scope = await this.orderScope(query, user);
-    if (scope.empty) return { total: 0, order_status: [], payment_status: [], delivery_type: [], kind: { campaign: 0, shop: 0 }, pickup_points: [], total_range: { min: null, max: null } };
+    if (scope.empty) return { total: 0, order_status: [], payment_status: [], delivery_type: [], kind: { campaign: 0, shop: 0 }, pickup_points: [], total_range: { min: null, max: null }, stages: { to_process: 0, processed: 0, withdrawn: 0 } };
     const { where, params, isAdmin } = scope;
+    // Compteurs des 3 étapes : sur tout le périmètre (avant le choix d'une étape)
+    const [[stageRow]]: any = await pool.query(`SELECT ${stageCountsSql(ORDER_WITHDRAWN_SQL)} FROM orders WHERE ${where.join(' AND ')}`, params);
+    // Les autres compteurs : à l'intérieur de l'étape choisie (admin)
+    const stage = isAdmin ? stageSql(query.stage, ORDER_WITHDRAWN_SQL) : null;
+    if (stage) where.push(stage);
     const w = where.join(' AND ');
     const [[st], [pay], [del], [kind], [range], points]: any = await Promise.all([
       pool.query(`SELECT order_status AS v, COUNT(*) AS n FROM orders WHERE ${w} GROUP BY order_status ORDER BY n DESC`, params),
@@ -762,6 +771,7 @@ export class OrdersService {
       kind: { campaign: num(kind[0]?.campaign), shop: num(kind[0]?.shop) },
       pickup_points: (points[0] ?? []).map((r: any) => ({ id: r.id == null ? null : Number(r.id), name: r.name ?? null, count: num(r.n) })),
       total_range: { min: range[0]?.min != null ? Number(range[0].min) : null, max: range[0]?.max != null ? Number(range[0].max) : null },
+      stages: { to_process: num(stageRow?.to_process), processed: num(stageRow?.processed), withdrawn: num(stageRow?.withdrawn) },
     };
   }
 
@@ -1181,6 +1191,46 @@ export class OrdersService {
       id,
     ]);
     return rows[0];
+  }
+
+  // Admin : « Traiter » (colis préparé) ou annuler le traitement d'une commande (order-stage.ts)
+  async setProcessed(id: number, processed: boolean, adminId: number) {
+    const pool = this.databaseService.getPool();
+    const [rows]: any = await pool.query(
+      `SELECT id, order_status, payment_status, otp_used, processed_at FROM orders WHERE id = ? LIMIT 1`,
+      [id],
+    );
+    const order = rows[0];
+    if (!order) throw new NotFoundException('Commande introuvable.');
+    assertCanChangeProcessing(order, processed, 'order');
+    // Conditions revérifiées dans le WHERE (retrait ou traitement simultané)
+    const [res]: any = processed
+      ? await pool.query(
+          `UPDATE orders SET processed_at = NOW(), processed_by = ? WHERE id = ? AND processed_at IS NULL AND payment_status = 'payment-success' AND NOT ${ORDER_WITHDRAWN_SQL}`,
+          [adminId, id],
+        )
+      : await pool.query(
+          `UPDATE orders SET processed_at = NULL, processed_by = NULL WHERE id = ? AND processed_at IS NOT NULL AND NOT ${ORDER_WITHDRAWN_SQL}`,
+          [id],
+        );
+    if (!res?.affectedRows) throw new BadRequestException('La commande a changé entre-temps. Rechargez la page.');
+    const [[after]]: any = await pool.query(`SELECT id, processed_at, processed_by FROM orders WHERE id = ?`, [id]);
+    return { success: true, ...after };
+  }
+
+  // Admin : facture client générée au paiement (payment-intent.service > generateInvoices, table invoices)
+  async getClientInvoice(id: number) {
+    const pool = this.databaseService.getPool();
+    const [rows]: any = await pool.query(
+      `SELECT pdf_url, created_at FROM invoices WHERE order_id = ? AND type = 'client' ORDER BY id DESC LIMIT 1`,
+      [id],
+    );
+    if (!rows.length) {
+      throw new NotFoundException(
+        "Aucune facture n'a été générée pour cette commande (elle est créée au paiement). Le reçu FeexPay est envoyé par e-mail au client.",
+      );
+    }
+    return { url: rows[0].pdf_url, created_at: rows[0].created_at };
   }
 
   async remove(id: number) {

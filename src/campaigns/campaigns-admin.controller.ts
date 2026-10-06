@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Post, Put, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Put, Query, Req, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { CampaignsAdminService } from './campaigns-admin.service';
+import { CampaignRequestsService } from './campaign-requests.service';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -19,7 +20,7 @@ function sendFile(res: Response, file: { filename: string; buffer: Buffer }) {
 @Roles(SUPER_ADMIN)
 @Controller('admin')
 export class CampaignsAdminController {
-  constructor(private readonly admin: CampaignsAdminService) { }
+  constructor(private readonly admin: CampaignsAdminService, private readonly requests: CampaignRequestsService) { }
 
   @Get('sponsors')
   listSponsors() {
@@ -48,6 +49,27 @@ export class CampaignsAdminController {
   @Get('campaigns/export')
   async exportAll(@Res() res: Response) {
     sendFile(res, await this.admin.exportAll());
+  }
+
+  // Demandes de kit : à traiter / traitées (kit emballé) / retirées — filtres réels
+  @Get('campaign-requests')
+  listRequests(@Query() q: any) {
+    return this.requests.list(q);
+  }
+
+  @Get('campaign-requests/facets')
+  requestFacets(@Query() q: any) {
+    return this.requests.facets(q);
+  }
+
+  @Patch('campaign-requests/:id/process')
+  processRequest(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.requests.setProcessed(id, true, req.user.id);
+  }
+
+  @Patch('campaign-requests/:id/unprocess')
+  unprocessRequest(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
+    return this.requests.setProcessed(id, false, req.user.id);
   }
 
   @Get('campaigns/:id')

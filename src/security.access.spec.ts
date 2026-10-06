@@ -24,6 +24,7 @@ import { CampaignsController } from './campaigns/campaigns.controller';
 import { CampaignsService } from './campaigns/campaigns.service';
 import { CampaignsAdminController } from './campaigns/campaigns-admin.controller';
 import { CampaignsAdminService } from './campaigns/campaigns-admin.service';
+import { CampaignRequestsService } from './campaigns/campaign-requests.service';
 import { PaymentIntentController } from './payment-intent/payment-intent.controller';
 import { PaymentIntentService } from './payment-intent/payment-intent.service';
 import { UploadsController } from './uploads/uploads.controller';
@@ -89,6 +90,8 @@ const orders = {
   createOrderStatus: jest.fn().mockResolvedValue({}),
   getOrderFileItems: jest.fn().mockResolvedValue({ data: [] }),
   regenerateOtp: jest.fn().mockResolvedValue({ success: true }),
+  setProcessed: jest.fn().mockResolvedValue({ success: true }),
+  getClientInvoice: jest.fn().mockResolvedValue({ url: 'https://x/f.pdf' }),
 };
 const campaigns = {
   getActiveCampaign: jest.fn().mockResolvedValue([]),
@@ -114,6 +117,11 @@ const campaignsAdmin = {
   createSponsor: jest.fn().mockResolvedValue({ id: 1 }),
   exportAll: jest.fn().mockResolvedValue({ filename: 'c.xlsx', buffer: Buffer.from('x') }),
   exportCampaign: jest.fn().mockResolvedValue({ filename: 'c.xlsx', buffer: Buffer.from('x') }),
+};
+const campaignRequests = {
+  list: jest.fn().mockResolvedValue({ data: [] }),
+  facets: jest.fn().mockResolvedValue({}),
+  setProcessed: jest.fn().mockResolvedValue({ success: true }),
 };
 const pickupAdmin = {
   list: jest.fn().mockResolvedValue({ data: [] }),
@@ -150,6 +158,7 @@ describe("Matrice d'accès HTTP", () => {
         { provide: OrdersService, useValue: orders },
         { provide: CampaignsService, useValue: campaigns },
         { provide: CampaignsAdminService, useValue: campaignsAdmin },
+        { provide: CampaignRequestsService, useValue: campaignRequests },
         { provide: PaymentIntentService, useValue: payments },
         { provide: PickupAdminService, useValue: pickupAdmin },
       ],
@@ -226,6 +235,27 @@ describe("Matrice d'accès HTTP", () => {
   });
 
   describe('orders (S5–S10)', () => {
+    it('traitement des commandes et facture : admin uniquement', async () => {
+      await request(http).patch('/api/orders/1/process').expect(401);
+      await request(http).patch('/api/orders/1/process').set(auth(T.customer)).expect(403);
+      await request(http).patch('/api/orders/1/process').set(auth(T.pickup)).expect(403);
+      await request(http).patch('/api/orders/1/process').set(auth(T.admin)).expect(200);
+      expect(orders.setProcessed).toHaveBeenLastCalledWith(1, true, expect.anything());
+      await request(http).patch('/api/orders/1/unprocess').set(auth(T.admin)).expect(200);
+      expect(orders.setProcessed).toHaveBeenLastCalledWith(1, false, expect.anything());
+      await request(http).get('/api/orders/1/invoice').set(auth(T.customer)).expect(403);
+      await request(http).get('/api/orders/1/invoice').set(auth(T.admin)).expect(200);
+    });
+    it('demandes de kit (traitement) : admin uniquement', async () => {
+      await request(http).get('/api/admin/campaign-requests').expect(401);
+      await request(http).get('/api/admin/campaign-requests').set(auth(T.customer)).expect(403);
+      await request(http).get('/api/admin/campaign-requests/facets').set(auth(T.pickup)).expect(403);
+      await request(http).patch('/api/admin/campaign-requests/4/process').set(auth(T.customer)).expect(403);
+      await request(http).get('/api/admin/campaign-requests').set(auth(T.admin)).expect(200);
+      await request(http).get('/api/admin/campaign-requests/facets').set(auth(T.admin)).expect(200);
+      await request(http).patch('/api/admin/campaign-requests/4/process').set(auth(T.admin)).expect(200);
+      expect(campaignRequests.setProcessed).toHaveBeenLastCalledWith(4, true, expect.anything());
+    });
     it('toutes les routes /orders exigent un token', async () => {
       await request(http).get('/api/orders').expect(401);
       await request(http).get('/api/orders/1').expect(401);
