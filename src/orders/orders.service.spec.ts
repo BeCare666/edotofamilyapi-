@@ -130,7 +130,7 @@ describe('OrdersService.getOrderForUser — IDOR', () => {
 
 describe('OrdersService.updateForUser — liste blanche (S7)', () => {
   const handler = (overrides: any = {}): Handler => (sql) => {
-    if (sql.includes('SELECT id, customer_id, pickup_point_id')) return [{ ...ORDER_ROW, ...overrides }];
+    if (sql.includes('SELECT id, customer_id, pickup_point_id')) return [{ ...ORDER_ROW, payment_status: 'payment-success', ...overrides }];
     if (sql.includes("role = 'super_pickuppoint'")) return [{ id: 21 }];
     if (sql.startsWith('SELECT * FROM orders WHERE id')) return [{ ...ORDER_ROW }];
     return [];
@@ -156,8 +156,14 @@ describe('OrdersService.updateForUser — liste blanche (S7)', () => {
   });
 
   it('client : point de retrait inexistant → 400', async () => {
-    const { svc } = makeOrders((sql) => (sql.includes('SELECT id, customer_id') ? [{ ...ORDER_ROW }] : []));
+    const { svc } = makeOrders((sql) => (sql.includes('SELECT id, customer_id') ? [{ ...ORDER_ROW, payment_status: 'payment-success' }] : []));
     await expect(svc.updateForUser(5, { pickup_point_id: 99 }, customer)).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it('client : commande non payée → 400 sur le choix du point, rien écrit', async () => {
+    const { svc, calls } = makeOrders(handler({ payment_status: 'payment-pending', pickup_point_id: null }));
+    await expect(svc.updateForUser(5, { pickup_point_id: 21 }, customer)).rejects.toThrow('non payée');
+    expect(updateSql(calls)).toBeUndefined();
   });
 
   it('client : commande déjà retirée → 400', async () => {

@@ -141,7 +141,7 @@ describe('Points bloqués : visibles mais non sélectionnables', () => {
 
   const orderHandler = (point: any): Handler => (sql) => {
     if (sql.includes('SELECT id, customer_id, pickup_point_id')) {
-      return [{ id: 5, customer_id: 10, pickup_point_id: 2, order_status: 'order-processing', otp_used: 0 }];
+      return [{ id: 5, customer_id: 10, pickup_point_id: 2, order_status: 'order-processing', payment_status: 'payment-success', otp_used: 0 }];
     }
     if (sql.includes("role = 'super_pickuppoint'")) return point ? [point] : [];
     if (sql.startsWith('SELECT * FROM orders WHERE id')) return [{ id: 5 }];

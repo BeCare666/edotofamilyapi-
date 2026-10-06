@@ -890,7 +890,7 @@ export class OrdersService {
   async updateForUser(id: number, body: Record<string, any>, user: any) {
     const pool = this.databaseService.getPool();
     const [rows]: any = await pool.query(
-      `SELECT id, customer_id, pickup_point_id, order_status, otp_used, delivery_type FROM orders WHERE id = ? LIMIT 1`,
+      `SELECT id, customer_id, pickup_point_id, order_status, payment_status, otp_used, delivery_type FROM orders WHERE id = ? LIMIT 1`,
       [id],
     );
     const order = rows[0];
@@ -913,6 +913,12 @@ export class OrdersService {
       if (fields.pickup_point_id === null) {
         throw new BadRequestException('Choisissez un point de retrait.');
       }
+    }
+
+    // Sur la page de la commande, le client ne choisit un point de retrait qu'une fois la commande payée
+    // (06/10/2026 : le point se choisit à la commande ; une commande en attente de paiement ne le propose pas)
+    if (relation === 'customer' && fields.pickup_point_id !== undefined && order.payment_status !== 'payment-success') {
+      throw new BadRequestException('Commande non payée : le point de retrait ne peut pas être choisi ici.');
     }
 
     // Le client ne change plus de point de retrait une fois la commande retirée
