@@ -13,4 +13,14 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   city?: string;
+
+  // Identifiant de l'appareil (tiré au hasard et conservé par le navigateur) et empreinte du
+  // navigateur (SHA-256) : une seule demande de kit par personne et par campagne (campaign-guard.ts)
+  @IsOptional()
+  @IsString()
+  device_id?: string;
+
+  @IsOptional()
+  @IsString()
+  device_fingerprint?: string;
 }

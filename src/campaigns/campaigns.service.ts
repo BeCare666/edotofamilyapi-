@@ -9,6 +9,8 @@ import { buildCampaignOtpEmail, CAMPAIGN_OTP_EMAIL_SUBJECT, CAMPAIGN_OTP_TTL_MS 
 import { statusSql } from './campaign-rules';
 import { KIT_AMOUNT_SQL } from '../commissions/commission-rules';
 import { campaignExtraColumns, decorateCampaign } from './campaign-sql';
+import { ALREADY_REGISTERED_MESSAGE, SAME_DEVICE_MESSAGE, GuardKey, buildGuardKeys, guardMessage } from './campaign-guard';
+import { dailySeries, daysBetween, todayBenin } from '../sponsors/sponsor-rules';
 @Injectable()
 export class CampaignsService {
   constructor(private readonly databaseService: DatabaseService) { }
@@ -180,104 +182,216 @@ export class CampaignsService {
   </div>
   `;
   }
-  async register(dto: RegisterDto, userId: number) {
+  // Demande de kit (06/10/2026) : campagne EN COURS, ville de la campagne, vrai point de retrait
+  // validé et actif, une seule demande par personne (voir campaign-guard.ts). Le code de retrait
+  // n'est transmis que par e-mail ; si l'e-mail ne part pas, la demande est annulée.
+  async register(dto: RegisterDto, userId: number, ip: string | null = null) {
+    const pool = this.databaseService.getPool();
 
-    // 1) Vérifier campagne
-    const [rows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-      `SELECT id FROM campaigns WHERE id = ?`,
+    // 1) Campagne en cours
+    const [rows]: [RowDataPacket[], any] = await pool.query(
+      `SELECT c.id, ${statusSql('c')} AS status FROM campaigns c WHERE c.id = ?`,
       [dto.campaign_id]
     );
     if (!rows.length) throw new NotFoundException('Campagne introuvable');
+    if (rows[0].status !== 'en_cours') {
+      throw new BadRequestException(
+        rows[0].status === 'a_venir'
+          ? "Cette campagne n'a pas encore commencé : la demande de kit sera possible à son ouverture."
+          : "Cette campagne est terminée : il n'est plus possible de demander un kit.",
+      );
+    }
 
-    // Ville du participant : obligatoire et parmi les villes de la campagne (décision du 24/09/2026)
+    // 2) Ville du participant : obligatoire et parmi les villes de la campagne (décision du 24/09/2026)
     const wantedCity = typeof dto.city === 'string' ? dto.city.trim() : '';
     if (!wantedCity) throw new BadRequestException('Indiquez votre ville.');
-    const [cityRows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+    const [cityRows]: [RowDataPacket[], any] = await pool.query(
       `SELECT city FROM campaign_locations WHERE campaign_id = ? AND LOWER(city) = LOWER(?) LIMIT 1`,
       [dto.campaign_id, wantedCity]
     );
     if (!cityRows.length) throw new BadRequestException("Cette campagne ne se déroule pas dans cette ville.");
     const city = cityRows[0].city;
-    // Récupérer le nom du centre de retrait
-    const [center]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+
+    // 3) Point de retrait : uniquement un point de retrait validé et actif
+    const [center]: [RowDataPacket[], any] = await pool.query(
       `SELECT name, role, is_active, pickup_approved FROM users WHERE id = ?`,
       [dto.pickup_center]
     );
-
-    if (!center.length) {
+    if (!center.length || center[0].role !== 'super_pickuppoint' || Number(center[0].pickup_approved) === 0) {
       throw new NotFoundException("Centre de retrait introuvable");
     }
-    // Même règle que pour les commandes : point en attente de validation ou bloqué non sélectionnable
-    if (center[0].role === 'super_pickuppoint') {
-      if (Number(center[0].pickup_approved) === 0) throw new NotFoundException("Centre de retrait introuvable");
-      if (Number(center[0].is_active) === 0) {
-        throw new BadRequestException('Ce point de retrait est actuellement bloqué.');
-      }
+    if (Number(center[0].is_active) === 0) {
+      throw new BadRequestException('Ce point de retrait est actuellement bloqué.');
     }
-
     const pickupCenterName = center[0].name;
-    // 2) Récup user
-    const [user]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+
+    // 4) Participant
+    const [user]: [RowDataPacket[], any] = await pool.query(
       `SELECT name, email FROM users WHERE id = ?`,
       [userId]
     );
     if (!user.length) throw new NotFoundException('Utilisateur introuvable');
-
     const fullName = user[0].name;
     const email = user[0].email;
 
-    // 3) Vérifier si déjà inscrit
-    const [existing]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
-      `SELECT id FROM campaign_registrations 
-     WHERE campaign_id = ? AND email = ?`,
-      [dto.campaign_id, email]
-    );
-    if (existing.length > 0) {
-      throw new BadRequestException("Vous êtes déjà inscrit à cette campagne.");
-    }
+    // 5) Une seule demande par personne : compte, e-mail, appareil, navigateur, connexion
+    const keys = buildGuardKeys({ userId, email, deviceId: dto.device_id, fingerprint: dto.device_fingerprint, ip });
+    await this.assertNoPreviousRequest(Number(dto.campaign_id), email, keys);
 
-    // 4) Enregistrer la participation
-    const [result]: any = await this.databaseService.getPool().query(
-      `INSERT INTO campaign_registrations
-     (campaign_id, full_name, email, pickup_center, city)
-     VALUES (?, ?, ?, ?, ?)`,
-      [dto.campaign_id, fullName, email, dto.pickup_center, city]
-    );
-
-    const registrationId = result.insertId;
-
-    // 5) Générer OTP
+    // 6) Demande + marques dans une transaction : la clé primaire des marques bloque les doublons simultanés
     const otp = randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + CAMPAIGN_OTP_TTL_MS);
-
-    // 6) Enregistrer OTP
-    await this.databaseService.getPool().query(
-      `UPDATE campaign_registrations
-     SET otp_code=?, otp_used=0, otp_attempts=0, order_status = 'order-processing', otp_expires_at=?, updated_at=NOW()
-     WHERE id=?`,
-      [otp, expiresAt, registrationId]
-    );
+    const conn: any = await pool.getConnection();
+    let registrationId: number;
+    try {
+      await conn.beginTransaction();
+      const [result]: any = await conn.query(
+        `INSERT INTO campaign_registrations
+       (campaign_id, full_name, email, pickup_center, city, otp_code, otp_used, otp_attempts, order_status, otp_expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'order-processing', ?)`,
+        [dto.campaign_id, fullName, email, String(dto.pickup_center), city, otp, expiresAt]
+      );
+      registrationId = result.insertId;
+      await conn.query(
+        `INSERT INTO campaign_registration_guards (campaign_id, kind, value_hash, registration_id) VALUES ?`,
+        [keys.map((k) => [dto.campaign_id, k.kind, k.hash, registrationId])]
+      );
+      await conn.commit();
+    } catch (e: any) {
+      await conn.rollback().catch(() => undefined);
+      if (e?.code === 'ER_DUP_ENTRY' || e?.errno === 1062) {
+        throw new BadRequestException(SAME_DEVICE_MESSAGE);
+      }
+      throw e;
+    } finally {
+      conn.release?.();
+    }
 
     // L'ancien compteur distributed_kits n'est plus utilisé : inscrits et kits retirés sont
     // comptés dans campaign_registrations.
 
-    // 7) Envoyer OTP par email
+    // 7) Code de retrait par e-mail ; sans e-mail la participante ne connaîtrait pas son code :
+    //    la demande est annulée pour qu'elle puisse la refaire.
     try {
       await sendVerificationEmail({
         email,
         subject: CAMPAIGN_OTP_EMAIL_SUBJECT,
         message: buildCampaignOtpEmail(pickupCenterName, otp)
       });
-
     } catch (e) {
       console.error(e);
-      throw new Error("Impossible d’envoyer le code OTP : " + e);
+      await pool.query(`DELETE FROM campaign_registration_guards WHERE registration_id = ?`, [registrationId]);
+      await pool.query(`DELETE FROM campaign_registrations WHERE id = ? AND otp_used = 0 AND picked_up = 0`, [registrationId]);
+      throw new InternalServerErrorException(
+        "Impossible d'envoyer l'e-mail contenant votre code. Votre demande n'a pas été enregistrée : réessayez dans quelques instants.",
+      );
     }
 
     return {
       id: registrationId,
-      otp, // 💡 Facultatif
-      message: "Inscription enregistrée. Un code OTP vous a été envoyé."
+      city,
+      pickup_center_name: pickupCenterName,
+      otp_expires_at: expiresAt,
+      message: 'Demande enregistrée. Votre code de retrait vous a été envoyé par e-mail.',
+    };
+  }
+
+  // Refus si une marque (compte, e-mail, appareil, navigateur, connexion) a déjà servi pour cette campagne.
+  // L'e-mail est aussi vérifié dans campaign_registrations (demandes antérieures aux marques).
+  private async assertNoPreviousRequest(campaignId: number, email: string, keys: GuardKey[]) {
+    const pool = this.databaseService.getPool();
+    const [existing]: [RowDataPacket[], any] = await pool.query(
+      `SELECT id FROM campaign_registrations WHERE campaign_id = ? AND LOWER(email) = LOWER(?) LIMIT 1`,
+      [campaignId, email]
+    );
+    if (existing.length > 0) throw new BadRequestException(ALREADY_REGISTERED_MESSAGE);
+    const [used]: [RowDataPacket[], any] = await pool.query(
+      `SELECT DISTINCT kind FROM campaign_registration_guards WHERE campaign_id = ? AND (kind, value_hash) IN (?)`,
+      [campaignId, keys.map((k) => [k.kind, k.hash])]
+    );
+    if (used.length > 0) throw new BadRequestException(guardMessage(used.map((u: any) => u.kind)));
+  }
+
+  // Avant d'ouvrir le formulaire : la participante peut-elle encore demander un kit de cette campagne ?
+  async checkEligibility(campaignId: number, userId: number, body: { device_id?: unknown; device_fingerprint?: unknown }, ip: string | null) {
+    const pool = this.databaseService.getPool();
+    const [rows]: [RowDataPacket[], any] = await pool.query(
+      `SELECT c.id, ${statusSql('c')} AS status FROM campaigns c WHERE c.id = ?`,
+      [campaignId]
+    );
+    if (!rows.length) throw new NotFoundException('Campagne introuvable');
+    if (rows[0].status !== 'en_cours') {
+      return {
+        eligible: false,
+        reason: 'not_active',
+        message: rows[0].status === 'a_venir' ? "Cette campagne n'a pas encore commencé." : 'Cette campagne est terminée.',
+      };
+    }
+    const [user]: [RowDataPacket[], any] = await pool.query(`SELECT email FROM users WHERE id = ?`, [userId]);
+    if (!user.length) throw new NotFoundException('Utilisateur introuvable');
+    const keys = buildGuardKeys({ userId, email: user[0].email, deviceId: body?.device_id, fingerprint: body?.device_fingerprint, ip });
+    try {
+      await this.assertNoPreviousRequest(campaignId, user[0].email, keys);
+    } catch (e: any) {
+      if (e instanceof BadRequestException) {
+        const message = e.message;
+        return { eligible: false, reason: message === ALREADY_REGISTERED_MESSAGE ? 'already_registered' : 'same_device', message };
+      }
+      throw e;
+    }
+    return { eligible: true };
+  }
+
+  // Chiffres publics d'une campagne visible (en cours ou à venir) : totaux, par ville, évolution
+  // quotidienne. Aucune donnée nominative.
+  async getPublicStats(campaignId: number) {
+    const pool = this.databaseService.getPool();
+    const [rows]: [RowDataPacket[], any] = await pool.query(
+      `SELECT c.id, c.objective_kits, DATE_FORMAT(c.date_start, '%Y-%m-%d') AS date_start, DATE_FORMAT(c.date_end, '%Y-%m-%d') AS date_end,
+              ${statusSql('c')} AS status
+       FROM campaigns c WHERE c.id = ?`,
+      [campaignId]
+    );
+    if (!rows.length || rows[0].status === 'terminee') throw new NotFoundException('Campagne introuvable');
+    const c = rows[0];
+    const [regs]: [RowDataPacket[], any] = await pool.query(
+      `SELECT DATE_FORMAT(r.created_at, '%Y-%m-%d %H:%i:%s') AS created, DATE_FORMAT(r.picked_up_at, '%Y-%m-%d %H:%i:%s') AS picked,
+              r.picked_up, r.otp_used, r.city
+       FROM campaign_registrations r WHERE r.campaign_id = ?`,
+      [campaignId]
+    );
+    const [locs]: [RowDataPacket[], any] = await pool.query(
+      `SELECT city FROM campaign_locations WHERE campaign_id = ? ORDER BY city`,
+      [campaignId]
+    );
+
+    // Toutes les villes de la campagne apparaissent, même sans inscrit
+    const byCity = new Map<string, { label: string; registrations: number; withdrawn: number }>();
+    for (const l of locs) byCity.set(String(l.city).toLowerCase(), { label: l.city, registrations: 0, withdrawn: 0 });
+    for (const r of regs) {
+      const label = r.city || 'Non renseignée';
+      const g = byCity.get(String(label).toLowerCase()) ?? { label, registrations: 0, withdrawn: 0 };
+      g.registrations++;
+      if (Number(r.picked_up) === 1) g.withdrawn++;
+      byCity.set(String(label).toLowerCase(), g);
+    }
+    const objective = Number(c.objective_kits) || 0;
+    const withdrawnRows = regs.filter((r: any) => Number(r.picked_up) === 1 && r.picked);
+    const today = todayBenin();
+    return {
+      campaign_id: c.id,
+      status: c.status,
+      objective_kits: objective,
+      registrations: regs.length,
+      validated: regs.filter((r: any) => Number(r.otp_used) === 1).length,
+      withdrawn: regs.filter((r: any) => Number(r.picked_up) === 1).length,
+      days_remaining: c.status === 'en_cours' && c.date_end ? Math.max(0, daysBetween(today, c.date_end)) : null,
+      days_to_start: c.status === 'a_venir' ? Math.max(0, daysBetween(today, c.date_start)) : null,
+      by_city: [...byCity.values()].sort((a, b) => b.registrations - a.registrations || a.label.localeCompare(b.label)),
+      daily:
+        c.status === 'en_cours'
+          ? dailySeries(c.date_start, c.date_end, today, regs.map((r: any) => r.created), withdrawnRows.map((r: any) => r.picked))
+          : [],
     };
   }
 

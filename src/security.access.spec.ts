@@ -101,6 +101,8 @@ const campaigns = {
   register: jest.fn().mockResolvedValue({}),
   getMyRegistrations: jest.fn().mockResolvedValue([]),
   regenerateRegistrationOtp: jest.fn().mockResolvedValue({ success: true }),
+  getPublicStats: jest.fn().mockResolvedValue({}),
+  checkEligibility: jest.fn().mockResolvedValue({ eligible: true }),
 };
 const campaignsAdmin = {
   list: jest.fn().mockResolvedValue({ data: [] }),
@@ -270,6 +272,16 @@ describe("Matrice d'accès HTTP", () => {
   describe('campaigns (S11, S12)', () => {
     it('lecture publique conservée', async () => {
       await request(http).get('/api/campaigns/active').expect(200);
+    });
+    it('demande de kit : connexion requise, adresse du client transmise ; chiffres publics ; éligibilité connectée', async () => {
+      await request(http).post('/api/campaigns/register').send({ campaign_id: 1, pickup_center: '2' }).expect(401);
+      await request(http).post('/api/campaigns/register').set(auth(T.customer)).set('X-Forwarded-For', '41.85.1.2, 10.0.0.1')
+        .send({ campaign_id: 1, pickup_center: '2', city: 'Cotonou', device_id: 'abcdef0123456789abcd' }).expect(201);
+      expect(campaigns.register).toHaveBeenLastCalledWith(expect.objectContaining({ device_id: 'abcdef0123456789abcd' }), expect.anything(), '41.85.1.2');
+      await request(http).get('/api/campaigns/1/stats').expect(200);
+      await request(http).post('/api/campaigns/1/eligibility').send({}).expect(401);
+      await request(http).post('/api/campaigns/1/eligibility').set(auth(T.customer)).send({}).expect(201);
+      expect(campaigns.checkEligibility).toHaveBeenCalled();
     });
     it('routes admin/campaigns réservées à super_admin', async () => {
       await request(http).post('/api/admin/campaigns').send({}).expect(401);

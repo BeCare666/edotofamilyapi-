@@ -169,7 +169,7 @@ describe('Points bloqués : visibles mais non sélectionnables', () => {
 
   it('campagne : inscription sur un point bloqué → 400, avant toute écriture', async () => {
     const { db, calls } = fakeDb((sql) => {
-      if (sql.includes('FROM campaigns WHERE id')) return [{ id: 1 }];
+      if (sql.includes('FROM campaigns c WHERE c.id')) return [{ id: 1, status: 'en_cours' }];
       if (sql.includes('FROM campaign_locations WHERE campaign_id')) return [{ city: 'Cotonou' }];
       if (sql.includes('SELECT name, role, is_active, pickup_approved')) return [{ name: 'B', role: 'super_pickuppoint', is_active: 0, pickup_approved: 1 }];
       return [];

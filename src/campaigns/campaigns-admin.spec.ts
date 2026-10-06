@@ -136,7 +136,7 @@ describe('Admin : création / modification / suppression', () => {
 
 describe('Inscription : ville obligatoire parmi les villes de la campagne', () => {
   const base = (cityRows: any[]) => fakeDb((sql) => {
-    if (sql.startsWith('SELECT id FROM campaigns')) return [{ id: 1 }];
+    if (sql.includes('FROM campaigns c WHERE c.id')) return [{ id: 1, status: 'en_cours' }];
     if (sql.includes('FROM campaign_locations WHERE campaign_id')) return cityRows;
     if (sql.includes('SELECT name, role, is_active')) return [{ name: 'Point A', role: 'super_pickuppoint', is_active: 1, pickup_approved: 1 }];
     if (sql.includes('SELECT name, email FROM users')) return [{ name: 'Awa', email: 'awa@t.io' }];
@@ -154,7 +154,8 @@ describe('Inscription : ville obligatoire parmi les villes de la campagne', () =
     const b = base([{ city: 'Cotonou' }]);
     await new CampaignsService(b.db).register({ campaign_id: 1, pickup_center: '20', city: 'cotonou' } as any, 5);
     const ins = b.calls.find((c) => c.sql.startsWith('INSERT INTO campaign_registrations'));
-    expect(ins.params).toEqual([1, 'Awa', 'awa@t.io', '20', 'Cotonou']);
+    expect(ins.params.slice(0, 5)).toEqual([1, 'Awa', 'awa@t.io', '20', 'Cotonou']);
+    expect(ins.params[5]).toMatch(/^\d{6}$/); // code de retrait enregistré avec la demande
     expect(b.calls.some((c) => c.sql.includes('distributed_kits'))).toBe(false);
   });
 

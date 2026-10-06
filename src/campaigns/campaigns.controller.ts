@@ -5,6 +5,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { ActivePickupGuard } from '../auth/active-pickup.guard';
 import { Roles, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
+import { clientIpFrom } from './campaign-guard';
 
 @Controller()
 export class CampaignsController {
@@ -24,6 +25,19 @@ export class CampaignsController {
   getById(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.getCampaignById(id);
   }
+
+  // Chiffres publics (sans données nominatives) d'une campagne en cours ou à venir
+  @Get('campaigns/:id/stats')
+  getStats(@Param('id', ParseIntPipe) id: number) {
+    return this.campaignsService.getPublicStats(id);
+  }
+
+  // La personne connectée peut-elle encore demander un kit (compte, appareil, connexion) ?
+  @UseGuards(JwtAuthGuard)
+  @Post('campaigns/:id/eligibility')
+  eligibility(@Param('id', ParseIntPipe) id: number, @Body() body: any, @Req() req) {
+    return this.campaignsService.checkEligibility(id, req.user.id, body || {}, clientIpFrom(req));
+  }
   @Get('campaigns/active/city/:city')
   getActiveByCity(@Param('city') city: string) {
     return this.campaignsService.getActiveCampaignByCity(city);
@@ -36,7 +50,7 @@ export class CampaignsController {
   @UseGuards(JwtAuthGuard)
   @Post('campaigns/register')
   async register(@Body() dto: RegisterDto, @Req() req) {
-    return this.campaignsService.register(dto, req.user.id);
+    return this.campaignsService.register(dto, req.user.id, clientIpFrom(req));
   }
 
   // Création, modification, suppression, liste, détail et exports : CampaignsAdminController.
