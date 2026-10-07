@@ -184,7 +184,7 @@ export class SponsorSpaceService {
         [campaignId, sponsorId],
       );
     }
-    return { status: 'pending', message: 'Demande envoyée : E·Doto Family doit la valider.' };
+    return { status: 'pending', message: 'Demande envoyée : E.doto family doit la valider.' };
   }
 
   async exports(sponsorId: number) {
@@ -206,7 +206,7 @@ export class SponsorSpaceService {
       `SELECT status FROM sponsor_export_requests WHERE campaign_id = ? AND sponsor_id = ?`,
       [campaignId, sponsorId],
     );
-    if (req?.status !== 'approved') throw new ForbiddenException('Export non autorisé : demandez-le puis attendez la validation d’E·Doto Family.');
+    if (req?.status !== 'approved') throw new ForbiddenException('Export non autorisé : demandez-le puis attendez la validation d’E.doto family.');
     return this.campaignsAdmin.exportCampaign(campaignId);
   }
 

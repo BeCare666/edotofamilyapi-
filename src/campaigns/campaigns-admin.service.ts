@@ -219,7 +219,7 @@ export class CampaignsAdminService {
       try {
         await sendVerificationEmail({
           email: s.email,
-          subject: `Accès sponsor – ${title}`,
+          subject: `Accès sponsor · ${title}`,
           message: this.campaigns.buildSponsorEmail({ name: s.name, campaignTitle: title, amount: s.amount, accessCode: s.accessCode }),
         });
       } catch (e) {
@@ -345,7 +345,7 @@ export class CampaignsAdminService {
       ['Inscrits', d.registrations_count],
       ['Kits retirés', d.picked_up_count],
       ['Inscrits sans retrait', d.registrations_count - d.picked_up_count],
-      ['Taux de retrait (sur les kits fournis)', d.objective_kits ? `${Math.round((d.picked_up_count / d.objective_kits) * 1000) / 10} %` : '—'],
+      ['Taux de retrait (sur les kits fournis)', d.objective_kits ? `${Math.round((d.picked_up_count / d.objective_kits) * 1000) / 10} %` : 'Non calculé'],
       ['Budget (somme des sponsors, FCFA)', d.budget],
       ['Description', d.description ?? ''],
     ];
@@ -452,7 +452,7 @@ function groupStats(regs: any[], key: (r: any) => string) {
 
 function newWorkbook() {
   const wb = new Workbook();
-  wb.creator = 'E·Doto Family';
+  wb.creator = 'E.doto family';
   wb.created = new Date();
   return wb;
 }

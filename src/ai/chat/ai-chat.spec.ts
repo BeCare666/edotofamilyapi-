@@ -92,6 +92,7 @@ import {
   parseAmount,
   parseVerdict,
   productsMentioned,
+  polishAnswer,
 } from './ai-chat.guard';
 
 describe('garde-fous : montants', () => {
@@ -127,7 +128,7 @@ describe('garde-fous : montants', () => {
     expect(deterministicChecks('Pour 2 km, la livraison coûte 1 000 FCFA.', delivery).ok).toBe(false);
   });
 
-  it('bloque tout prix quand aucune donnée Edotofamily n’a été consultée', () => {
+  it('bloque tout prix quand aucune donnée E.doto family n’a été consultée', () => {
     expect(deterministicChecks('Une pilule coûte environ 1000 FCFA en pharmacie.', []).ok).toBe(false);
   });
 });
@@ -147,7 +148,7 @@ describe('garde-fous : fuites et cartes', () => {
   });
 
   it('détecte la mention d’un conseiller ou d’un rendez-vous', () => {
-    expect(mentionsExpert('Prends rendez-vous avec un conseiller Edotofamily.')).toBe(true);
+    expect(mentionsExpert('Prends rendez-vous avec un conseiller E.doto family.')).toBe(true);
     expect(mentionsExpert('Book an appointment with a counsellor.')).toBe(true);
     expect(mentionsExpert('Le préservatif protège des IST.')).toBe(false);
   });
@@ -177,5 +178,18 @@ describe('garde-fous : verdict du vérificateur (fail-closed)', () => {
     [null],
   ])('rejette %s', (raw) => {
     expect(parseVerdict(raw as any).ok).toBe(false);
+  });
+});
+
+describe('Réponse affichée : sans tirets, nom E.doto family', () => {
+  it('tiret dans une phrase → virgule ; intervalle → « à » ; puce → tiret de liste', () => {
+    expect(polishAnswer('La pilule — si elle est bien prise — est efficace.')).toBe('La pilule, si elle est bien prise, est efficace.');
+    expect(polishAnswer('Prends-la entre 3–5 jours après — demande conseil.')).toBe('Prends-la entre 3 à 5 jours après, demande conseil.');
+    expect(polishAnswer('Voici :\n— un préservatif\n– une pilule')).toBe('Voici :\n- un préservatif\n- une pilule');
+    expect(polishAnswer('Oui -- tout à fait.')).toBe('Oui, tout à fait.');
+  });
+  it('mots composés, montants et liens conservés ; nom harmonisé', () => {
+    expect(polishAnswer('Abomey-Calavi, 2 500 FCFA, e-mail, https://calendly.com/edotofamily/30min')).toBe('Abomey-Calavi, 2 500 FCFA, e-mail, https://calendly.com/edotofamily/30min');
+    expect(polishAnswer('Un conseiller Edotofamily ou E·Doto Family.')).toBe('Un conseiller E.doto family ou E.doto family.');
   });
 });

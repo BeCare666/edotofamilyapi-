@@ -21,7 +21,7 @@ export class ActivePickupGuard implements CanActivate {
     );
     const row = rows?.[0];
     if (!row || Number(row.is_active) === 0 || Number(row.pickup_approved) === 0) {
-      throw new ForbiddenException("Votre point de retrait est bloqué. Contactez l'équipe E·Doto Family.");
+      throw new ForbiddenException("Votre point de retrait est bloqué. Contactez l'équipe E.doto family.");
     }
     return true;
   }

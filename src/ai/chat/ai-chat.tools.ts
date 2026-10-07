@@ -3,8 +3,8 @@ import { CampaignsService } from '../../campaigns/campaigns.service';
 import { toIsoDate } from '../../campaigns/campaign-rules';
 import { EmergencyKind } from './ai-chat.safety';
 
-// Outils de l'Assistant SSR. Les outils « Edotofamily » lisent la base en LECTURE SEULE : ce sont
-// les seules sources autorisées pour parler d'Edotofamily (voir le prompt et ai-chat.guard.ts).
+// Outils de l'Assistant SSR. Les outils « E.doto family » lisent la base en LECTURE SEULE : ce sont
+// les seules sources autorisées pour parler d'E.doto family (voir le prompt et ai-chat.guard.ts).
 
 export const EMERGENCY_KINDS: EmergencyKind[] = ['suicide', 'violence', 'medical'];
 
@@ -25,7 +25,7 @@ export const TOOL_DEFS: ToolDef[] = [
   {
     name: 'get_catalog',
     description:
-      'Renvoie la liste COMPLÈTE des produits vendus par Edotofamily (nom, prix en FCFA, prix promotionnel, disponibilité, courte description). Un produit absent de cette liste n’est pas vendu par Edotofamily.',
+      'Renvoie la liste COMPLÈTE des produits vendus par E.doto family (nom, prix en FCFA, prix promotionnel, disponibilité, courte description). Un produit absent de cette liste n’est pas vendu par E.doto family.',
     input_schema: schema(),
   },
   {
@@ -36,18 +36,18 @@ export const TOOL_DEFS: ToolDef[] = [
   },
   {
     name: 'get_delivery_info',
-    description: 'Renvoie le tarif de livraison Edotofamily et la façon dont il est calculé.',
+    description: 'Renvoie le tarif de livraison E.doto family et la façon dont il est calculé.',
     input_schema: schema(),
   },
   {
     name: 'get_pickup_points',
-    description: 'Liste les points de retrait Edotofamily actifs (nom et adresse).',
+    description: 'Liste les points de retrait E.doto family actifs (nom et adresse).',
     input_schema: schema(),
   },
   {
     name: 'refer_to_ssr_expert',
     description:
-      "Affiche à l'utilisateur une carte pour prendre un rendez-vous confidentiel avec un conseiller SSR d'Edotofamily. À utiliser dès que tu n'es pas certain de la réponse, si l'information n'est fournie par aucun outil, si la personne demande à parler à quelqu'un, ou si sa situation mérite un accompagnement personnel.",
+      "Affiche à l'utilisateur une carte pour prendre un rendez-vous confidentiel avec un conseiller SSR d'E.doto family. À utiliser dès que tu n'es pas certain de la réponse, si l'information n'est fournie par aucun outil, si la personne demande à parler à quelqu'un, ou si sa situation mérite un accompagnement personnel.",
     input_schema: schema({ reason: { type: 'string', description: 'Raison courte (usage interne).' } }, ['reason']),
   },
   {
@@ -114,7 +114,7 @@ export class EdotoData {
       image: imageUrl(r.image),
     }));
     return {
-      content: facts.length ? JSON.stringify(facts) : 'Le catalogue Edotofamily est vide pour le moment.',
+      content: facts.length ? JSON.stringify(facts) : 'Le catalogue E.doto family est vide pour le moment.',
       facts: { catalogue_complet: facts },
       products,
     };

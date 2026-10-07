@@ -5,8 +5,8 @@ export function buildPickupOtpEmail(trackingNumber: string, otp: string): string
   
   <!-- Header -->
   <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
-    <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
-    <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
+    <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E.doto family" style="height: 72px; margin-bottom: 12px;" />
+    <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E.doto family</h1>
     <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Harmonie, bien-être et santé au féminin</p>
   </div>
 
@@ -31,7 +31,7 @@ export function buildPickupOtpEmail(trackingNumber: string, otp: string): string
   <!-- Footer -->
   <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
     <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-      © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
+      © ${new Date().getFullYear()} E.doto family. Tous droits réservés<br />
       <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
     </p>
   </div>
@@ -40,7 +40,7 @@ export function buildPickupOtpEmail(trackingNumber: string, otp: string): string
       `;
 }
 
-export const PICKUP_OTP_EMAIL_SUBJECT = `Votre code de retrait - E·Doto Family`;
+export const PICKUP_OTP_EMAIL_SUBJECT = `Votre code de retrait · E.doto family`;
 
 // Durée de validité annoncée dans l'e-mail
 export const PICKUP_OTP_TTL_MS = 48 * 60 * 60 * 1000;

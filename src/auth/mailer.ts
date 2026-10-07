@@ -8,7 +8,7 @@ export async function sendVerificationEmail({ email, subject, message }) {
   const tranEmailApi = new SibApiV3Sdk.TransactionalEmailsApi();
 
   const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
-  sendSmtpEmail.sender = { email: "edotofamily@gmail.com", name: "e-doto family" };
+  sendSmtpEmail.sender = { email: "edotofamily@gmail.com", name: "E.doto family" };
   sendSmtpEmail.to = [{ email }];
   sendSmtpEmail.subject = subject;
   sendSmtpEmail.htmlContent = message;

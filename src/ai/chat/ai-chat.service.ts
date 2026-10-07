@@ -30,6 +30,7 @@ import {
   deterministicChecks,
   mentionsExpert,
   parseVerdict,
+  polishAnswer,
   productsMentioned,
   verifierUserMessage,
 } from './ai-chat.guard';
@@ -41,8 +42,8 @@ export type Emit = (event: string, data: unknown) => void;
 type ChatStatus = 'answered' | 'referred' | 'emergency' | 'refused' | 'blocked' | 'quota' | 'error';
 
 const SERVICES_CONFIRMES = [
-  'Rendez-vous confidentiel avec un conseiller SSR Edotofamily (prise de rendez-vous en ligne)',
-  'Commande des produits du catalogue sur la plateforme Edotofamily',
+  'Rendez-vous confidentiel avec un conseiller SSR E.doto family (prise de rendez-vous en ligne)',
+  'Commande des produits du catalogue sur la plateforme E.doto family',
   'Commandes : livraison à domicile ou retrait en point de retrait',
 ];
 
@@ -126,7 +127,7 @@ export class AiChatService {
       emergencyShown: false,
       referRequested: false,
       toolsCalled: [],
-      // Services Edotofamily confirmés par le code et la base (01/10/2026), connus sans appeler d'outil.
+      // Services E.doto family confirmés par le code et la base (01/10/2026), connus sans appeler d'outil.
       facts: [{ services_confirmes: SERVICES_CONFIRMES }],
       products: [],
       campaigns: [],
@@ -197,6 +198,7 @@ export class AiChatService {
       state.products = [];
       state.campaigns = [];
     } else {
+      answer = polishAnswer(answer);
       state.answer = answer;
     }
 

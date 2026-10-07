@@ -55,6 +55,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { CommissionsModule } from './commissions/commissions.module';
 import { SponsorsModule } from './sponsors/sponsors.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
+import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
   imports: [
@@ -115,7 +116,8 @@ import { AdminNotificationsModule } from './admin-notifications/admin-notificati
     DeliveryModule,
     CommissionsModule,
     SponsorsModule,
-    AdminNotificationsModule
+    AdminNotificationsModule,
+    SiteAppearanceModule
     //DatabaseService
   ],
   controllers: [],

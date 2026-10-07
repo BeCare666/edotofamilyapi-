@@ -9,7 +9,7 @@ function decisionEmail(name: string, title: string, approved: boolean, reason: s
   return `
   <div style="font-family: Inter, Arial, sans-serif; max-width: 620px; margin: auto; background: #fff; border-radius: 16px; overflow: hidden; border: 1px solid #f1ece4;">
     <div style="background: #1f1b16; padding: 24px; text-align: center;">
-      <p style="color: #fff; font-size: 20px; margin: 0; font-family: Georgia, serif;">E·Doto Family — Espace sponsor</p>
+      <p style="color: #fff; font-size: 20px; margin: 0; font-family: Poppins, Arial, sans-serif;">E.doto family · Espace sponsor</p>
     </div>
     <div style="padding: 28px; color: #1f1b16; font-size: 15px; line-height: 1.6;">
       <p>Bonjour <strong>${name}</strong>,</p>
@@ -68,7 +68,7 @@ export class SponsorExportsAdminService {
       const base = (process.env.FRONTEND_CALLBACK_URL || '').replace(/\/+$/, '');
       await sendVerificationEmail({
         email: req.email,
-        subject: `Export ${approved ? 'accepté' : 'refusé'} — ${req.title}`,
+        subject: `Export ${approved ? 'accepté' : 'refusé'} · ${req.title}`,
         message: decisionEmail(req.name, req.title, approved, approved ? null : reason, `${base}/sponsor`),
       });
     } catch (e) {

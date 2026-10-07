@@ -25,6 +25,8 @@ import { CampaignsService } from './campaigns/campaigns.service';
 import { CampaignsAdminController } from './campaigns/campaigns-admin.controller';
 import { CampaignsAdminService } from './campaigns/campaigns-admin.service';
 import { CampaignRequestsService } from './campaigns/campaign-requests.service';
+import { SiteAppearanceController } from './site-appearance/site-appearance.controller';
+import { SiteAppearanceService } from './site-appearance/site-appearance.service';
 import { PaymentIntentController } from './payment-intent/payment-intent.controller';
 import { PaymentIntentService } from './payment-intent/payment-intent.service';
 import { UploadsController } from './uploads/uploads.controller';
@@ -123,6 +125,10 @@ const campaignRequests = {
   facets: jest.fn().mockResolvedValue({}),
   setProcessed: jest.fn().mockResolvedValue({ success: true }),
 };
+const siteAppearance = {
+  get: jest.fn().mockResolvedValue({ font: 'poppins' }),
+  setFont: jest.fn().mockResolvedValue({ font: 'inter' }),
+};
 const pickupAdmin = {
   list: jest.fn().mockResolvedValue({ data: [] }),
   approve: jest.fn().mockResolvedValue({ success: true }),
@@ -149,6 +155,7 @@ describe("Matrice d'accès HTTP", () => {
         PaymentIntentController,
         UploadsController,
         PickupAdminController,
+        SiteAppearanceController,
       ],
       providers: [
         JwtStrategy,
@@ -159,6 +166,7 @@ describe("Matrice d'accès HTTP", () => {
         { provide: CampaignsService, useValue: campaigns },
         { provide: CampaignsAdminService, useValue: campaignsAdmin },
         { provide: CampaignRequestsService, useValue: campaignRequests },
+        { provide: SiteAppearanceService, useValue: siteAppearance },
         { provide: PaymentIntentService, useValue: payments },
         { provide: PickupAdminService, useValue: pickupAdmin },
       ],
@@ -231,6 +239,17 @@ describe("Matrice d'accès HTTP", () => {
     });
     it('admin : toutes boutiques', async () => {
       await request(http).delete('/api/products/3').set(auth(T.admin)).expect(200);
+    });
+  });
+
+  describe('police du site', () => {
+    it('lecture publique ; modification réservée au super admin', async () => {
+      await request(http).get('/api/site-appearance').expect(200);
+      await request(http).put('/api/admin/site-appearance').send({ font: 'inter' }).expect(401);
+      await request(http).put('/api/admin/site-appearance').set(auth(T.customer)).send({ font: 'inter' }).expect(403);
+      await request(http).put('/api/admin/site-appearance').set(auth(T.pickup)).send({ font: 'inter' }).expect(403);
+      await request(http).put('/api/admin/site-appearance').set(auth(T.admin)).send({ font: 'inter' }).expect(200);
+      expect(siteAppearance.setFont).toHaveBeenLastCalledWith('inter', 1);
     });
   });
 

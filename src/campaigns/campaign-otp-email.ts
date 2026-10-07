@@ -5,7 +5,7 @@ export function buildCampaignOtpEmail(pickupCenterName: string, otp: string): st
 
     <!-- HEADER -->
     <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
-      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px;" />
+      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E.doto family" style="height: 72px;" />
       <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700;">Retrait de votre kit gratuit</h1>
     </div>
 
@@ -34,7 +34,7 @@ export function buildCampaignOtpEmail(pickupCenterName: string, otp: string): st
     <!-- FOOTER -->
     <div style="background: #fafafa; padding: 20px; text-align: center;">
       <p style="color: #9CA3AF; font-size: 12px;">
-        © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés
+        © ${new Date().getFullYear()} E.doto family. Tous droits réservés
       </p>
     </div>
 
@@ -43,7 +43,7 @@ export function buildCampaignOtpEmail(pickupCenterName: string, otp: string): st
   `;
 }
 
-export const CAMPAIGN_OTP_EMAIL_SUBJECT = `Code de retrait de campagne - E·Doto Family`;
+export const CAMPAIGN_OTP_EMAIL_SUBJECT = `Code de retrait de campagne · E.doto family`;
 
 // Durée de validité du code annoncée dans l'e-mail
 export const CAMPAIGN_OTP_TTL_MS = 48 * 60 * 60 * 1000;

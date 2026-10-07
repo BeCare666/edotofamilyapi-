@@ -173,7 +173,7 @@ export class CampaignsService {
         </div>
 
         <p style="font-size:12px;color:#9CA3AF;">
-          © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés
+          © ${new Date().getFullYear()} E.doto family. Tous droits réservés
         </p>
 
       </div>

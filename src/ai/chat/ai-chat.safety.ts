@@ -56,12 +56,12 @@ export function emergencyPayload(kind: EmergencyKind, lang: ChatLang) {
 }
 
 export const REFER_MESSAGE: Record<'fr' | 'en', string> = {
-  fr: "Je ne connais pas la réponse avec certitude. Veuillez contacter un expert SSR d'Edotofamily, il pourra vous répondre en toute confidentialité.",
-  en: "I don't know the answer with certainty. Please contact an Edotofamily SRH expert, who can answer you confidentially.",
+  fr: "Je ne connais pas la réponse avec certitude. Veuillez contacter un expert SSR d'E.doto family, il pourra vous répondre en toute confidentialité.",
+  en: "I don't know the answer with certainty. Please contact an E.doto family SRH expert, who can answer you confidentially.",
 };
 
 // Quota gratuit du fournisseur d'IA épuisé : message clair plutôt qu'une erreur « Réessaie ».
 export const QUOTA_MESSAGE: Record<'fr' | 'en', string> = {
-  fr: "L'Assistant SSR a atteint sa limite de questions pour aujourd'hui. Reviens demain, ou prends dès maintenant un rendez-vous confidentiel avec un conseiller Edotofamily.",
-  en: 'The SRH Assistant has reached its question limit for today. Come back tomorrow, or book a confidential appointment with an Edotofamily counsellor now.',
+  fr: "L'Assistant SSR a atteint sa limite de questions pour aujourd'hui. Reviens demain, ou prends dès maintenant un rendez-vous confidentiel avec un conseiller E.doto family.",
+  en: 'The SRH Assistant has reached its question limit for today. Come back tomorrow, or book a confidential appointment with an E.doto family counsellor now.',
 };

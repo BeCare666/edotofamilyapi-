@@ -23,13 +23,13 @@ function invitationEmail(name: string, link: string) {
   return `
   <div style="font-family: Inter, Arial, sans-serif; max-width: 620px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f1ece4;">
     <div style="background: #1f1b16; padding: 28px; text-align: center;">
-      <p style="color: #ffffff; font-size: 22px; margin: 0; font-family: Georgia, serif;">E·Doto Family</p>
+      <p style="color: #ffffff; font-size: 22px; margin: 0; font-family: Poppins, Arial, sans-serif;">E.doto family</p>
       <p style="color: #b8ac9e; font-size: 12px; letter-spacing: 3px; margin: 6px 0 0;">ESPACE SPONSOR</p>
     </div>
     <div style="padding: 32px 28px; text-align: center; color: #1f1b16;">
       <p style="font-size: 16px;">Bonjour <strong>${name}</strong>,</p>
       <p style="font-size: 15px; line-height: 1.6; color: #5c534a;">
-        E·Doto Family vous invite à rejoindre votre espace sponsor : vous y suivrez les campagnes que vous soutenez.
+        E.doto family vous invite à rejoindre votre espace sponsor : vous y suivrez les campagnes que vous soutenez.
         Choisissez votre mot de passe en cliquant sur le bouton ci-dessous.
       </p>
       <a href="${link}" style="display: inline-block; margin: 24px 0; padding: 14px 28px; background: #c2185b; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: 600;">
@@ -87,7 +87,7 @@ export class SponsorAccountService {
     try {
       await sendVerificationEmail({
         email: sponsor.email,
-        subject: 'Votre espace sponsor E·Doto Family',
+        subject: 'Votre espace sponsor E.doto family',
         message: invitationEmail(sponsor.name, `${base}/sponsor/activation?token=${token}`),
       });
     } catch (e) {
@@ -110,14 +110,14 @@ export class SponsorAccountService {
 
   async invitationInfo(token: any) {
     const row = await this.findInvitation(token);
-    if (!row) throw new NotFoundException("Lien d'invitation invalide ou expiré. Demandez une nouvelle invitation à E·Doto Family.");
+    if (!row) throw new NotFoundException("Lien d'invitation invalide ou expiré. Demandez une nouvelle invitation à E.doto family.");
     return { name: row.name, email: row.email };
   }
 
   async accept(body: any) {
     const password = parseNewPassword(body?.password);
     const row = await this.findInvitation(body?.token);
-    if (!row || !row.user_id) throw new NotFoundException("Lien d'invitation invalide ou expiré. Demandez une nouvelle invitation à E·Doto Family.");
+    if (!row || !row.user_id) throw new NotFoundException("Lien d'invitation invalide ou expiré. Demandez une nouvelle invitation à E.doto family.");
     const pool = this.db.getPool();
     const hash = await bcrypt.hash(password, 10);
     const [res]: any = await pool.query(

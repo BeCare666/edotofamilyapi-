@@ -225,7 +225,7 @@ export class AuthService {
     );
 
     return {
-      message: "Inscription enregistrée. Confirmez votre e-mail : votre compte sera activé après validation par l'équipe E·Doto Family.",
+      message: "Inscription enregistrée. Confirmez votre e-mail : votre compte sera activé après validation par l'équipe E.doto family.",
     };
   }
 
@@ -327,12 +327,12 @@ export class AuthService {
       // pickup_approved = 0 : inscription pas encore validée dans l'admin
       if (Number(user.pickup_approved) === 0) {
         throw new ForbiddenException(
-          "Votre point de retrait est en attente de validation par l'équipe E·Doto Family.",
+          "Votre point de retrait est en attente de validation par l'équipe E.doto family.",
         );
       }
       if (Number(user.is_active) === 0) {
         throw new ForbiddenException(
-          "Votre point de retrait est bloqué. Contactez l'équipe E·Doto Family.",
+          "Votre point de retrait est bloqué. Contactez l'équipe E.doto family.",
         );
       }
       const token = jwt.sign({
@@ -389,7 +389,7 @@ export class AuthService {
     } else if (user.role === "sponsor") {
       // Espace sponsor : compte créé sur invitation de l'admin (mot de passe choisi via le lien)
       if (Number(user.is_active) === 0) {
-        throw new ForbiddenException("Votre espace sponsor est désactivé. Contactez l'équipe E·Doto Family.");
+        throw new ForbiddenException("Votre espace sponsor est désactivé. Contactez l'équipe E.doto family.");
       }
       const token = jwt.sign({
         id: user.id,
@@ -562,14 +562,14 @@ export class AuthService {
     // Envoyer l’email..
     await sendVerificationEmail({
       email,
-      subject: 'Votre code de réinitialisation - E·Doto Family',
+      subject: 'Votre code de réinitialisation · E.doto family',
       message: `
   <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 40px rgba(0,0,0,0.06); border: 1px solid #f2f2f2;">
     
     <!-- Header -->
     <div style="background: linear-gradient(135deg, #fff5f8, #ffe4ef); padding: 32px 24px; text-align: center;">
-      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E·Doto Family" style="height: 72px; margin-bottom: 12px;" />
-      <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E·Doto Family</h1>
+      <img src="https://edotofamily.netlify.app/images/edotofamily6.1.png" alt="E.doto family" style="height: 72px; margin-bottom: 12px;" />
+      <h1 style="color: #FF6EA9; font-size: 22px; font-weight: 700; margin: 0;">E.doto family</h1>
       <p style="color: #6B7280; font-size: 14px; margin-top: 6px;">Harmonie, bien-être et santé au féminin</p>
     </div>
 
@@ -596,7 +596,7 @@ export class AuthService {
     <!-- Footer -->
     <div style="background: #fafafa; padding: 20px; text-align: center; border-top: 1px solid #f3f4f6;">
       <p style="color: #9CA3AF; font-size: 12px; margin: 0;">
-        © ${new Date().getFullYear()} E·Doto Family — Tous droits réservés<br />
+        © ${new Date().getFullYear()} E.doto family. Tous droits réservés<br />
         <a href="https://edotofamily.com" style="color: #FF6EA9; text-decoration: none;">www.edotofamily.com</a>
       </p>
     </div>

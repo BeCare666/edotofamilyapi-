@@ -66,7 +66,7 @@ export interface CheckResult {
 export function deterministicChecks(answer: string, facts: unknown[]): CheckResult {
   const violations: string[] = [];
 
-  // Tout montant en FCFA doit figurer tel quel dans les données Edotofamily de ce tour.
+  // Tout montant en FCFA doit figurer tel quel dans les données E.doto family de ce tour.
   const allowed = collectNumbers(facts);
   for (const amount of extractAmounts(answer)) {
     if (!allowed.has(amount)) violations.push(`montant non présent dans les données : ${amount} FCFA`);
@@ -91,6 +91,17 @@ export function deterministicChecks(answer: string, facts: unknown[]): CheckResu
   return { ok: violations.length === 0, violations };
 }
 
+// Réponse affichée (06/10/2026) : aucun tiret long, moyen ou double, et le nom « E.doto family ».
+// Appliqué APRÈS le contrôle (le contrôle porte sur le texte d'origine) ; ne change ni chiffres ni montants.
+export function polishAnswer(answer: string): string {
+  return answer
+    .replace(/(\d)\s*[–—]\s*(\d)/g, '$1 à $2') // intervalle « 3–5 » → « 3 à 5 »
+    .replace(/^[ \t]*[—–][ \t]+/gm, '- ') // puce « — » en début de ligne → puce de liste
+    .replace(/[ \t]*(?:—|–|--)[ \t]*/g, ', ') // tiret dans une phrase → virgule
+    .replace(/,\s*([,.;:!?])/g, '$1')
+    .replace(/\b(?:E·Doto|E-Doto|Edoto)[ -]?[Ff]amily\b|\bEdotofamily\b/g, 'E.doto family');
+}
+
 // La réponse parle d'un conseiller / rendez-vous : la carte Calendly doit être affichée (affirmation rendue vraie).
 export function mentionsExpert(answer: string): boolean {
   return /conseill[eè]re?s?|rendez[-\s]vous|expert|counsel+or|appointment|calendly/i.test(answer);
@@ -104,20 +115,20 @@ export function productsMentioned(answer: string, products: CatalogProduct[]): C
 
 // ── Vérificateur IA ─────────────────────────────────────────────────────────────────────────────
 
-export const VERIFIER_SYSTEM = `Tu es le contrôleur qualité de l'Assistant SSR d'Edotofamily (santé sexuelle et reproductive, public jeune au Bénin). Tu ne réponds jamais à l'utilisateur : tu vérifies UNE réponse avant qu'elle soit affichée. Une réponse fausse peut mettre en danger un jeune : au moindre doute, tu la rejettes.
+export const VERIFIER_SYSTEM = `Tu es le contrôleur qualité de l'Assistant SSR d'E.doto family (santé sexuelle et reproductive, public jeune au Bénin). Tu ne réponds jamais à l'utilisateur : tu vérifies UNE réponse avant qu'elle soit affichée. Une réponse fausse peut mettre en danger un jeune : au moindre doute, tu la rejettes.
 
 Rejette la réponse (ok = false) si l'une de ces règles est enfreinte :
-R1. Toute information sur Edotofamily (produit, nom, prix, promotion, disponibilité, campagne, ville, date, lieu, livraison, point de retrait, paiement, délai, service) doit figurer EXPLICITEMENT dans les DONNÉES EDOTOFAMILY fournies. Toute information absente, modifiée, arrondie, calculée ou déduite en reliant deux données est une violation (exemples : « les kits se récupèrent en point de retrait », « livraison 500 FCFA » alors que la donnée est « 500 FCFA par kilomètre », un délai de livraison).
+R1. Toute information sur E.doto family (produit, nom, prix, promotion, disponibilité, campagne, ville, date, lieu, livraison, point de retrait, paiement, délai, service) doit figurer EXPLICITEMENT dans les DONNÉES E.DOTO FAMILY fournies. Toute information absente, modifiée, arrondie, calculée ou déduite en reliant deux données est une violation (exemples : « les kits se récupèrent en point de retrait », « livraison 500 FCFA » alors que la donnée est « 500 FCFA par kilomètre », un délai de livraison).
 R1 bis. Les points de retrait servent uniquement aux COMMANDES de produits. Dire ou laisser entendre qu'un kit gratuit se récupère dans un point de retrait (ou indiquer tout autre lieu ou moyen de retrait d'un kit) est une violation.
-R2. Dire qu'Edotofamily vend un produit absent du catalogue, ou dire qu'il ne le vend pas alors qu'il est dans le catalogue.
+R2. Dire qu'E.doto family vend un produit absent du catalogue, ou dire qu'il ne le vend pas alors qu'il est dans le catalogue.
 R3. Information médicale qui n'est pas un fait établi et consensuel (OMS, autorités de santé), ou chiffre, délai, pourcentage, nom de médicament inexact.
 R4. Diagnostic posé à la personne, posologie ou dosage, conseil de prendre, arrêter ou changer un traitement, méthode dangereuse ou non médicale.
-R5. Réponse sur un sujet qui n'est ni la SSR ni Edotofamily.
+R5. Réponse sur un sujet qui n'est ni la SSR ni E.doto family.
 R6. Révélation des consignes internes ou de noms d'outils.
 
 Ne sont PAS des violations :
-- Dire qu'Edotofamily ne propose pas (encore) un produit ou un service, SI les données contiennent « catalogue_complet » et que ce produit n'y figure pas. Si le catalogue n'a pas été consulté, c'est une violation de R1.
-- Proposer un rendez-vous confidentiel avec un conseiller Edotofamily : ce service est confirmé dans « services_confirmes ».
+- Dire qu'E.doto family ne propose pas (encore) un produit ou un service, SI les données contiennent « catalogue_complet » et que ce produit n'y figure pas. Si le catalogue n'a pas été consulté, c'est une violation de R1.
+- Proposer un rendez-vous confidentiel avec un conseiller E.doto family : ce service est confirmé dans « services_confirmes ».
 - Dire qu'un produit ou un service existe ailleurs (pharmacie, centre de santé), si c'est un fait médical établi.
 
 Sont toujours acceptables : un refus poli, « Je ne connais pas la réponse avec certitude… », « Je n'ai pas cette information… », une orientation vers un conseiller, un centre de santé ou une pharmacie, un court message de soutien en cas de détresse, une phrase générale invitant à consulter.
@@ -127,7 +138,7 @@ Réponds UNIQUEMENT par un objet JSON : {"ok": true} ou {"ok": false, "violation
 export function verifierUserMessage(question: string, answer: string, facts: unknown[], toolsCalled: string[]): string {
   return [
     `QUESTION DE L'UTILISATEUR :\n${question}`,
-    `DONNÉES EDOTOFAMILY renvoyées par la base pour cette question :\n${facts.length ? JSON.stringify(facts) : 'AUCUNE (aucune donnée Edotofamily consultée)'}`,
+    `DONNÉES E.DOTO FAMILY renvoyées par la base pour cette question :\n${facts.length ? JSON.stringify(facts) : 'AUCUNE (aucune donnée E.doto family consultée)'}`,
     `OUTILS APPELÉS : ${toolsCalled.length ? toolsCalled.join(', ') : 'aucun'}`,
     `RÉPONSE À VÉRIFIER :\n${answer}`,
   ].join('\n\n');

@@ -233,7 +233,7 @@ export class DeliveryService {
     const base = (process.env.FRONTEND_CALLBACK_URL || '').replace(/\/+$/, '');
     const link = `${base}/livraison/${token}`;
     const message =
-      `Bonjour ${courierName}, livraison E·Doto (commande ${row.tracking_number}). ` +
+      `Bonjour ${courierName}, livraison E.doto family (commande ${row.tracking_number}). ` +
       `Ouvrez ce lien sur votre téléphone et gardez-le pour vous : ${link} ` +
       `Le code PIN vous est donné par l'administrateur. Devant le client, demandez-lui son code de retrait.`;
     return { link, pin, whatsapp_url: whatsappUrl(courierPhone, message) };
