@@ -107,6 +107,8 @@ export class DatabaseSetupService implements OnModuleInit {
       'ai_chat_logs.sql'
     ];
 
+    // Bilan final (07/10/2026) : une migration en échec ne doit plus passer inaperçue
+    const failed: string[] = [];
     for (const file of files) {
       const filePath = join(sqlFolder, file);
 
@@ -123,11 +125,17 @@ export class DatabaseSetupService implements OnModuleInit {
       } catch (err: unknown) {
         const errorMsg = err instanceof Error ? err.message : JSON.stringify(err);
         console.error(`❌ Erreur via ${file} :`, errorMsg);
+        failed.push(`${file} : ${errorMsg}`);
       }
     }
 
     await this.connection.end();
     console.log('✅ Connexion fermée après setup');
-    console.log('🎉 Toutes les tables sont prêtes !');
+    if (failed.length) {
+      console.error(`\n⚠️ ${failed.length} script(s) SQL en erreur :\n - ${failed.join('\n - ')}`);
+      console.error('Vérifier la structure : npm run db:check');
+    } else {
+      console.log('🎉 Toutes les tables sont prêtes !');
+    }
   }
 }
