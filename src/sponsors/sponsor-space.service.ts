@@ -2,11 +2,12 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { DatabaseService } from '../database/database.services';
 import { CampaignsAdminService } from '../campaigns/campaigns-admin.service';
 import { statusSql, toIsoDate } from '../campaigns/campaign-rules';
-import { beninMonth, dailySeries, daysBetween, lastMonths, prediction, todayBenin } from './sponsor-rules';
+import { PROPOSAL_LABELS, beninMonth, dailySeries, daysBetween, lastMonths, parseSponsorProfile, prediction, todayBenin } from './sponsor-rules';
 
 // Espace sponsor : uniquement les campagnes que le sponsor soutient (campaign_sponsors.sponsor_id),
 // uniquement des chiffres et graphiques (aucune donnée nominative), export après validation de l'admin.
 const UTC_FMT = '%Y-%m-%d %H:%i:%s';
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const STATUS_LABEL: Record<string, string> = { a_venir: 'À venir', en_cours: 'En cours', terminee: 'Terminée' };
 
 @Injectable()
@@ -19,15 +20,18 @@ export class SponsorSpaceService {
   // Fiche sponsor du compte connecté (l'identifiant vient du jeton, jamais de la requête)
   async sponsorFor(userId: number) {
     const [[s]]: any = await this.db.getPool().query(
-      `SELECT id, name, email, activated_at FROM sponsors WHERE user_id = ? LIMIT 1`,
+      `SELECT id, name, email, contact_name, phone, self_registered, DATE_FORMAT(created_at, '${UTC_FMT}') AS created_at FROM sponsors WHERE user_id = ? LIMIT 1`,
       [userId],
     );
     if (!s) throw new ForbiddenException('Aucun espace sponsor rattaché à ce compte.');
-    return { id: Number(s.id), name: s.name, email: s.email };
+    return {
+      id: Number(s.id), name: s.name, email: s.email, contact_name: s.contact_name ?? null, phone: s.phone ?? null,
+      self_registered: Number(s.self_registered) === 1, created_at: s.created_at ? `${String(s.created_at).replace(' ', 'T')}Z` : null,
+    };
   }
 
   // Campagnes soutenues par le sponsor, avec sa contribution et les vrais chiffres
-  private async campaignsOf(sponsorId: number, campaignId?: number) {
+  async campaignsOf(sponsorId: number, campaignId?: number) {
     const [rows]: any = await this.db.getPool().query(
       `SELECT c.id, c.title, c.description, c.date_start, c.date_end, c.objective_kits, ${statusSql('c')} AS status,
               cs.amount AS contribution,
@@ -102,12 +106,33 @@ export class SponsorSpaceService {
     };
   }
 
-  async campaigns(sponsorId: number, query: { status?: any; q?: any }) {
+  // Filtres : statut, recherche, ville, période (campagnes qui chevauchent du … au …), tri
+  async campaigns(sponsorId: number, query: { status?: any; q?: any; city?: any; from?: any; to?: any; sort?: any }) {
     let list = await this.campaignsOf(sponsorId);
     if (['a_venir', 'en_cours', 'terminee'].includes(query.status)) list = list.filter((c) => c.status === query.status);
     const q = typeof query.q === 'string' ? query.q.trim().toLowerCase() : '';
     if (q) list = list.filter((c) => c.title.toLowerCase().includes(q) || c.cities.some((x: string) => x.toLowerCase().includes(q)));
+    const city = typeof query.city === 'string' ? query.city.trim().toLowerCase() : '';
+    if (city) list = list.filter((c) => c.cities.some((x: string) => x.toLowerCase() === city));
+    if (DATE_RE.test(query.from || '')) list = list.filter((c) => !c.date_end || c.date_end >= query.from);
+    if (DATE_RE.test(query.to || '')) list = list.filter((c) => c.date_start <= query.to);
+    const progress = (c: any) => (c.objective_kits ? c.withdrawn / c.objective_kits : 0);
+    const sorts: Record<string, (a: any, b: any) => number> = {
+      start_asc: (a, b) => a.date_start.localeCompare(b.date_start),
+      progress: (a, b) => progress(b) - progress(a),
+      registrations: (a, b) => b.registrations - a.registrations,
+      contribution: (a, b) => b.contribution - a.contribution,
+      title: (a, b) => a.title.localeCompare(b.title),
+    };
+    if (sorts[query.sort]) list = [...list].sort(sorts[query.sort]);
     return list;
+  }
+
+  // Mon organisation : personne de contact et téléphone (nom et e-mail modifiés par l'équipe E.doto family)
+  async updateProfile(sponsorId: number, body: any) {
+    const input = parseSponsorProfile(body);
+    await this.db.getPool().query(`UPDATE sponsors SET contact_name = ?, phone = ? WHERE id = ?`, [input.contactName, input.phone, sponsorId]);
+    return { success: true, message: 'Coordonnées enregistrées.' };
   }
 
   // Analyse d'une campagne : indicateurs, séries, parcours, répartitions, délai moyen, prévision
@@ -211,9 +236,27 @@ export class SponsorSpaceService {
   }
 
   // Cloche : décisions sur les demandes d'export (30 derniers jours) ; pastille = décisions des 7 derniers jours
+  // + décisions sur les demandes de campagne (15/10/2026)
   async notifications(sponsorId: number) {
-    const list = (await this.exports(sponsorId)).filter((r: any) => r.decided_at && Date.now() - Date.parse(r.decided_at) < 30 * 86_400_000);
-    const recent = list.filter((r: any) => Date.now() - Date.parse(r.decided_at) < 7 * 86_400_000).length;
-    return { count: recent, items: list.slice(0, 10) };
+    const exportsList = (await this.exports(sponsorId)).map((r: any) => ({ ...r, kind: 'export' }));
+    const [rows]: any = await this.db.getPool().query(
+      `SELECT id, title, status, DATE_FORMAT(decided_at, '${UTC_FMT}') AS decided_at FROM sponsor_campaign_proposals
+       WHERE sponsor_id = ? AND status <> 'pending' AND decided_at IS NOT NULL`,
+      [sponsorId],
+    );
+    const proposals = rows.map((r: any) => ({
+      id: `p${r.id}`, kind: 'proposal', title: r.title, status: r.status, status_label: PROPOSAL_LABELS[r.status as keyof typeof PROPOSAL_LABELS],
+      decided_at: `${String(r.decided_at).replace(' ', 'T')}Z`,
+    }));
+    const list = [...exportsList, ...proposals]
+      .filter((r: any) => r.decided_at && Date.now() - Date.parse(r.decided_at) < 30 * 86_400_000)
+      .sort((a: any, b: any) => Date.parse(b.decided_at) - Date.parse(a.decided_at));
+    const recent = list.filter((r: any) => Date.now() - Date.parse(r.decided_at) < 7 * 86_400_000);
+    return {
+      count: recent.length,
+      exports_count: recent.filter((r: any) => r.kind === 'export').length,
+      proposals_count: recent.filter((r: any) => r.kind === 'proposal').length,
+      items: list.slice(0, 10),
+    };
   }
 }

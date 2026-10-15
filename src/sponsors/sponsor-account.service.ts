@@ -9,7 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
-import { INVITATION_TTL_DAYS, newInvitationToken, parseNewPassword, sha256 } from './sponsor-rules';
+import { INVITATION_TTL_DAYS, escapeHtml, newInvitationToken, parseNewPassword, parseSponsorSignup, sha256 } from './sponsor-rules';
 
 const ROLE_LABEL: Record<string, string> = {
   customer: 'client',
@@ -36,6 +36,22 @@ function invitationEmail(name: string, link: string) {
         Activer mon espace sponsor
       </a>
       <p style="font-size: 13px; color: #9a8e80;">Ce lien est valable ${INVITATION_TTL_DAYS} jours.</p>
+    </div>
+  </div>`;
+}
+
+function welcomeEmail(organization: string, contact: string, link: string) {
+  return `
+  <div style="font-family: Inter, Arial, sans-serif; max-width: 620px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #f1ece4;">
+    <div style="background: #1f1b16; padding: 28px; text-align: center;">
+      <p style="color: #ffffff; font-size: 22px; margin: 0; font-family: Poppins, Arial, sans-serif;">E.doto family</p>
+      <p style="color: #b8ac9e; font-size: 12px; letter-spacing: 3px; margin: 6px 0 0;">ESPACE SPONSOR</p>
+    </div>
+    <div style="padding: 32px 28px; color: #1f1b16; font-size: 15px; line-height: 1.6;">
+      <p>Bonjour <strong>${escapeHtml(contact)}</strong>,</p>
+      <p>L'espace sponsor de <strong>${escapeHtml(organization)}</strong> est créé. Vous pouvez dès maintenant soumettre une demande de campagne :
+        l'équipe E.doto family l'étudie, la valide puis crée la campagne, que vous suivrez en temps réel depuis votre espace.</p>
+      <p style="text-align: center;"><a href="${link}" style="display: inline-block; margin: 16px 0; padding: 14px 28px; background: #c2185b; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: 600;">Ouvrir mon espace sponsor</a></p>
     </div>
   </div>`;
 }
@@ -128,5 +144,65 @@ export class SponsorAccountService {
     await pool.query(`UPDATE sponsors SET activated_at = NOW() WHERE id = ?`, [row.sponsor_id]);
     await pool.query(`DELETE FROM sponsor_invitations WHERE sponsor_id = ?`, [row.sponsor_id]);
     return { success: true, email: row.email, message: 'Votre espace sponsor est activé. Vous pouvez vous connecter.' };
+  }
+
+  // Inscription libre d'un sponsor (15/10/2026) : compte « sponsor » utilisable tout de suite pour soumettre
+  // des demandes de campagne ; chaque demande est validée par l'admin. Une adresse déjà connue (compte ou
+  // fiche sponsor créée par l'admin) est refusée : la fiche existante passe par l'invitation de l'admin,
+  // pour que personne ne puisse s'attribuer les campagnes d'un sponsor existant avec son adresse.
+  async signup(body: any) {
+    const input = parseSponsorSignup(body);
+    const pool: any = this.db.getPool();
+    const [[user]]: any = await pool.query(`SELECT id, role FROM users WHERE email = ? LIMIT 1`, [input.email]);
+    if (user) {
+      throw new ConflictException(
+        user.role === 'sponsor'
+          ? 'Un espace sponsor existe déjà avec cette adresse : connectez-vous.'
+          : 'Cette adresse e-mail est déjà utilisée par un autre compte E.doto family. Utilisez une autre adresse.',
+      );
+    }
+    const [[known]]: any = await pool.query(`SELECT id FROM sponsors WHERE email = ? LIMIT 1`, [input.email]);
+    if (known) {
+      throw new ConflictException(
+        'Votre organisation est déjà enregistrée comme sponsor par E.doto family : demandez votre lien d’invitation à l’équipe.',
+      );
+    }
+
+    const hash = await bcrypt.hash(input.password, 10);
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      const [u]: any = await conn.query(
+        `INSERT INTO users (name, email, password, is_verified, role, is_active, created_at, updated_at)
+         VALUES (?, ?, ?, 0, 'sponsor', 1, NOW(), NOW())`,
+        [input.organization, input.email, hash],
+      );
+      await conn.query(
+        `INSERT INTO sponsors (name, email, user_id, contact_name, phone, self_registered, activated_at) VALUES (?, ?, ?, ?, ?, 1, NOW())`,
+        [input.organization, input.email, Number(u.insertId), input.contactName, input.phone],
+      );
+      await conn.commit();
+    } catch (e: any) {
+      await conn.rollback();
+      if (e?.code === 'ER_DUP_ENTRY') throw new ConflictException('Cette adresse e-mail est déjà utilisée.');
+      throw e;
+    } finally {
+      conn.release();
+    }
+
+    // E-mail de bienvenue : un échec d'envoi n'annule pas l'inscription (le compte est déjà utilisable)
+    let emailSent = true;
+    try {
+      const base = (process.env.FRONTEND_CALLBACK_URL || '').replace(/\/+$/, '');
+      await sendVerificationEmail({
+        email: input.email,
+        subject: 'Bienvenue dans votre espace sponsor E.doto family',
+        message: welcomeEmail(input.organization, input.contactName, `${base}/sponsor`),
+      });
+    } catch (e) {
+      console.error('Erreur e-mail bienvenue sponsor :', e);
+      emailSent = false;
+    }
+    return { success: true, email: input.email, email_sent: emailSent, message: 'Votre espace sponsor est créé. Connectez-vous pour soumettre votre demande de campagne.' };
   }
 }

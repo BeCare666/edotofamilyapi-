@@ -15,6 +15,7 @@ import {
   toIsoDate,
 } from './campaign-rules';
 import { campaignExtraColumns, decorateCampaign, isoDates } from './campaign-sql';
+import { SponsorProposalsService, assertProposalCanLink, markProposalCreated } from '../sponsors/sponsor-proposals.service';
 
 const NOT_SET = 'Non renseignée';
 
@@ -30,8 +31,10 @@ export class CampaignsAdminService {
   // =========================
   async listSponsors() {
     const [rows]: any = await this.db.getPool().query(
-      `SELECT s.id, s.name, s.email, s.created_at, s.invited_at, s.activated_at,
+      `SELECT s.id, s.name, s.email, s.created_at, s.invited_at, s.activated_at, s.contact_name, s.phone, s.self_registered,
               (SELECT COUNT(*) FROM campaign_sponsors cs WHERE cs.sponsor_id = s.id) AS campaigns_count,
+              (SELECT COUNT(*) FROM sponsor_campaign_proposals p WHERE p.sponsor_id = s.id) AS proposals_count,
+              (SELECT COUNT(*) FROM sponsor_campaign_proposals p WHERE p.sponsor_id = s.id AND p.status = 'pending') AS proposals_pending,
               (SELECT i.expires_at FROM sponsor_invitations i WHERE i.sponsor_id = s.id) AS invitation_expires_at
        FROM sponsors s ORDER BY s.name ASC`,
     );
@@ -46,6 +49,12 @@ export class CampaignsAdminService {
       invitation_expired: !r.activated_at && !!r.invited_at && (!r.invitation_expires_at || new Date(r.invitation_expires_at).getTime() < Date.now()),
       invited_at: r.invited_at,
       activated_at: r.activated_at,
+      // Inscription libre (15/10/2026) : coordonnées et demandes de campagne
+      contact_name: r.contact_name ?? null,
+      phone: r.phone ?? null,
+      self_registered: Number(r.self_registered) === 1,
+      proposals_count: Number(r.proposals_count) || 0,
+      proposals_pending: Number(r.proposals_pending) || 0,
     }));
   }
 
@@ -245,7 +254,11 @@ export class CampaignsAdminService {
 
   async create(body: any) {
     const input = parseCampaignInput(body);
+    // Création depuis une demande de campagne validée (15/10/2026) : facultatif
+    const proposalId = body?.proposal_id === undefined || body?.proposal_id === null || body?.proposal_id === '' ? null : Number(body.proposal_id);
+    if (proposalId !== null && (!Number.isInteger(proposalId) || proposalId <= 0)) throw new BadRequestException('Demande de campagne invalide.');
     const { id, notify } = await this.withTransaction(async (conn) => {
+      if (proposalId) await assertProposalCanLink(conn, proposalId, input.sponsors.map((s) => s.sponsor_id));
       const info = await this.loadSponsors(conn, input);
       const [res]: any = await conn.query(
         `INSERT INTO campaigns (title, description, image_url, location, date_start, date_end, objective_kits)
@@ -257,9 +270,11 @@ export class CampaignsAdminService {
         await conn.query(`INSERT INTO campaign_locations (campaign_id, city) VALUES (?, ?)`, [campaignId, city]);
       }
       const notify = await this.addSponsorLinks(conn, campaignId, input.sponsors, info);
+      if (proposalId) await markProposalCreated(conn, proposalId, campaignId);
       return { id: campaignId, notify };
     });
     await this.notifySponsors(input.title, notify);
+    if (proposalId) await new SponsorProposalsService(this.db).notify(proposalId);
     return { id, message: 'Campagne créée.' };
   }
 

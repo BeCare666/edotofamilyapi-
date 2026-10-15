@@ -7,7 +7,7 @@ import { TODAY_SQL } from '../campaigns/campaign-rules';
 // et rien ne l'alimente : on ne s'en sert pas.
 export type AdminNotification = {
   key: string; // identifiant stable (sert à savoir si l'admin l'a déjà vue)
-  type: 'order' | 'paid_order' | 'delivery' | 'pickup_point' | 'sponsor_export' | 'stock' | 'registrations' | 'campaign';
+  type: 'order' | 'paid_order' | 'delivery' | 'pickup_point' | 'sponsor_export' | 'sponsor_proposal' | 'stock' | 'registrations' | 'campaign';
   title: string;
   body: string;
   href: string;
@@ -36,6 +36,7 @@ export class AdminNotificationsService {
       [deliveries],
       [points],
       [exportsPending],
+      [proposals],
       [stock],
       [registrations],
       [campaigns],
@@ -71,6 +72,12 @@ export class AdminNotificationsService {
          JOIN campaigns c ON c.id = r.campaign_id
          LEFT JOIN sponsors s ON s.id = r.sponsor_id
          WHERE r.status = 'pending' ORDER BY r.requested_at DESC LIMIT 15`,
+      ),
+      // Demandes de campagne des sponsors : à étudier (en attente) ou validées sans campagne créée (15/10/2026)
+      pool.query(
+        `SELECT p.id, p.title, p.status, p.created_at, p.decided_at, s.name AS sponsor
+         FROM sponsor_campaign_proposals p JOIN sponsors s ON s.id = p.sponsor_id
+         WHERE p.status IN ('pending', 'approved') ORDER BY p.created_at DESC LIMIT 15`,
       ),
       // Stock : mêmes seuils que la liste des produits (rupture < 1, faible 1 à 9)
       pool.query(
@@ -148,6 +155,18 @@ export class AdminNotificationsService {
         body: `${r.sponsor ?? 'Sponsor'} · ${r.title}`,
         href: '/sponsor-exports',
         at: iso(r.requested_at),
+        action: true,
+      });
+    }
+    for (const p of proposals) {
+      const pending = p.status === 'pending';
+      items.push({
+        key: `proposal-${p.id}-${p.status}`,
+        type: 'sponsor_proposal',
+        title: pending ? 'Demande de campagne à étudier' : 'Campagne à créer (demande validée)',
+        body: `${p.sponsor} · ${p.title}`,
+        href: `/campaign-proposals?id=${p.id}`,
+        at: iso(pending ? p.created_at : p.decided_at),
         action: true,
       });
     }

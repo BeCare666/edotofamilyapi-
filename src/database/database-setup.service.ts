@@ -104,6 +104,7 @@ export class DatabaseSetupService implements OnModuleInit {
       '008_campaign_registration_guards.sql',
       '009_order_processing.sql',
       '010_site_appearance.sql',
+      '011_sponsor_signup_proposals.sql',
       'ai_chat_logs.sql'
     ];
 
