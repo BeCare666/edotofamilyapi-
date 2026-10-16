@@ -11,6 +11,10 @@ import { KIT_AMOUNT_SQL } from '../commissions/commission-rules';
 import { campaignExtraColumns, decorateCampaign } from './campaign-sql';
 import { ALREADY_REGISTERED_MESSAGE, SAME_DEVICE_MESSAGE, GuardKey, buildGuardKeys, guardMessage } from './campaign-guard';
 import { dailySeries, daysBetween, todayBenin } from '../sponsors/sponsor-rules';
+import { readTarget, targetLabel, targetMismatch } from './campaign-target';
+import { pickupCityOf } from './pickup-city';
+import { cityAmong, cleanPosition, normCity } from '../common/geo-city';
+import { cleanBirthDate, cleanSex } from '../common/field-rules';
 @Injectable()
 export class CampaignsService {
   constructor(private readonly databaseService: DatabaseService) { }
@@ -190,7 +194,7 @@ export class CampaignsService {
 
     // 1) Campagne en cours
     const [rows]: [RowDataPacket[], any] = await pool.query(
-      `SELECT c.id, ${statusSql('c')} AS status FROM campaigns c WHERE c.id = ?`,
+      `SELECT c.id, c.target_sex, c.target_age_min, c.target_age_max, ${statusSql('c')} AS status FROM campaigns c WHERE c.id = ?`,
       [dto.campaign_id]
     );
     if (!rows.length) throw new NotFoundException('Campagne introuvable');
@@ -202,19 +206,38 @@ export class CampaignsService {
       );
     }
 
-    // 2) Ville du participant : obligatoire et parmi les villes de la campagne (décision du 24/09/2026)
-    const wantedCity = typeof dto.city === 'string' ? dto.city.trim() : '';
-    if (!wantedCity) throw new BadRequestException('Indiquez votre ville.');
-    const [cityRows]: [RowDataPacket[], any] = await pool.query(
-      `SELECT city FROM campaign_locations WHERE campaign_id = ? AND LOWER(city) = LOWER(?) LIMIT 1`,
-      [dto.campaign_id, wantedCity]
+    // 2) Participant : date de naissance et sexe (complétés ici une seule fois pour les anciens comptes),
+    //    puis public ciblé par la campagne (décision du 16/10/2026)
+    const [user]: [RowDataPacket[], any] = await pool.query(
+      `SELECT name, email, sex, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date FROM users WHERE id = ?`,
+      [userId]
     );
-    if (!cityRows.length) throw new BadRequestException("Cette campagne ne se déroule pas dans cette ville.");
-    const city = cityRows[0].city;
+    if (!user.length) throw new NotFoundException('Utilisateur introuvable');
+    const person = { birth_date: user[0].birth_date as string | null, sex: user[0].sex as string | null };
+    const completeProfile: { birth_date?: string; sex?: string } = {};
+    if (!person.birth_date && dto.birth_date !== undefined) person.birth_date = completeProfile.birth_date = cleanBirthDate(dto.birth_date);
+    if (!person.sex && dto.sex !== undefined) person.sex = completeProfile.sex = cleanSex(dto.sex);
+    const mismatch = targetMismatch(readTarget(rows[0]), person);
+    if (mismatch) throw new BadRequestException(mismatch.message);
 
-    // 3) Point de retrait : uniquement un point de retrait validé et actif
+    // 3) Ville du participant : déduite de sa position GPS (obligatoire), parmi les villes de la campagne
+    //    (décision du 16/10/2026 ; la ville choisie dans le formulaire n'est plus prise en compte)
+    const position = cleanPosition(dto.lat, dto.lng);
+    const [cityRows]: [RowDataPacket[], any] = await pool.query(
+      `SELECT city FROM campaign_locations WHERE campaign_id = ?`,
+      [dto.campaign_id]
+    );
+    const campaignCities = cityRows.map((r: any) => String(r.city));
+    const city = await cityAmong(position.lat, position.lng, campaignCities);
+    if (!city) {
+      throw new BadRequestException(
+        `Votre position ne se trouve dans aucune ville de cette campagne (${campaignCities.join(', ')}) : seules les personnes de ces villes peuvent obtenir un kit.`,
+      );
+    }
+
+    // 4) Point de retrait : validé, actif et situé dans la même ville
     const [center]: [RowDataPacket[], any] = await pool.query(
-      `SELECT name, role, is_active, pickup_approved FROM users WHERE id = ?`,
+      `SELECT id, name, role, is_active, pickup_approved, pickup_lat, pickup_lng, pickup_city, pickup_city_src FROM users WHERE id = ?`,
       [dto.pickup_center]
     );
     if (!center.length || center[0].role !== 'super_pickuppoint' || Number(center[0].pickup_approved) === 0) {
@@ -223,14 +246,12 @@ export class CampaignsService {
     if (Number(center[0].is_active) === 0) {
       throw new BadRequestException('Ce point de retrait est actuellement bloqué.');
     }
+    const pickupCity = await pickupCityOf(pool, center[0] as any);
+    if (!pickupCity || normCity(pickupCity) !== normCity(city)) {
+      throw new BadRequestException(`Ce point de retrait n'est pas à ${city} : choisissez un point de retrait de la ville de la campagne.`);
+    }
     const pickupCenterName = center[0].name;
 
-    // 4) Participant
-    const [user]: [RowDataPacket[], any] = await pool.query(
-      `SELECT name, email FROM users WHERE id = ?`,
-      [userId]
-    );
-    if (!user.length) throw new NotFoundException('Utilisateur introuvable');
     const fullName = user[0].name;
     const email = user[0].email;
 
@@ -247,10 +268,18 @@ export class CampaignsService {
       await conn.beginTransaction();
       const [result]: any = await conn.query(
         `INSERT INTO campaign_registrations
-       (campaign_id, full_name, email, pickup_center, city, otp_code, otp_used, otp_attempts, order_status, otp_expires_at)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'order-processing', ?)`,
-        [dto.campaign_id, fullName, email, String(dto.pickup_center), city, otp, expiresAt]
+       (campaign_id, full_name, email, pickup_center, city, otp_code, otp_used, otp_attempts, order_status, otp_expires_at,
+        request_lat, request_lng, request_city)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'order-processing', ?, ?, ?, ?)`,
+        [dto.campaign_id, fullName, email, String(dto.pickup_center), city, otp, expiresAt, position.lat, position.lng, city]
       );
+      // Profil complété pendant la demande (anciens comptes) : enregistré avec la demande
+      if (completeProfile.birth_date || completeProfile.sex) {
+        await conn.query(
+          `UPDATE users SET birth_date = COALESCE(birth_date, ?), sex = COALESCE(sex, ?), updated_at = NOW() WHERE id = ?`,
+          [completeProfile.birth_date ?? null, completeProfile.sex ?? null, userId]
+        );
+      }
       registrationId = result.insertId;
       await conn.query(
         `INSERT INTO campaign_registration_guards (campaign_id, kind, value_hash, registration_id) VALUES ?`,
@@ -312,11 +341,30 @@ export class CampaignsService {
     if (used.length > 0) throw new BadRequestException(guardMessage(used.map((u: any) => u.kind)));
   }
 
+  // Demande de kit, étape « Votre ville » (16/10/2026) : ville de la campagne correspondant à la
+  // position GPS de la personne. Même contrôle que register(), qui le refait à l'envoi.
+  async locateForCampaign(campaignId: number, lat: unknown, lng: unknown) {
+    const position = cleanPosition(lat, lng);
+    const [cityRows]: [RowDataPacket[], any] = await this.databaseService.getPool().query(
+      `SELECT city FROM campaign_locations WHERE campaign_id = ?`,
+      [campaignId]
+    );
+    const campaignCities = cityRows.map((r: any) => String(r.city));
+    if (!campaignCities.length) throw new NotFoundException('Campagne introuvable');
+    const city = await cityAmong(position.lat, position.lng, campaignCities);
+    if (!city) {
+      throw new BadRequestException(
+        `Votre position ne se trouve dans aucune ville de cette campagne (${campaignCities.join(', ')}) : seules les personnes de ces villes peuvent obtenir un kit.`,
+      );
+    }
+    return { city };
+  }
+
   // Avant d'ouvrir le formulaire : la participante peut-elle encore demander un kit de cette campagne ?
   async checkEligibility(campaignId: number, userId: number, body: { device_id?: unknown; device_fingerprint?: unknown }, ip: string | null) {
     const pool = this.databaseService.getPool();
     const [rows]: [RowDataPacket[], any] = await pool.query(
-      `SELECT c.id, ${statusSql('c')} AS status FROM campaigns c WHERE c.id = ?`,
+      `SELECT c.id, c.target_sex, c.target_age_min, c.target_age_max, ${statusSql('c')} AS status FROM campaigns c WHERE c.id = ?`,
       [campaignId]
     );
     if (!rows.length) throw new NotFoundException('Campagne introuvable');
@@ -327,8 +375,17 @@ export class CampaignsService {
         message: rows[0].status === 'a_venir' ? "Cette campagne n'a pas encore commencé." : 'Cette campagne est terminée.',
       };
     }
-    const [user]: [RowDataPacket[], any] = await pool.query(`SELECT email FROM users WHERE id = ?`, [userId]);
+    const [user]: [RowDataPacket[], any] = await pool.query(
+      `SELECT email, sex, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date FROM users WHERE id = ?`,
+      [userId]
+    );
     if (!user.length) throw new NotFoundException('Utilisateur introuvable');
+    // Public ciblé : profil à compléter (formulaire de demande) ou personne hors cible
+    const target = readTarget(rows[0]);
+    const mismatch = targetMismatch(target, { birth_date: user[0].birth_date, sex: user[0].sex });
+    if (mismatch && mismatch.reason === 'not_targeted') {
+      return { eligible: false, reason: 'not_targeted', message: mismatch.message, target: targetLabel(target) };
+    }
     const keys = buildGuardKeys({ userId, email: user[0].email, deviceId: body?.device_id, fingerprint: body?.device_fingerprint, ip });
     try {
       await this.assertNoPreviousRequest(campaignId, user[0].email, keys);
@@ -339,7 +396,9 @@ export class CampaignsService {
       }
       throw e;
     }
-    return { eligible: true };
+    return mismatch
+      ? { eligible: true, profile_incomplete: true, target: targetLabel(target) }
+      : { eligible: true, target: targetLabel(target) };
   }
 
   // Chiffres publics d'une campagne visible (en cours ou à venir) : totaux, par ville, évolution
@@ -538,6 +597,9 @@ export class CampaignsService {
       throw new BadRequestException("OTP déjà utilisé.");
     }
 
+    // Public ciblé par la campagne, vérifié aussi au retrait (décision du 16/10/2026)
+    await this.assertKitTarget(reg);
+
     // 3) Expiré ?
     if (new Date(reg.otp_expires_at) < new Date()) {
       throw new BadRequestException("Code expiré. Le participant doit générer un nouveau code depuis son espace (Mes commandes).");
@@ -566,6 +628,32 @@ export class CampaignsService {
     );
 
     return { message: "OTP validé avec succès." };
+  }
+
+  // Retrait refusé si la personne ne fait pas partie du public ciblé (sexe, âge au jour du retrait).
+  // Campagnes sans ciblage : aucun contrôle (les demandes déjà faites ne sont pas bloquées).
+  private async assertKitTarget(reg: any) {
+    const pool = this.databaseService.getPool();
+    const [cRows]: any = await pool.query(
+      `SELECT target_sex, target_age_min, target_age_max FROM campaigns WHERE id = ?`,
+      [reg.campaign_id]
+    );
+    const c = Array.isArray(cRows) ? cRows[0] : undefined;
+    const target = readTarget(c);
+    if (target.target_sex === 'all' && target.target_age_min === null && target.target_age_max === null) return;
+    const [uRows]: any = await pool.query(
+      `SELECT sex, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1`,
+      [reg.email]
+    );
+    const u = Array.isArray(uRows) ? uRows[0] : undefined;
+    const mismatch = targetMismatch(target, { birth_date: u?.birth_date ?? null, sex: u?.sex ?? null });
+    if (mismatch) {
+      throw new BadRequestException(
+        mismatch.reason === 'profile_incomplete'
+          ? 'Retrait impossible : la date de naissance et le sexe de cette personne ne sont pas renseignés.'
+          : `Retrait impossible : ${mismatch.message.charAt(0).toLowerCase()}${mismatch.message.slice(1)}`,
+      );
+    }
   }
 
   // -------------------------------------------
@@ -601,6 +689,8 @@ export class CampaignsService {
     if (reg.picked_up === 1) {
       throw new BadRequestException("Déjà retiré.");
     }
+
+    await this.assertKitTarget(reg);
 
     // 4) Marquer comme retiré // 4)
     // Commission du point figée au moment du retrait (montant fixe par kit)

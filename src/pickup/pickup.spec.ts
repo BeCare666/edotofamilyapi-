@@ -9,6 +9,7 @@ import { UsersService } from '../users/users.service';
 import { OrdersService } from '../orders/orders.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
 import { PickupAdminService, pickupPointStatus } from './pickup-admin.service';
+import { setGeoFetcher } from '../common/geo-city';
 
 type Handler = (sql: string, params: any[]) => any;
 
@@ -27,7 +28,8 @@ beforeEach(() => mailer.mockReset().mockResolvedValue(undefined));
 
 // ------------------------------------------------------------------ inscription / connexion
 describe('Inscription point de retrait', () => {
-  const dto = { name: 'Pharmacie X', email: 'p@x.io', password: 'secret', pickup_lat: 6.37, pickup_lng: 2.39, pickup_address: 'Akpakpa' };
+  // 16/10/2026 : mot de passe conforme aux règles communes (minuscule, majuscule, chiffre)
+  const dto = { name: 'Pharmacie X', email: 'p@x.io', password: 'Secret2026', pickup_lat: 6.37, pickup_lng: 2.39, pickup_address: 'Akpakpa' };
 
   it('crée le compte en attente (pickup_approved = 0) avec les coordonnées', async () => {
     const { db, calls } = fakeDb((sql) => (sql.startsWith('SELECT id FROM users') ? [] : {}));
@@ -45,6 +47,7 @@ describe('Inscription point de retrait', () => {
     await expect(svc.registerPickUpPoint({ ...dto, pickup_lat: 200 } as any)).rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.registerPickUpPoint({ ...dto, pickup_lng: null } as any)).rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.registerPickUpPoint({ ...dto, name: ' ' } as any)).rejects.toBeInstanceOf(BadRequestException);
+    await expect(svc.registerPickUpPoint({ ...dto, password: 'secret' } as any)).rejects.toThrow('majuscule');
     expect(calls.some((c) => c.sql.includes('INSERT'))).toBe(false);
   });
 
@@ -171,10 +174,14 @@ describe('Points bloqués : visibles mais non sélectionnables', () => {
     const { db, calls } = fakeDb((sql) => {
       if (sql.includes('FROM campaigns c WHERE c.id')) return [{ id: 1, status: 'en_cours' }];
       if (sql.includes('FROM campaign_locations WHERE campaign_id')) return [{ city: 'Cotonou' }];
-      if (sql.includes('SELECT name, role, is_active, pickup_approved')) return [{ name: 'B', role: 'super_pickuppoint', is_active: 0, pickup_approved: 1 }];
+      if (sql.includes('name, role, is_active, pickup_approved')) return [{ id: 2, name: 'B', role: 'super_pickuppoint', is_active: 0, pickup_approved: 1 }];
+      // 16/10/2026 : la personne (date de naissance, sexe) est lue avant le point de retrait
+      if (sql.includes('SELECT name, email, sex')) return [{ name: 'Awa', email: 'a@t.io', sex: 'female', birth_date: '2006-05-01' }];
       return [];
     });
-    await expect(new CampaignsService(db).register({ campaign_id: 1, pickup_center: '2', city: 'Cotonou' } as any, 10)).rejects.toThrow('bloqué');
+    setGeoFetcher(async () => ({ ok: true, json: async () => ({ address: { city: 'Cotonou' } }) }));
+    await expect(new CampaignsService(db).register({ campaign_id: 1, pickup_center: '2', city: 'Cotonou', lat: 6.37, lng: 2.41 } as any, 10)).rejects.toThrow('bloqué');
+    setGeoFetcher(null);
     expect(calls.some((c) => c.sql.includes('INSERT'))).toBe(false);
   });
 });

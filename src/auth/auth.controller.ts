@@ -1,4 +1,5 @@
-import { Controller, Get, Post, Body, Req, Query, Res } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Query, Res, UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { Response } from 'express';
 import {
@@ -60,9 +61,10 @@ export class AuthController {
     return this.authService.resetPassword(resetPasswordDto);
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('change-password')
-  changePassword(@Body() changePasswordDto: ChangePasswordDto) {
-    return this.authService.changePassword(changePasswordDto);
+  changePassword(@Body() changePasswordDto: ChangePasswordDto, @Req() req: any) {
+    return this.authService.changePassword(changePasswordDto, Number(req.user?.id) || undefined);
   }
 
   @Post('logout')

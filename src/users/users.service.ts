@@ -11,6 +11,8 @@ import { sendVerificationEmail } from '../auth/mailer';
 import * as jwt from 'jsonwebtoken';
 import { createPool } from 'mysql2/promise';
 import * as bcrypt from 'bcrypt';
+import { pickupCityOf } from '../campaigns/pickup-city';
+import { normCity } from '../common/geo-city';
 @Injectable()
 export class UsersService {
   constructor(private readonly DatabaseService: DatabaseService) { }
@@ -93,7 +95,8 @@ export class UsersService {
     lat,
     lng,
     radius_km,
-  }: GetUsersDto & { role?: string; lat?: any; lng?: any; radius_km?: any }): Promise<UserPaginator> {
+    city,
+  }: GetUsersDto & { role?: string; lat?: any; lng?: any; radius_km?: any; city?: any }): Promise<UserPaginator> {
     const pool = this.DatabaseService.getPool();
     const pageNumber = Math.max(1, Number(page) || 1);
     const limitNumber = Math.min(200, Math.max(1, Number(limit) || 30));
@@ -118,6 +121,41 @@ export class UsersService {
         + (SELECT COUNT(*) FROM campaign_registrations cr WHERE cr.pickup_center = CAST(${idColumn} AS CHAR) AND cr.picked_up = 1))`;
     let rows: RowDataPacket[];
     let total: number;
+
+    // Kit de campagne (16/10/2026) : seulement les points de retrait de la ville de la campagne.
+    // La ville d'un point est déduite de sa position GPS (calculée une fois, gardée en base).
+    const wantedCity = typeof city === 'string' ? city.trim() : '';
+    if (wantedCity && role === 'super_pickuppoint') {
+      const distance = hasPosition
+        ? `CASE WHEN pickup_lat IS NULL OR pickup_lng IS NULL THEN NULL ELSE (6371 * 2 * ASIN(LEAST(1, SQRT(
+            POW(SIN(RADIANS(pickup_lat - ?) / 2), 2) +
+            COS(RADIANS(?)) * COS(RADIANS(pickup_lat)) * POW(SIN(RADIANS(pickup_lng - ?) / 2), 2)
+          )))) END`
+        : 'NULL';
+      const [all] = await pool.query<RowDataPacket[]>(
+        `SELECT id, name, pickup_address, pickup_lat, pickup_lng, is_active, pickup_city, pickup_city_src,
+                ${distance} AS distance_km, ${withdrawals('users.id')} AS withdrawals_count
+         ${base} AND pickup_lat IS NOT NULL AND pickup_lng IS NOT NULL
+         ORDER BY distance_km IS NULL, distance_km ASC, id ASC`,
+        hasPosition ? [latNum, latNum, lngNum, role] : [role],
+      );
+      const inCity: RowDataPacket[] = [];
+      for (const r of all) {
+        const c = await pickupCityOf(pool, r as any);
+        if (c && normCity(c) === normCity(wantedCity)) inCity.push(r);
+      }
+      total = inCity.length;
+      rows = inCity.slice(offset, offset + limitNumber).map(({ pickup_city_src, ...r }: any) => r);
+      return {
+        data: rows.map((r) => ({
+          ...r,
+          distance_km: r.distance_km === null || r.distance_km === undefined ? null : Math.round(Number(r.distance_km) * 100) / 100,
+          status: Number(r.is_active) === 0 ? 'blocked' : 'active',
+          withdrawals_count: Number(r.withdrawals_count) || 0,
+        })) as unknown as User[],
+        ...paginate(total, pageNumber, limitNumber, rows.length, `/users?role=${role}&city=${encodeURIComponent(wantedCity)}&limit=${limitNumber}`),
+      };
+    }
 
     if (hasPosition) {
       const distance = `(6371 * 2 * ASIN(LEAST(1, SQRT(
@@ -296,8 +334,9 @@ async getUserFacets(role?: string) {
         if (avatar.url) {
           console.log('Recherche du media existant avec url:', avatar.url);
 
+          // Table avatars : c'est elle que référence profiles.avatar_id (clé étrangère, vérifié le 16/10/2026)
           const [existingMedia]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
-            'SELECT id FROM media WHERE url = ?',
+            'SELECT id FROM avatars WHERE original = ?',
             [avatar.url]
           );
 
@@ -310,17 +349,8 @@ async getUserFacets(role?: string) {
             console.log('Insertion du nouveau media');
 
             const [inserted]: [OkPacket, any] = await this.DatabaseService.query<OkPacket>(
-              `INSERT INTO media 
-         (user_id, url, \`key\`, mime_type, size, original_name, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
-              [
-                id,
-                avatar.url,
-                avatar.key,
-                avatar.mimeType,
-                avatar.size,
-                avatar.originalName,
-              ]
+              `INSERT INTO avatars (original, thumbnail) VALUES (?, ?)`,
+              [avatar.url, avatar.url]
             );
 
             console.log('Media inséré, insertId:', inserted.insertId);

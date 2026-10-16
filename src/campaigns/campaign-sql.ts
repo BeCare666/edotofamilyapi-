@@ -1,4 +1,5 @@
 import { statusSql, toIsoDate } from './campaign-rules';
+import { readTarget, targetLabel } from './campaign-target';
 
 // Colonnes calculées communes (statut, villes, budget, inscrits, kits retirés)
 export function campaignExtraColumns(alias = 'c') {
@@ -20,6 +21,9 @@ export function decorateCampaign(row: any) {
     budget: Number(row.budget) || 0,
     registrations_count: Number(row.registrations_count) || 0,
     picked_up_count: Number(row.picked_up_count) || 0,
+    // Public ciblé (16/10/2026), avec son libellé lisible
+    ...readTarget(row),
+    target_label: targetLabel(readTarget(row)),
   };
 }
 

@@ -38,6 +38,13 @@ export class CampaignsController {
   eligibility(@Param('id', ParseIntPipe) id: number, @Body() body: any, @Req() req) {
     return this.campaignsService.checkEligibility(id, req.user.id, body || {}, clientIpFrom(req));
   }
+
+  // Ville de la campagne où se trouve la personne (position GPS), avant le choix du point de retrait
+  @UseGuards(JwtAuthGuard)
+  @Post('campaigns/:id/locate')
+  locate(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    return this.campaignsService.locateForCampaign(id, body?.lat, body?.lng);
+  }
   @Get('campaigns/active/city/:city')
   getActiveByCity(@Param('city') city: string) {
     return this.campaignsService.getActiveCampaignByCity(city);

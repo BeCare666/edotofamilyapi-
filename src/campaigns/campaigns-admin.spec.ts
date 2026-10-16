@@ -6,6 +6,7 @@ import { sendVerificationEmail } from '../auth/mailer';
 import { CampaignsService } from './campaigns.service';
 import { CampaignsAdminService } from './campaigns-admin.service';
 import { computeStatus, diffSponsors, parseCampaignInput, statusSql, todayInBenin } from './campaign-rules';
+import { setGeoFetcher } from '../common/geo-city';
 
 type Handler = (sql: string, params: any[]) => any;
 
@@ -73,7 +74,8 @@ describe('Admin : création / modification / suppression', () => {
     const res = await makeAdmin(db).create(VALID);
     expect(res.id).toBe(55);
     const ins = calls.find((c) => c.sql.startsWith('INSERT INTO campaigns'));
-    expect(ins.params).toEqual(['Campagne test', null, null, 'Cotonou, Porto-Novo', '2026-10-01', '2026-10-31', 100]);
+    // + public ciblé (16/10/2026) : sans champ envoyé = les deux sexes, sans limite d'âge
+    expect(ins.params).toEqual(['Campagne test', null, null, 'Cotonou, Porto-Novo', '2026-10-01', '2026-10-31', 100, 'all', null, null]);
     expect(calls.filter((c) => c.sql.startsWith('INSERT INTO campaign_locations')).map((c) => c.params)).toEqual([[55, 'Cotonou'], [55, 'Porto-Novo']]);
     const link = calls.find((c) => c.sql.startsWith('INSERT INTO campaign_sponsors'));
     expect(link.params.slice(0, 5)).toEqual([55, 7, 'ONG A', 'a@ong.org', 50000]);
@@ -134,25 +136,30 @@ describe('Admin : création / modification / suppression', () => {
   });
 });
 
-describe('Inscription : ville obligatoire parmi les villes de la campagne', () => {
+// 16/10/2026 : la ville n'est plus choisie, elle est déduite de la position GPS (décision de l'utilisateur)
+describe('Inscription : ville déduite de la position, parmi les villes de la campagne', () => {
+  const POINT = { id: 20, name: 'Point A', role: 'super_pickuppoint', is_active: 1, pickup_approved: 1, pickup_lat: 6.37, pickup_lng: 2.41, pickup_city: 'Cotonou', pickup_city_src: '6.37000,2.41000' };
   const base = (cityRows: any[]) => fakeDb((sql) => {
     if (sql.includes('FROM campaigns c WHERE c.id')) return [{ id: 1, status: 'en_cours' }];
     if (sql.includes('FROM campaign_locations WHERE campaign_id')) return cityRows;
-    if (sql.includes('SELECT name, role, is_active')) return [{ name: 'Point A', role: 'super_pickuppoint', is_active: 1, pickup_approved: 1 }];
-    if (sql.includes('SELECT name, email FROM users')) return [{ name: 'Awa', email: 'awa@t.io' }];
+    if (sql.includes('name, role, is_active')) return [POINT];
+    if (sql.includes('SELECT name, email, sex')) return [{ name: 'Awa', email: 'awa@t.io', sex: 'female', birth_date: '2006-05-01' }];
     if (sql.startsWith('INSERT INTO campaign_registrations')) return { insertId: 40 };
     return [];
   });
+  afterEach(() => setGeoFetcher(null));
 
-  it('ville absente ou hors campagne : refusée', async () => {
-    const a = base([]);
-    await expect(new CampaignsService(a.db).register({ campaign_id: 1, pickup_center: '20' } as any, 5)).rejects.toThrow('Indiquez votre ville');
-    await expect(new CampaignsService(a.db).register({ campaign_id: 1, pickup_center: '20', city: 'Parakou' } as any, 5)).rejects.toThrow('ne se déroule pas');
+  it('position absente ou hors des villes de la campagne : refusée', async () => {
+    setGeoFetcher(async () => ({ ok: true, json: async () => ({ address: { city: 'Parakou' } }) }));
+    const a = base([{ city: 'Cotonou' }]);
+    await expect(new CampaignsService(a.db).register({ campaign_id: 1, pickup_center: '20' } as any, 5)).rejects.toThrow('localisation');
+    await expect(new CampaignsService(a.db).register({ campaign_id: 1, pickup_center: '20', lat: 9.33, lng: 2.63 } as any, 5)).rejects.toThrow('aucune ville de cette campagne');
   });
 
   it('ville de la campagne : enregistrée (orthographe de la campagne) ; ancien compteur plus modifié', async () => {
+    setGeoFetcher(async () => ({ ok: true, json: async () => ({ address: { city: 'COTONOU' } }) }));
     const b = base([{ city: 'Cotonou' }]);
-    await new CampaignsService(b.db).register({ campaign_id: 1, pickup_center: '20', city: 'cotonou' } as any, 5);
+    await new CampaignsService(b.db).register({ campaign_id: 1, pickup_center: '20', lat: 6.37, lng: 2.41 } as any, 5);
     const ins = b.calls.find((c) => c.sql.startsWith('INSERT INTO campaign_registrations'));
     expect(ins.params.slice(0, 5)).toEqual([1, 'Awa', 'awa@t.io', '20', 'Cotonou']);
     expect(ins.params[5]).toMatch(/^\d{6}$/); // code de retrait enregistré avec la demande

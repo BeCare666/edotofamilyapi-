@@ -103,7 +103,7 @@ export class CampaignsAdminService {
 
     const [[rows], [countRows]]: any = await Promise.all([
       pool.query(
-        `SELECT c.id, c.title, c.date_start, c.date_end, c.objective_kits, c.location, c.created_at,
+        `SELECT c.id, c.title, c.date_start, c.date_end, c.objective_kits, c.location, c.created_at, c.target_sex, c.target_age_min, c.target_age_max,
                 ${campaignExtraColumns('c')},
                 (SELECT GROUP_CONCAT(cs.name ORDER BY cs.name SEPARATOR ', ') FROM campaign_sponsors cs WHERE cs.campaign_id = c.id) AS sponsor_names
          FROM campaigns c ${filter}
@@ -147,7 +147,7 @@ export class CampaignsAdminService {
 
   private async loadCampaign(id: number) {
     const [rows]: any = await this.db.getPool().query(
-      `SELECT c.id, c.title, c.description, c.image_url, c.date_start, c.date_end, c.objective_kits, c.location,
+      `SELECT c.id, c.title, c.description, c.image_url, c.date_start, c.date_end, c.objective_kits, c.location, c.target_sex, c.target_age_min, c.target_age_max,
               c.created_at, c.updated_at, ${campaignExtraColumns('c')}
        FROM campaigns c WHERE c.id = ? LIMIT 1`,
       [id],
@@ -261,9 +261,10 @@ export class CampaignsAdminService {
       if (proposalId) await assertProposalCanLink(conn, proposalId, input.sponsors.map((s) => s.sponsor_id));
       const info = await this.loadSponsors(conn, input);
       const [res]: any = await conn.query(
-        `INSERT INTO campaigns (title, description, image_url, location, date_start, date_end, objective_kits)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [input.title, input.description, input.image_url, input.cities.join(', '), input.date_start, input.date_end, input.objective_kits],
+        `INSERT INTO campaigns (title, description, image_url, location, date_start, date_end, objective_kits, target_sex, target_age_min, target_age_max)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [input.title, input.description, input.image_url, input.cities.join(', '), input.date_start, input.date_end, input.objective_kits,
+          input.target.target_sex, input.target.target_age_min, input.target.target_age_max],
       );
       const campaignId = Number(res.insertId);
       for (const city of input.cities) {
@@ -286,9 +287,11 @@ export class CampaignsAdminService {
       const info = await this.loadSponsors(conn, input);
 
       await conn.query(
-        `UPDATE campaigns SET title = ?, description = ?, image_url = ?, location = ?, date_start = ?, date_end = ?, objective_kits = ?
+        `UPDATE campaigns SET title = ?, description = ?, image_url = ?, location = ?, date_start = ?, date_end = ?, objective_kits = ?,
+           target_sex = ?, target_age_min = ?, target_age_max = ?
          WHERE id = ?`,
-        [input.title, input.description, input.image_url, input.cities.join(', '), input.date_start, input.date_end, input.objective_kits, id],
+        [input.title, input.description, input.image_url, input.cities.join(', '), input.date_start, input.date_end, input.objective_kits,
+          input.target.target_sex, input.target.target_age_min, input.target.target_age_max, id],
       );
 
       // Villes : on retire celles qui ne sont plus dans la liste, on ajoute les nouvelles
@@ -408,7 +411,7 @@ export class CampaignsAdminService {
 
   async exportAll(): Promise<{ filename: string; buffer: Buffer }> {
     const [rows]: any = await this.db.getPool().query(
-      `SELECT c.id, c.title, c.date_start, c.date_end, c.objective_kits, c.location, ${campaignExtraColumns('c')},
+      `SELECT c.id, c.title, c.date_start, c.date_end, c.objective_kits, c.location, c.target_sex, c.target_age_min, c.target_age_max, ${campaignExtraColumns('c')},
               (SELECT GROUP_CONCAT(cs.name ORDER BY cs.name SEPARATOR ', ') FROM campaign_sponsors cs WHERE cs.campaign_id = c.id) AS sponsor_names
        FROM campaigns c ORDER BY c.date_start DESC, c.id DESC`,
     );

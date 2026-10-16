@@ -31,14 +31,18 @@ beforeEach(() => {
 });
 
 const addDays = (n: number) => new Date(Date.parse(`${todayBenin()}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
-const SIGNUP = { organization: 'Fondation Test', contact_name: 'Awa Test', phone: '+229 01 97 00 00 00', email: 'Contact@Fondation.test', password: 'motdepasse1' };
+// 16/10/2026 : mot de passe avec majuscule, minuscule et chiffre ; téléphone enregistré sans espaces
+const SIGNUP = { organization: 'Fondation Test', contact_name: 'Awa Test', phone: '+229 01 97 00 00 00', email: 'Contact@Fondation.test', password: 'Motdepasse1' };
 const PROPOSAL = { title: 'Kits Cotonou', description: 'Distribution', cities: ['Cotonou', ' cotonou ', 'Porto-Novo'], date_start: addDays(5), date_end: addDays(35), objective_kits: 200, budget: 1500000 };
 
 describe('Règles : inscription et demande de campagne', () => {
   it('inscription : champs obligatoires, e-mail en minuscules, téléphone et mot de passe contrôlés', () => {
     expect(parseSponsorSignup(SIGNUP).email).toBe('contact@fondation.test');
     expect(() => parseSponsorSignup({ ...SIGNUP, organization: ' ' })).toThrow('organisation');
-    expect(() => parseSponsorSignup({ ...SIGNUP, phone: 'abc' })).toThrow('Téléphone invalide');
+    expect(() => parseSponsorSignup({ ...SIGNUP, phone: 'abc' })).toThrow('que des chiffres');
+    expect(() => parseSponsorSignup({ ...SIGNUP, phone: '0197 ab 00' })).toThrow('que des chiffres');
+    expect(() => parseSponsorSignup({ ...SIGNUP, contact_name: 'Awa 2' })).toThrow('lettres');
+    expect(() => parseSponsorSignup({ ...SIGNUP, password: 'motdepasse1' })).toThrow('majuscule');
     expect(() => parseSponsorSignup({ ...SIGNUP, email: 'pas-un-email' })).toThrow('e-mail invalide');
     expect(() => parseSponsorSignup({ ...SIGNUP, password: 'court' })).toThrow('8 caractères');
   });
@@ -67,10 +71,10 @@ describe('Inscription libre d’un sponsor', () => {
     expect(conn.commit).toHaveBeenCalled();
     const user = calls.find((c) => c.sql.startsWith('INSERT INTO users'));
     expect(user.sql).toContain("'sponsor'");
-    expect(user.params[2]).not.toBe('motdepasse1'); // mot de passe haché
+    expect(user.params[2]).not.toBe('Motdepasse1'); // mot de passe haché
     const sponsor = calls.find((c) => c.sql.startsWith('INSERT INTO sponsors'));
     expect(sponsor.sql).toContain('self_registered');
-    expect(sponsor.params).toEqual(['Fondation Test', 'contact@fondation.test', 91, 'Awa Test', '+229 01 97 00 00 00']);
+    expect(sponsor.params).toEqual(['Fondation Test', 'contact@fondation.test', 91, 'Awa Test', '+2290197000000']);
     expect(mailer).toHaveBeenCalledTimes(1);
   });
 

@@ -7,6 +7,7 @@ import {
   UnauthorizedException,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { checkPassword, cleanBirthDate, cleanEmail, cleanName, cleanOrgName, cleanSex } from '../common/field-rules';
 import * as bcrypt from 'bcrypt';
 import {
   AuthResponse,
@@ -92,7 +93,12 @@ export class AuthService {
   }
 
   async register(createUserInput: RegisterDto): Promise<AuthResponse> {
-    const { name, email, password } = createUserInput;
+    // Contrôle de chaque champ (16/10/2026) : nom, e-mail, mot de passe, date de naissance, sexe
+    const name = cleanName(createUserInput?.name, 'Le nom complet');
+    const email = cleanEmail(createUserInput?.email);
+    const password = checkPassword(createUserInput?.password);
+    const birthDate = cleanBirthDate(createUserInput?.birth_date);
+    const sex = cleanSex(createUserInput?.sex);
 
     // Vérification de l'adresse (base) et hachage du mot de passe (calcul) en parallèle
     const [[existing], hashedPassword]: [[RowDataPacket[], any], string] = await Promise.all([
@@ -118,8 +124,8 @@ export class AuthService {
     // (plus d'e-mail envoyé pour un compte qui n'a pas pu être créé).
     await this.DatabaseService.query(
       `INSERT INTO users 
-    (name, email, password, is_verified, email_verified, email_verified_at, is_active, shop_id, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+    (name, email, password, is_verified, email_verified, email_verified_at, is_active, shop_id, birth_date, sex, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
       [
         name,
         email,
@@ -128,7 +134,9 @@ export class AuthService {
         0,                 // email_verified
         null,              // email_verified_at
         1,                 // is_active
-        null               // shop_id
+        null,              // shop_id
+        birthDate,
+        sex
       ]
     );
 
@@ -152,11 +160,11 @@ export class AuthService {
   }
 
   async registerPickUpPoint(createUserInput: RegisterDto): Promise<AuthResponse> {
-    const { name, email, password, pickup_lat, pickup_lng, pickup_address } = createUserInput;
-
-    if (!name || !String(name).trim() || !email || !password) {
-      throw new BadRequestException('Nom, e-mail et mot de passe sont obligatoires.');
-    }
+    const { pickup_lat, pickup_lng, pickup_address } = createUserInput;
+    // Contrôle de chaque champ (16/10/2026)
+    const name = cleanOrgName(createUserInput?.name, "Le nom de l'établissement");
+    const email = cleanEmail(createUserInput?.email);
+    const password = checkPassword(createUserInput?.password);
     // Coordonnées facultatives (compatibilité avec /admin/add-pickup-point) mais valides si fournies
     const lat = pickup_lat === null || pickup_lat === undefined || (pickup_lat as any) === '' ? null : Number(pickup_lat);
     const lng = pickup_lng === null || pickup_lng === undefined || (pickup_lng as any) === '' ? null : Number(pickup_lng);
@@ -418,12 +426,26 @@ export class AuthService {
   }
 
 
-  async changePassword(changePasswordInput: ChangePasswordDto): Promise<CoreResponse> {
-    // Ici tu peux implémenter la logique pour changer le mot de passe avec vérification etc. 
-    return {
-      success: true,
-      message: 'Password change successful',
-    };
+  // Changement de mot de passe (16/10/2026) : la route répondait « réussi » sans rien changer.
+  // Compte connecté, ancien mot de passe vérifié, nouveau mot de passe contrôlé.
+  async changePassword(changePasswordInput: ChangePasswordDto, userId?: number): Promise<CoreResponse> {
+    if (!userId) throw new UnauthorizedException('Connectez-vous pour changer votre mot de passe.');
+    const oldPassword = changePasswordInput?.oldPassword ?? changePasswordInput?.old_password ?? '';
+    const newPassword = checkPassword(changePasswordInput?.newPassword ?? changePasswordInput?.new_password);
+    if (!oldPassword) throw new BadRequestException('Indiquez votre mot de passe actuel.');
+    const [rows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
+      'SELECT id, password FROM users WHERE id = ?',
+      [userId],
+    );
+    if (!rows.length) throw new UnauthorizedException('Compte introuvable.');
+    const ok = await bcrypt.compare(String(oldPassword), String(rows[0].password || ''));
+    if (!ok) throw new BadRequestException('Mot de passe actuel incorrect.');
+    if (await bcrypt.compare(newPassword, String(rows[0].password || ''))) {
+      throw new BadRequestException("Le nouveau mot de passe doit être différent de l'ancien.");
+    }
+    const hashed = await bcrypt.hash(newPassword, 10);
+    await this.DatabaseService.query('UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?', [hashed, userId]);
+    return { success: true, message: 'Mot de passe modifié.' };
   }
 
   //  async forgetPassword(forgetPasswordInput: ForgetPasswordDto): Promise<CoreResponse> {
@@ -506,20 +528,28 @@ export class AuthService {
       }
       const profile = profileRows[0] ?? null;
 
-      // Avatar (média) seulement s'il existe. L'ancienne lecture de la table avatars n'était
-      // jamais renvoyée : supprimée.
+      // Photo de profil : profiles.avatar_id est relié à la table avatars (clé étrangère en production,
+      // vérifié le 16/10/2026) ; « url » ajoutée pour le site, « original » et « thumbnail » pour l'admin.
       let avatarMedia = null;
       if (profile?.avatar_id) {
-        const [mediaRows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
-          'SELECT id, user_id, url, `key`, mime_type, size, original_name, created_at, updated_at FROM media WHERE id = ?',
+        const [avatarRows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
+          'SELECT id, original, thumbnail FROM avatars WHERE id = ?',
           [profile.avatar_id]
         );
-        avatarMedia = mediaRows[0] ?? null;
+        const a = avatarRows[0];
+        avatarMedia = a ? { id: a.id, url: a.original, original: a.original, thumbnail: a.thumbnail || a.original } : null;
       }
 
       // ✅ Retourne user enrichi sans mentir au type
+      // Date de naissance renvoyée en jour simple (AAAA-MM-JJ) : le pilote MySQL la lit comme une date à minuit
+      // heure du serveur, d'où une lecture en heure locale du serveur, sans décalage
+      const bd: any = (user as any).birth_date;
+      const birthDay = bd instanceof Date
+        ? `${bd.getFullYear()}-${String(bd.getMonth() + 1).padStart(2, '0')}-${String(bd.getDate()).padStart(2, '0')}`
+        : bd ?? null;
       return {
         ...omitPassword(user),
+        birth_date: birthDay,
         profile: {
           ...profile,
           avatar: avatarMedia, // objet media complet
@@ -640,7 +670,7 @@ export class AuthService {
     }
 
     // Hasher le mot de passe
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(checkPassword(password), 10);
 
     // Mettre à jour le mot de passe utilisateur
     await this.DatabaseService.query(

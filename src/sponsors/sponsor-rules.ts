@@ -1,3 +1,4 @@
+import { checkPassword, cleanName, cleanOrgName, cleanPhone } from '../common/field-rules';
 import { BadRequestException } from '@nestjs/common';
 import { createHash, randomBytes } from 'crypto';
 
@@ -15,13 +16,9 @@ export function newInvitationToken() {
   return { token, tokenHash: sha256(token) };
 }
 
+// Même règle que tous les comptes (common/field-rules.ts, 16/10/2026)
 export function parseNewPassword(raw: any): string {
-  const p = typeof raw === 'string' ? raw : '';
-  if (p.length < MIN_PASSWORD_LENGTH) {
-    throw new BadRequestException(`Le mot de passe doit contenir au moins ${MIN_PASSWORD_LENGTH} caractères.`);
-  }
-  if (p.length > 128) throw new BadRequestException('Mot de passe trop long.');
-  return p;
+  return checkPassword(raw);
 }
 
 // Date du jour au Bénin (AAAA-MM-JJ) et conversion d'un horodatage UTC « AAAA-MM-JJ HH:MM:SS »
@@ -127,10 +124,9 @@ function text(raw: any, label: string, max: number, required = true): string | n
 }
 
 export function parseSponsorSignup(body: any) {
-  const organization = text(body?.organization, 'Nom de l’organisation', 255) as string;
-  const contactName = text(body?.contact_name, 'Personne de contact', 255) as string;
-  const phone = (text(body?.phone, 'Téléphone', 40) as string).replace(/\s+/g, ' ');
-  if (!PHONE_RE.test(phone)) throw new BadRequestException('Téléphone invalide (chiffres, espaces et « + » uniquement).');
+  const organization = cleanOrgName(body?.organization, 'Le nom de l’organisation');
+  const contactName = cleanName(body?.contact_name, 'Le nom de la personne de contact');
+  const phone = cleanPhone(body?.phone) as string;
   const email = (text(body?.email, 'E-mail', 255) as string).toLowerCase();
   if (!EMAIL_RE.test(email)) throw new BadRequestException('Adresse e-mail invalide.');
   const password = parseNewPassword(body?.password);
@@ -138,9 +134,8 @@ export function parseSponsorSignup(body: any) {
 }
 
 export function parseSponsorProfile(body: any) {
-  const contactName = text(body?.contact_name, 'Personne de contact', 255) as string;
-  const phone = (text(body?.phone, 'Téléphone', 40) as string).replace(/\s+/g, ' ');
-  if (!PHONE_RE.test(phone)) throw new BadRequestException('Téléphone invalide (chiffres, espaces et « + » uniquement).');
+  const contactName = cleanName(body?.contact_name, 'Le nom de la personne de contact');
+  const phone = cleanPhone(body?.phone) as string;
   return { contactName, phone };
 }
 

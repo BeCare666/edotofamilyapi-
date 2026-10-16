@@ -1,3 +1,4 @@
+import { cleanTarget, Target } from './campaign-target';
 import { BadRequestException } from '@nestjs/common';
 
 // Décisions du 24/09/2026 :
@@ -54,6 +55,8 @@ export interface CampaignInput {
   date_end: string;
   cities: string[];
   sponsors: { sponsor_id: number; amount: number }[];
+  // Public ciblé (16/10/2026) : sexe et tranche d'âge
+  target: Target;
 }
 
 function isValidDate(s: any): s is string {
@@ -117,6 +120,7 @@ export function parseCampaignInput(body: any): CampaignInput {
     date_end: body.date_end,
     cities,
     sponsors,
+    target: cleanTarget(body),
   };
 }
 

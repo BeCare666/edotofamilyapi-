@@ -105,6 +105,7 @@ export class DatabaseSetupService implements OnModuleInit {
       '009_order_processing.sql',
       '010_site_appearance.sql',
       '011_sponsor_signup_proposals.sql',
+      '012_profile_targeting.sql',
       'ai_chat_logs.sql'
     ];
 

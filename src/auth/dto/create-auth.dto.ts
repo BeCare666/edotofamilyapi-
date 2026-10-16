@@ -13,6 +13,9 @@ enum Permission {
 // --------- AUTH ---------
 export class RegisterDto extends PickType(User, ['name', 'email', 'password', 'pickup_lat', 'pickup_lng', 'pickup_address']) {
   permission: Permission = Permission.CUSTOMER;
+  // Inscription des utilisateurs (16/10/2026) : date de naissance (AAAA-MM-JJ) et sexe (female | male)
+  birth_date?: string;
+  sex?: string;
 }
 
 export class LoginDto extends PartialType(
@@ -27,8 +30,11 @@ export class SocialLoginDto {
 
 
 export class ChangePasswordDto {
-  oldPassword: string;
-  newPassword: string;
+  oldPassword?: string;
+  newPassword?: string;
+  // Même chose, écrit autrement par la page profil du site
+  old_password?: string;
+  new_password?: string;
 }
 
 // --------- PASSWORD RESET (EMAIL OTP) ---------

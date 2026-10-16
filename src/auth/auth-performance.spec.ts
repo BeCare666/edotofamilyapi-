@@ -28,22 +28,23 @@ const USER = { id: 7, name: 'Awa', email: 'a@t.io', password: 'hash', role: 'cus
 const token = () => `Bearer ${jwt.sign({ id: 7, email: 'a@t.io', permissions: ['customer'] }, 'test-secret')}`;
 
 describe('B1 — /me', () => {
-  it('utilisateur, profil et boutiques en parallèle ; table avatars plus lue ; même forme de réponse', async () => {
+  // 16/10/2026 : la photo est lue dans la table avatars (clé étrangère de profiles.avatar_id en production)
+  it('utilisateur, profil et boutiques en parallèle ; photo lue dans avatars ; même forme de réponse', async () => {
     const { db, calls, maxInFlight } = slowDb((sql) => {
       if (sql.startsWith('SELECT * FROM users')) return [USER];
       if (sql.startsWith('SELECT * FROM profiles')) return [{ id: 3, customer_id: 7, avatar_id: 9, bio: 'x' }];
-      if (sql.includes('FROM media WHERE id')) return [{ id: 9, url: 'https://img/9.png' }];
+      if (sql.includes('FROM avatars WHERE id')) return [{ id: 9, original: 'https://img/9.png', thumbnail: null }];
       if (sql.includes('FROM shops s')) return [{ id: 1, name: 'Boutique' }];
       return [];
     });
     const me = await new AuthService(db).me(token());
     expect(maxInFlight()).toBe(3);
-    expect(calls.some((c) => c.sql.includes('FROM avatars'))).toBe(false);
+    expect(calls.some((c) => c.sql.includes('FROM media'))).toBe(false);
     expect(me).not.toHaveProperty('password');
     expect(me).toEqual(expect.objectContaining({
       id: 7,
       role: 'customer',
-      profile: { id: 3, customer_id: 7, avatar_id: 9, bio: 'x', avatar: { id: 9, url: 'https://img/9.png' } },
+      profile: { id: 3, customer_id: 7, avatar_id: 9, bio: 'x', avatar: { id: 9, url: 'https://img/9.png', original: 'https://img/9.png', thumbnail: 'https://img/9.png' } },
       shops: [{ id: 1, name: 'Boutique' }],
     }));
   });
@@ -70,10 +71,23 @@ describe('B1 — /me', () => {
   });
 });
 
+// Inscription valide depuis le 16/10/2026 : nom, mot de passe conforme, date de naissance, sexe
+const VALID = { name: 'Awa Houndé', password: 'Edoto2026', birth_date: '2005-02-28', sex: 'female' };
+
 describe('B2 — inscription', () => {
+  it('champs contrôlés : mot de passe faible, nom avec chiffres, date de naissance ou sexe absents → refus sans écriture', async () => {
+    const { db, calls } = slowDb(() => []);
+    const svc = new AuthService(db);
+    await expect(svc.register({ ...VALID, email: 'x@t.io', password: 'secret' } as any)).rejects.toThrow('majuscule');
+    await expect(svc.register({ ...VALID, email: 'x@t.io', name: 'Awa2' } as any)).rejects.toThrow('lettres');
+    await expect(svc.register({ ...VALID, email: 'x@t.io', birth_date: undefined } as any)).rejects.toThrow('date de naissance');
+    await expect(svc.register({ ...VALID, email: 'x@t.io', sex: 'x' } as any)).rejects.toThrow('Sexe');
+    expect(calls).toHaveLength(0);
+  });
+
   it('adresse existante : refusée, aucun compte créé', async () => {
     const { db, calls } = slowDb((sql) => (sql.startsWith('SELECT id FROM users') ? [{ id: 1 }] : []));
-    await expect(new AuthService(db).register({ name: 'A', email: 'a@t.io', password: 'secret' } as any)).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(new AuthService(db).register({ ...VALID, email: 'a@t.io' } as any)).rejects.toBeInstanceOf(ForbiddenException);
     expect(calls.some((c) => c.sql.includes('INSERT INTO users'))).toBe(false);
   });
 
@@ -82,18 +96,19 @@ describe('B2 — inscription', () => {
     const order: string[] = [];
     mailer.mockImplementationOnce(async () => { order.push('email'); throw new Error('Brevo KO'); });
     const { db } = slowDb((sql) => { if (sql.includes('INSERT INTO users')) order.push('insert'); return []; });
-    await expect(new AuthService(db).register({ name: 'A', email: 'k@t.io', password: 'secret' } as any))
+    await expect(new AuthService(db).register({ ...VALID, email: 'k@t.io' } as any))
       .rejects.toThrow('Votre compte est créé');
     expect(order).toEqual(['insert', 'email']);
   });
 
   it('nouvelle adresse : compte créé avec mot de passe haché', async () => {
     const { db, calls } = slowDb(() => []);
-    const res = await new AuthService(db).register({ name: 'A', email: 'n@t.io', password: 'secret' } as any);
+    const res = await new AuthService(db).register({ ...VALID, email: 'N@t.io' } as any);
     expect(res.message).toContain('Inscription réussie');
     const ins = calls.find((c) => c.sql.includes('INSERT INTO users'));
     expect(ins.params[1]).toBe('n@t.io');
     expect(ins.params[2]).toMatch(/^\$2[aby]\$10\$/);
+    expect(ins.params.slice(-2)).toEqual(['2005-02-28', 'female']);
   });
 });
 

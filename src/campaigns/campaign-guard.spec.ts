@@ -3,6 +3,7 @@ jest.mock('../auth/mailer', () => ({ sendVerificationEmail: jest.fn().mockResolv
 import { sendVerificationEmail } from '../auth/mailer';
 import { CampaignsService } from './campaigns.service';
 import { ALREADY_REGISTERED_MESSAGE, SAME_DEVICE_MESSAGE, buildGuardKeys, clientIpFrom, guardHash } from './campaign-guard';
+import { setGeoFetcher } from '../common/geo-city';
 
 type Handler = (sql: string, params: any[]) => any;
 
@@ -22,16 +23,21 @@ function fakeDb(handler: Handler) {
 const mailer = sendVerificationEmail as jest.Mock;
 const DEVICE = 'b3f1c2d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d';
 const FP = 'a'.repeat(64);
-const DTO = { campaign_id: 1, pickup_center: '20', city: 'Cotonou', device_id: DEVICE, device_fingerprint: FP };
+// 16/10/2026 : position GPS obligatoire (ville déduite par l'API) ; point de retrait de la même ville
+const DTO = { campaign_id: 1, pickup_center: '20', city: 'Cotonou', device_id: DEVICE, device_fingerprint: FP, lat: 6.37, lng: 2.41 };
+const POINT = { id: 20, name: 'Point A', role: 'super_pickuppoint', is_active: 1, pickup_approved: 1, pickup_lat: 6.3792081, pickup_lng: 2.4132059, pickup_city: 'Cotonou', pickup_city_src: '6.37921,2.41321' };
+const PERSON = { name: 'Awa', email: 'Awa@T.io', sex: 'female', birth_date: '2006-05-01' };
+// Service de position simulé : la personne est à « where » (Cotonou par défaut)
+let where = 'Cotonou';
 
 // Base « demande valide » ; overrides : réponses particulières par fragment de requête
-function scenario(over: { status?: string; center?: any; existingEmail?: boolean; usedKinds?: string[]; guardInsert?: any } = {}) {
+function scenario(over: { status?: string; center?: any; existingEmail?: boolean; usedKinds?: string[]; guardInsert?: any; person?: any; target?: any } = {}) {
   return fakeDb((sql) => {
-    if (sql.includes('FROM campaigns c WHERE c.id')) return [{ id: 1, status: over.status ?? 'en_cours' }];
+    if (sql.includes('FROM campaigns c WHERE c.id')) return [{ id: 1, status: over.status ?? 'en_cours', ...(over.target ?? {}) }];
     if (sql.includes('FROM campaign_locations WHERE campaign_id')) return [{ city: 'Cotonou' }];
-    if (sql.includes('SELECT name, role, is_active')) return over.center ?? [{ name: 'Point A', role: 'super_pickuppoint', is_active: 1, pickup_approved: 1 }];
-    if (sql.includes('SELECT name, email FROM users')) return [{ name: 'Awa', email: 'Awa@T.io' }];
-    if (sql.includes('SELECT email FROM users')) return [{ email: 'awa@t.io' }];
+    if (sql.includes('name, role, is_active')) return over.center ?? [POINT];
+    if (sql.includes('SELECT name, email, sex')) return [{ ...PERSON, ...(over.person ?? {}) }];
+    if (sql.includes('SELECT email, sex')) return [{ email: 'awa@t.io', sex: PERSON.sex, birth_date: PERSON.birth_date, ...(over.person ?? {}) }];
     if (sql.includes('FROM campaign_registrations WHERE campaign_id = ? AND LOWER(email)')) return over.existingEmail ? [{ id: 9 }] : [];
     if (sql.includes('SELECT DISTINCT kind FROM campaign_registration_guards')) return (over.usedKinds ?? []).map((kind) => ({ kind }));
     if (sql.startsWith('INSERT INTO campaign_registrations')) return { insertId: 40 };
@@ -41,6 +47,8 @@ function scenario(over: { status?: string; center?: any; existingEmail?: boolean
 }
 
 beforeEach(() => {
+  where = 'Cotonou';
+  setGeoFetcher(async () => ({ ok: true, json: async () => ({ address: { city: where } }) }));
   mailer.mockReset();
   mailer.mockResolvedValue(undefined);
   delete process.env.CAMPAIGN_GUARD_IP;
@@ -84,6 +92,44 @@ describe('Demande de kit', () => {
     expect(res.otp).toBeUndefined();
     expect(JSON.stringify(res)).not.toMatch(/"\d{6}"/);
     expect(res).toMatchObject({ id: 40, city: 'Cotonou', pickup_center_name: 'Point A' });
+    const ins = s.calls.find((c) => c.sql.startsWith('INSERT INTO campaign_registrations'));
+    expect(ins.params.slice(-3)).toEqual([6.37, 2.41, 'Cotonou']);
+  });
+
+  it('position absente ou hors des villes de la campagne : refusée avant toute écriture', async () => {
+    const s = scenario();
+    await expect(new CampaignsService(s.db).register({ ...DTO, lat: undefined, lng: undefined } as any, 5, null)).rejects.toThrow('localisation');
+    where = 'Porto-Novo';
+    await expect(new CampaignsService(s.db).register({ ...DTO, lat: 6.49, lng: 2.6 } as any, 5, null)).rejects.toThrow('aucune ville de cette campagne');
+    expect(s.calls.some((c) => c.sql.startsWith('INSERT'))).toBe(false);
+  });
+
+  it('ville choisie dans le formulaire ignorée : seule la position compte', async () => {
+    const s = scenario();
+    const res: any = await new CampaignsService(s.db).register({ ...DTO, city: 'Parakou' } as any, 5, null);
+    expect(res.city).toBe('Cotonou');
+  });
+
+  it('point de retrait hors de la ville de la campagne : refusé', async () => {
+    const s = scenario({ center: [{ ...POINT, pickup_city: 'Porto-Novo' }] });
+    await expect(new CampaignsService(s.db).register(DTO as any, 5, null)).rejects.toThrow("n'est pas à Cotonou");
+    expect(s.calls.some((c) => c.sql.startsWith('INSERT'))).toBe(false);
+  });
+
+  it('public ciblé : sexe ou âge hors cible refusé ; profil incomplet sans date ni sexe refusé', async () => {
+    const target = { target_sex: 'female', target_age_min: 15, target_age_max: 24 };
+    await expect(new CampaignsService(scenario({ target, person: { sex: 'male' } }).db).register(DTO as any, 5, null)).rejects.toThrow('femmes et aux filles');
+    await expect(new CampaignsService(scenario({ target, person: { birth_date: '1990-01-01' } }).db).register(DTO as any, 5, null)).rejects.toThrow('de 15 à 24 ans');
+    await expect(new CampaignsService(scenario({ person: { birth_date: null, sex: null } }).db).register(DTO as any, 5, null)).rejects.toThrow('date de naissance et votre sexe');
+  });
+
+  it('ancien compte : date de naissance et sexe envoyés avec la demande, contrôlés puis enregistrés', async () => {
+    const s = scenario({ person: { birth_date: null, sex: null } });
+    await new CampaignsService(s.db).register({ ...DTO, birth_date: '2006-05-01', sex: 'female' } as any, 5, null);
+    const up = s.calls.find((c) => c.sql.startsWith('UPDATE users SET birth_date'));
+    expect(up.params).toEqual(['2006-05-01', 'female', 5]);
+    const bad = scenario({ person: { birth_date: null, sex: null } });
+    await expect(new CampaignsService(bad.db).register({ ...DTO, birth_date: '2006-02-30', sex: 'female' } as any, 5, null)).rejects.toThrow('non valide');
   });
 
   it('campagne à venir ou terminée : refusée avant toute écriture', async () => {
@@ -141,7 +187,19 @@ describe('Éligibilité et chiffres publics', () => {
     expect(await new CampaignsService(scenario({ existingEmail: true }).db).checkEligibility(1, 5, {}, null)).toMatchObject({ eligible: false, reason: 'already_registered' });
     expect(await new CampaignsService(scenario({ usedKinds: ['fingerprint'] }).db).checkEligibility(1, 5, { device_fingerprint: FP }, null)).toMatchObject({ eligible: false, reason: 'same_device' });
     expect(await new CampaignsService(scenario({ status: 'terminee' }).db).checkEligibility(1, 5, {}, null)).toMatchObject({ eligible: false, reason: 'not_active' });
-    expect(await new CampaignsService(scenario().db).checkEligibility(1, 5, { device_id: DEVICE }, '1.2.3.4')).toEqual({ eligible: true });
+    expect(await new CampaignsService(scenario().db).checkEligibility(1, 5, { device_id: DEVICE }, '1.2.3.4')).toEqual({ eligible: true, target: 'Tout public' });
+  });
+
+  it('éligibilité : hors cible signalé avant le formulaire ; profil à compléter signalé', async () => {
+    const target = { target_sex: 'male', target_age_min: null, target_age_max: null };
+    expect(await new CampaignsService(scenario({ target }).db).checkEligibility(1, 5, {}, null)).toMatchObject({ eligible: false, reason: 'not_targeted', target: 'Hommes et garçons' });
+    expect(await new CampaignsService(scenario({ person: { birth_date: null } }).db).checkEligibility(1, 5, {}, null)).toMatchObject({ eligible: true, profile_incomplete: true });
+  });
+
+  it('étape « Votre ville » : ville de la campagne trouvée par la position, ou refus', async () => {
+    expect(await new CampaignsService(scenario().db).locateForCampaign(1, 6.37, 2.41)).toEqual({ city: 'Cotonou' });
+    where = 'Ouidah';
+    await expect(new CampaignsService(scenario().db).locateForCampaign(1, 6.36, 2.08)).rejects.toThrow('aucune ville de cette campagne');
   });
 
   it('chiffres publics : toutes les villes (même sans inscrit), totaux, aucune donnée nominative ; campagne terminée invisible', async () => {

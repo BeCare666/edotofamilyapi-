@@ -23,4 +23,21 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   device_fingerprint?: string;
+
+  // Position GPS au moment de la demande (obligatoire, décision du 16/10/2026) : l'API en déduit
+  // la ville et vérifie qu'elle fait partie des villes de la campagne
+  @IsOptional()
+  lat?: number;
+
+  @IsOptional()
+  lng?: number;
+
+  // Comptes créés avant le 16/10/2026 : date de naissance et sexe complétés une seule fois ici
+  @IsOptional()
+  @IsString()
+  birth_date?: string;
+
+  @IsOptional()
+  @IsString()
+  sex?: string;
 }

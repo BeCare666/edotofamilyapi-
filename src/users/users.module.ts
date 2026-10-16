@@ -9,6 +9,7 @@ import {
   UsersController,
   VendorController,
 } from './users.controller';
+import { ProfilePhotoController } from './profile-photo.controller';
 import { DatabaseModule } from '../database/database.module'; // ✅ ici
 @Module({
   imports: [DatabaseModule], // ✅ ici
@@ -20,6 +21,7 @@ import { DatabaseModule } from '../database/database.module'; // ✅ ici
     MyStaffsController,
     AllStaffsController,
     AllCustomerController,
+    ProfilePhotoController,
   ],
   providers: [UsersService],
   exports: [UsersService],

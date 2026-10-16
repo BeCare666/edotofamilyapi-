@@ -1,5 +1,5 @@
 // Vérification de la STRUCTURE de la base (aucune donnée lue) : les tables et colonnes ajoutées
-// par les migrations 008, 009 et 010 existent-elles ? Lancement : npm run db:check
+// par les migrations 008 à 012 existent-elles ? Lancement : npm run db:check
 import * as dotenv from 'dotenv';
 import * as mysql from 'mysql2/promise';
 import { existsSync, readFileSync } from 'fs';
@@ -14,6 +14,14 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'campaign_registrations', column: 'processed_at', migration: '009' },
   { table: 'campaign_registrations', column: 'processed_by', migration: '009' },
   { table: 'site_appearance', migration: '010' },
+  { table: 'sponsors', column: 'self_registered', migration: '011' },
+  { table: 'sponsor_campaign_proposals', migration: '011' },
+  { table: 'users', column: 'birth_date', migration: '012' },
+  { table: 'users', column: 'sex', migration: '012' },
+  { table: 'users', column: 'pickup_city', migration: '012' },
+  { table: 'campaigns', column: 'target_sex', migration: '012' },
+  { table: 'campaigns', column: 'target_age_min', migration: '012' },
+  { table: 'campaign_registrations', column: 'request_city', migration: '012' },
 ];
 
 async function main() {
