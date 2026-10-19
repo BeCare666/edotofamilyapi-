@@ -4,6 +4,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { GetReviewsDto } from './dto/get-reviews.dto';
 import { paginate } from 'src/common/pagination/paginate';
+import { beninDayStartUtc, parseLegacySearch, sortDir } from '../common/legacy-search';
 
 @Injectable()
 export class ReviewService {
@@ -56,11 +57,26 @@ export class ReviewService {
       where.push('r.shop_id = ?');
       params.push(Number(query.shop_id));
     }
+    // Filtres réels (19/10/2026) : recherche, note, période
+    const q: any = query;
+    const parsed = parseLegacySearch(q.search, ['name', 'text', 'comment', 'q']);
+    const fields = parsed.fields;
+    const text = (typeof q.text === 'string' && q.text.trim()) || parsed.text;
+    if (text) {
+      where.push('(p.name COLLATE utf8mb4_general_ci LIKE ? OR u.name COLLATE utf8mb4_general_ci LIKE ? OR u.email COLLATE utf8mb4_general_ci LIKE ? OR r.comment COLLATE utf8mb4_general_ci LIKE ?)');
+      params.push(`%${text}%`, `%${text}%`, `%${text}%`, `%${text}%`);
+    }
+    const rating = Number(q.rating ?? fields.rating);
+    if (Number.isInteger(rating) && rating >= 1 && rating <= 5) { where.push('ROUND(r.rating) = ?'); params.push(rating); }
+    const from = beninDayStartUtc(q.date_from);
+    const to = beninDayStartUtc(q.date_to, 1);
+    if (from) { where.push('r.created_at >= ?'); params.push(from); }
+    if (to) { where.push('r.created_at < ?'); params.push(to); }
 
     const whereSql = where.length ? 'WHERE ' + where.join(' AND ') : '';
 
     const [countRows]: any = await pool.query(
-      `SELECT COUNT(*) as total FROM reviews r ${whereSql}`,
+      `SELECT COUNT(*) as total FROM reviews r LEFT JOIN users u ON r.user_id = u.id LEFT JOIN products p ON r.product_id = p.id ${whereSql}`,
       params
     );
     const total = countRows[0]?.total || 0;
@@ -73,7 +89,7 @@ export class ReviewService {
        LEFT JOIN users u ON r.user_id = u.id
        LEFT JOIN products p ON r.product_id = p.id
        ${whereSql}
-       ORDER BY r.created_at DESC
+       ORDER BY ${q.orderBy === 'rating' ? 'r.rating' : 'r.created_at'} ${sortDir(q.sortedBy)}, r.id DESC
        LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );

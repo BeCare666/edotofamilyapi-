@@ -9,6 +9,7 @@ import { paginate } from 'src/common/pagination/paginate';
 import { User } from 'src/users/entities/user.entity';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
+import { boolParam, parseLegacySearch, sortDir } from '../common/legacy-search';
 
 @Injectable()
 export class ShopsService {
@@ -169,23 +170,32 @@ export class ShopsService {
   }
 
   // --- GET SHOPS (pagination + search) ---
-  async getShops({ search, limit = 30, page = 1 }: GetShopsDto) {
+  async getShops(query: GetShopsDto) {
+    const { limit = 30, page = 1 } = query;
+    const q: any = query;
     const pool = this.DatabaseService.getPool();
     const offset = (page - 1) * limit;
-    let whereClause = '';
+    // Recherche (texte ou « name:… ») et statut réellement appliqués (19/10/2026)
+    const { text, fields } = parseLegacySearch(q.search);
+    const where: string[] = [];
     const params: any[] = [];
-
-    if (search) {
-      whereClause = 'WHERE name LIKE ? OR slug LIKE ?';
-      params.push(`%${search}%`, `%${search}%`);
+    const term = text || (typeof q.name === 'string' ? q.name.trim() : '');
+    if (term) {
+      where.push('(name COLLATE utf8mb4_general_ci LIKE ? OR slug COLLATE utf8mb4_general_ci LIKE ?)');
+      params.push(`%${term}%`, `%${term}%`);
     }
+    const active = boolParam(q.is_active ?? fields.is_active);
+    if (active !== null) where.push(active ? 'is_active = 1' : '(is_active = 0 OR is_active IS NULL)');
+    const whereClause = where.length ? `WHERE ${where.join(' AND ')}` : '';
+    const ORDER: Record<string, string> = { created_at: 'created_at', name: 'name', updated_at: 'updated_at' };
+    const orderSql = `ORDER BY ${ORDER[String(q.orderBy)] ?? 'created_at'} ${sortDir(q.sortedBy)}, id DESC`;
 
     // Assurer que limit et offset sont des nombres
     const limitNum = Number(limit);
     const offsetNum = Number(offset);
 
     const [rows]: [RowDataPacket[], any] = await pool.query<RowDataPacket[]>(
-      `SELECT * FROM shops ${whereClause} LIMIT ${limitNum} OFFSET ${offsetNum}`,
+      `SELECT * FROM shops ${whereClause} ${orderSql} LIMIT ${limitNum} OFFSET ${offsetNum}`,
       params // seuls les params de search restent ici
     );
 
@@ -213,9 +223,10 @@ export class ShopsService {
     // Construire le WHERE de manière sécurisée
     const params: any[] = [];
     let whereClause = 'WHERE is_active = 0';
-    if (search && search.trim() !== '') {
-      whereClause += ' AND (name LIKE ? OR slug LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
+    const { text } = parseLegacySearch(search);
+    if (text) {
+      whereClause += ' AND (name COLLATE utf8mb4_general_ci LIKE ? OR slug COLLATE utf8mb4_general_ci LIKE ?)';
+      params.push(`%${text}%`, `%${text}%`);
     }
 
     // Récupérer les shops

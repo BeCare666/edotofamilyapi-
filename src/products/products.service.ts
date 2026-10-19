@@ -326,6 +326,8 @@ export class ProductsService {
     if (q.stock === 'out') where.push('COALESCE(p.quantity, 0) < 1');
     if (q.stock === 'low') where.push('p.quantity BETWEEN 1 AND 9');
     if (q.stock === 'ok') where.push('p.quantity >= 10');
+    // Alerte stock (19/10/2026) : rupture ou faible, même seuil que l'ancienne liste « products-stock »
+    if (q.stock === 'alert') where.push('COALESCE(p.quantity, 0) <= 9');
     if (String(q.on_sale) === 'true') where.push('p.sale_price IS NOT NULL AND p.sale_price < p.price');
     if (String(q.on_sale) === 'false') where.push('(p.sale_price IS NULL OR p.sale_price >= p.price)');
     if (String(q.is_origin) === 'true' || String(q.is_origin) === '1') where.push('p.is_origin = 1');

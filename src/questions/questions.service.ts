@@ -6,6 +6,7 @@ import { GetQuestionDto } from './dto/get-questions.dto';
 import Fuse from 'fuse.js';
 import { paginate } from 'src/common/pagination/paginate';
 import { Question } from './entities/question.entity';
+import { parseLegacySearch } from '../common/legacy-search';
 
 @Injectable()
 export class QuestionService {
@@ -37,16 +38,18 @@ export class QuestionService {
     const [rows] = await this.db.getPool().query(sql, values);
     let questions: Question[] = rows as Question[];
 
-    // Recherche Fuse
-    if (query.search) {
-      const parseSearchParams = query.search.split(';');
-      this.fuse = new Fuse(questions, { keys: [], threshold: 0.3 });
-
-      for (const searchParam of parseSearchParams) {
-        const [key, value] = searchParam.split(':');
-        questions = this.fuse.search(value)?.map(({ item }) => item);
-      }
+    // Recherche (19/10/2026) : la recherche Fuse sans clé ne trouvait jamais rien ;
+    // texte simple ou « question:… » / « name:… », sur la question et la réponse
+    const qx: any = query;
+    const text = (typeof qx.text === 'string' && qx.text.trim()) || parseLegacySearch(query.search, ['question', 'name', 'text', 'q']).text;
+    if (text) {
+      const t = text.toLocaleLowerCase('fr');
+      questions = questions.filter((qq: any) =>
+        String(qq.question ?? '').toLocaleLowerCase('fr').includes(t) || String(qq.answer ?? '').toLocaleLowerCase('fr').includes(t),
+      );
     }
+    // Plus récentes d'abord
+    questions = [...questions].sort((a: any, b: any) => new Date(b.created_at ?? 0).getTime() - new Date(a.created_at ?? 0).getTime());
 
     const results = questions.slice(startIndex, startIndex + limit);
     const url = `/questions?search=${query.search}&limit=${limit}`;

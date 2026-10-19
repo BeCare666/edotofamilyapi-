@@ -9,6 +9,8 @@ export const STAFF = 'staff';
 export const CUSTOMER = 'customer';
 export const SUPER_PICKUPPOINT = 'super_pickuppoint';
 export const SPONSOR = 'sponsor'; // espace sponsor (compte créé sur invitation de l'admin)
+export const DOCTOR = 'doctor'; // téléconsultation : médecin invité par le super admin (19/10/2026)
+export const HEALTH_CENTER = 'health_center'; // centre ABPF, ABMS, clinique (19/10/2026)
 
 export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
 

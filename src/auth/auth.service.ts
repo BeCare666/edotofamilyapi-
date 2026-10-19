@@ -409,6 +409,21 @@ export class AuthService {
         token,
         permissions: ['sponsor'],
       };
+    } else if (user.role === "doctor" || user.role === "health_center") {
+      // Téléconsultation (19/10/2026) : médecin et centre, comptes créés sur invitation du super admin
+      if (Number(user.is_active) === 0) {
+        throw new ForbiddenException("Votre espace est désactivé. Contactez l'équipe E.doto family.");
+      }
+      const token = jwt.sign({
+        id: user.id,
+        email: user.email,
+        permissions: [user.role],
+      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+
+      return {
+        token,
+        permissions: [user.role],
+      };
     } else if (user.role === "super_admin") {
       const token = jwt.sign({
         id: user.id,

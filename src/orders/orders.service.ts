@@ -836,17 +836,22 @@ export class OrdersService {
     // Search filter
     // L'OTP n'est cherchable qu'à l'identique hors admin : un LIKE permettrait de le deviner caractère par caractère
     if (search) {
+      // Admin (19/10/2026) : aussi le nom / l'e-mail du compte client et le nom du point de retrait,
+      // affichés dans la liste mais jusque-là introuvables par la recherche
       where.push(`(
       tracking_number LIKE ?
       OR ${isAdmin ? 'otp_code LIKE ?' : 'otp_code = ?'}
       OR customer_name LIKE ?
-      OR customer_contact LIKE ?
+      OR customer_contact LIKE ?${isAdmin ? `
+      OR customer_id IN (SELECT su.id FROM users su WHERE su.name COLLATE utf8mb4_general_ci LIKE ? OR su.email COLLATE utf8mb4_general_ci LIKE ?)
+      OR pickup_point_id IN (SELECT sp.id FROM users sp WHERE sp.role = 'super_pickuppoint' AND sp.name COLLATE utf8mb4_general_ci LIKE ?)` : ''}
     )`);
       params.push(
         `%${search}%`,
         isAdmin ? `%${search}%` : String(search),
         `%${search}%`,
-        `%${search}%`
+        `%${search}%`,
+        ...(isAdmin ? [`%${search}%`, `%${search}%`, `%${search}%`] : []),
       );
     }
 
@@ -983,7 +988,7 @@ export class OrdersService {
     if (order.pickup_point_id) {
       try {
         const [pickupRows]: any = await pool.query(
-          `SELECT id, name, pickup_lng, pickup_lat, email FROM users WHERE id = ? LIMIT 1`,
+          `SELECT id, name, pickup_lng, pickup_lat, email, pickup_address FROM users WHERE id = ? LIMIT 1`,
           [order.pickup_point_id]
         );
 
@@ -1013,6 +1018,15 @@ export class OrdersService {
     } else {
       // Pour le front : toujours renvoyer une clé pickup_point
       order.customer_id = null;
+    }
+    // Détail admin (19/10/2026) : nom de l'admin qui a traité la commande et titre de la campagne
+    if (order.processed_by) {
+      const [pb]: any = await pool.query(`SELECT name FROM users WHERE id = ? LIMIT 1`, [order.processed_by]);
+      order.processed_by_name = pb[0]?.name ?? null;
+    }
+    if (order.campaign_id) {
+      const [cp]: any = await pool.query(`SELECT title FROM campaigns WHERE id = ? LIMIT 1`, [order.campaign_id]);
+      order.campaign_title = cp[0]?.title ?? null;
     }
     // Récupérer les enfants de la commande
     const [childrenRows]: any = await pool.query(

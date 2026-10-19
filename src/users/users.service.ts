@@ -232,6 +232,15 @@ async getUsers(query: GetUsersDto & { role?: string; [k: string]: any }): Promis
   };
   if (day(q.date_from)) { where.push('created_at >= ?'); params.push(beninDayUtc(q.date_from)); }
   if (day(q.date_to)) { where.push('created_at < ?'); params.push(beninDayUtc(q.date_to, 1)); }
+  // Filtres avancés (19/10/2026) : sexe, âge (date de naissance renseignée), commandes passées
+  if (q.sex === 'female' || q.sex === 'male') { where.push('sex = ?'); params.push(q.sex); }
+  if (q.sex === 'none') where.push("(sex IS NULL OR sex = '')");
+  const minAge = Number(q.min_age);
+  const maxAge = Number(q.max_age);
+  if (String(q.min_age ?? '') !== '' && Number.isInteger(minAge) && minAge >= 0) { where.push('birth_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) >= ?'); params.push(minAge); }
+  if (String(q.max_age ?? '') !== '' && Number.isInteger(maxAge) && maxAge >= 0) { where.push('birth_date IS NOT NULL AND TIMESTAMPDIFF(YEAR, birth_date, CURDATE()) <= ?'); params.push(maxAge); }
+  if (q.has_orders === '1') where.push('EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_id = users.id AND o2.is_archived = 0)');
+  if (q.has_orders === '0') where.push('NOT EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_id = users.id AND o2.is_archived = 0)');
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
   const SORTS: Record<string, string> = { created_at: 'created_at', name: 'name', orders_count: 'orders_count' };
   const orderCol = SORTS[String(q.orderBy)] ?? 'created_at';
@@ -259,7 +268,14 @@ async getUserFacets(role?: string) {
   const params = role ? [role] : [];
   const [[roles], [sum]]: any = await Promise.all([
     pool.query(`SELECT role, COUNT(*) AS n FROM users ${where} GROUP BY role ORDER BY n DESC`, params),
-    pool.query(`SELECT COUNT(*) AS total, SUM(is_active = 1) AS active, SUM(is_verified = 1) AS verified FROM users ${where}`, params),
+    pool.query(
+      `SELECT COUNT(*) AS total, SUM(is_active = 1) AS active, SUM(is_verified = 1) AS verified,
+              SUM(sex = 'female') AS female, SUM(sex = 'male') AS male,
+              SUM(EXISTS (SELECT 1 FROM orders o2 WHERE o2.customer_id = users.id AND o2.is_archived = 0)) AS with_orders,
+              MIN(TIMESTAMPDIFF(YEAR, birth_date, CURDATE())) AS min_age, MAX(TIMESTAMPDIFF(YEAR, birth_date, CURDATE())) AS max_age
+       FROM users ${where}`,
+      params,
+    ),
   ]);
   const n = (v: any) => Number(v ?? 0);
   const s = sum[0] ?? {};
@@ -268,6 +284,9 @@ async getUserFacets(role?: string) {
     roles: roles.map((r: any) => ({ value: r.role, count: n(r.n) })),
     active: { yes: n(s.active), no: n(s.total) - n(s.active) },
     verified: { yes: n(s.verified), no: n(s.total) - n(s.verified) },
+    sex: { female: n(s.female), male: n(s.male), none: n(s.total) - n(s.female) - n(s.male) },
+    orders: { yes: n(s.with_orders), no: n(s.total) - n(s.with_orders) },
+    age: { min: s.min_age != null ? n(s.min_age) : null, max: s.max_age != null ? n(s.max_age) : null },
   };
 }
 

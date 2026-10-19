@@ -4,6 +4,7 @@ import { GetTagsDto } from './dto/get-tags.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { DatabaseService } from '../database/database.services';
 import { paginate } from 'src/common/pagination/paginate';
+import { parseLegacySearch } from '../common/legacy-search';
 
 @Injectable()
 export class TagsService {
@@ -33,10 +34,12 @@ export class TagsService {
     let countQuery = `SELECT COUNT(*) as total FROM tags WHERE deleted_at IS NULL`;
     const params = [];
 
-    if (search) {
-      query += ` AND name LIKE ?`;
-      countQuery += ` AND name LIKE ?`;
-      params.push(`%${search}%`);
+    // Texte simple ou « name:… » (format envoyé par l'admin) : 19/10/2026
+    const { text } = parseLegacySearch(search);
+    if (text) {
+      query += ` AND name COLLATE utf8mb4_general_ci LIKE ?`;
+      countQuery += ` AND name COLLATE utf8mb4_general_ci LIKE ?`;
+      params.push(`%${text}%`);
     }
 
     query += ` ORDER BY created_at DESC LIMIT ? OFFSET ?`;
