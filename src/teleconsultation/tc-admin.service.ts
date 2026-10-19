@@ -3,6 +3,8 @@ import { DatabaseService } from '../database/database.services';
 import { cleanEmail, cleanName, cleanOrgName, cleanPhone } from '../common/field-rules';
 import {
   APPOINTMENT_STATUS_LABEL,
+  HOUSE_HOURS_LABEL,
+  HOUSE_SLOT_MINUTES,
   MODE_LABEL,
   Mode,
   ORGANIZATION_LABEL,
@@ -65,14 +67,16 @@ export class TcAdminService {
       phone: r.phone,
       title: r.title,
       bio: r.bio,
-      slot_minutes: Number(r.slot_minutes),
+      // Médecin E.doto family : heures fixes (lundi à vendredi, 8 h à 18 h, 30 minutes)
+      slot_minutes: Number(r.is_house) === 1 ? HOUSE_SLOT_MINUTES : Number(r.slot_minutes),
       is_house: Number(r.is_house) === 1,
+      fixed_hours: Number(r.is_house) === 1 ? HOUSE_HOURS_LABEL : null,
       is_active: Number(r.is_active) === 1,
       account_status: accountStatus(r),
       account_label: ACCOUNT_LABEL[accountStatus(r)],
       invited_at: r.invited_at,
       activated_at: r.activated_at,
-      has_schedule: num(r.rules_count) > 0,
+      has_schedule: Number(r.is_house) === 1 || num(r.rules_count) > 0,
       upcoming: num(r.upcoming),
       completed: num(r.completed),
     }));

@@ -3,6 +3,7 @@ import {
   cleanAvailability,
   formatShortCode,
   freeSlots,
+  HOUSE_RULES,
   houseGaps,
   newReference,
   newShortCode,
@@ -75,6 +76,13 @@ describe('Téléconsultation : médecin E.doto family', () => {
     const house = [at(9), at(9, 30), at(10), at(10, 30)];
     const others = [{ start: at(9, 30), minutes: 30 }, { start: at(10, 15), minutes: 20 }];
     expect(houseGaps(house, 30, others).map((d) => d.toISOString())).toEqual([at(9).toISOString()]);
+  });
+  it('couvre du lundi au vendredi, de 8 h à 18 h, par 30 minutes', () => {
+    // Semaine du lundi 19 au dimanche 25 octobre 2026
+    const slots = freeSlots({ rules: HOUSE_RULES, timeOff: [], busy: [], slotMinutes: 30, fromDay: '2026-10-19', toDay: '2026-10-25', now: new Date('2026-10-01T00:00:00Z') });
+    expect(slots).toHaveLength(5 * 20); // 20 créneaux de 30 min entre 8 h et 18 h, 5 jours
+    expect(slots[0].toISOString()).toBe('2026-10-19T07:00:00.000Z'); // lundi 8 h au Bénin
+    expect(slots[slots.length - 1].toISOString()).toBe('2026-10-23T16:30:00.000Z'); // vendredi 17 h 30
   });
   it('garde toutes ses heures quand aucun autre médecin n’est libre', () => {
     const house = [at(14), at(14, 30)];

@@ -197,6 +197,14 @@ export function freeSlots(opts: {
 }
 
 /**
+ * Heures fixes du médecin E.doto family (décision du 20/10/2026) : lundi à vendredi, 8 h à 18 h (heure du Bénin),
+ * consultations de 30 minutes, visio et appel. Ses heures saisies ailleurs ne comptent pas.
+ */
+export const HOUSE_SLOT_MINUTES = 30;
+export const HOUSE_RULES: AvailabilityRule[] = [1, 2, 3, 4, 5].map((weekday) => ({ weekday, start_time: '08:00', end_time: '18:00', modes: 'both' }));
+export const HOUSE_HOURS_LABEL = 'Lundi à vendredi, 8 h à 18 h, consultations de 30 minutes';
+
+/**
  * Médecin E.doto family (20/10/2026) : il prend en charge toutes les heures où aucun autre médecin n'est libre.
  * Ses créneaux qui chevauchent un créneau libre d'un autre médecin sont retirés.
  */

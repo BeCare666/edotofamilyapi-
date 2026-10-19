@@ -30,6 +30,9 @@ import {
   cleanText,
   formatShortCode,
   freeSlots,
+  HOUSE_HOURS_LABEL,
+  HOUSE_RULES,
+  HOUSE_SLOT_MINUTES,
   houseGaps,
   isDay,
   jitsiUrl,
@@ -77,7 +80,10 @@ export class TeleconsultationService {
        JOIN users u ON u.id = d.user_id AND u.role = 'doctor' AND u.is_active = 1
        WHERE d.is_active = 1 AND d.activated_at IS NOT NULL`,
     );
-    return rows as { id: number; name: string; title: string | null; bio: string | null; slot_minutes: number; is_house: number }[];
+    // Médecin E.doto family : consultations de 30 minutes, quelle que soit sa fiche
+    return (rows as { id: number; name: string; title: string | null; bio: string | null; slot_minutes: number; is_house: number }[]).map((d) =>
+      Number(d.is_house) === 1 ? { ...d, slot_minutes: HOUSE_SLOT_MINUTES } : d,
+    );
   }
 
   /** Créneaux libres de chaque médecin réservable sur une période (jours du Bénin) */
@@ -105,7 +111,11 @@ export class TeleconsultationService {
     const per = doctors.map((d) => ({
       doctor: d,
       slots: freeSlots({
-        rules: rules.filter((r: any) => Number(r.doctor_id) === Number(d.id)).map((r: any) => ({ ...r, weekday: Number(r.weekday) })),
+        // Médecin E.doto family : lundi à vendredi, 8 h à 18 h (heures fixes)
+        rules:
+          Number(d.is_house) === 1
+            ? HOUSE_RULES
+            : rules.filter((r: any) => Number(r.doctor_id) === Number(d.id)).map((r: any) => ({ ...r, weekday: Number(r.weekday) })),
         timeOff: offs.filter((o: any) => Number(o.doctor_id) === Number(d.id)),
         busy: busy
           .filter((b: any) => Number(b.doctor_id) === Number(d.id))
@@ -453,7 +463,7 @@ export class TeleconsultationService {
 
   async doctorFor(userId: number) {
     const [[d]]: any = await this.pool.query(
-      `SELECT id, user_id, name, email, phone, title, bio, slot_minutes, is_active FROM tc_doctors WHERE user_id = ? LIMIT 1`,
+      `SELECT id, user_id, name, email, phone, title, bio, slot_minutes, is_active, is_house FROM tc_doctors WHERE user_id = ? LIMIT 1`,
       [userId],
     );
     if (!d) throw new ForbiddenException('Cet espace est réservé aux médecins de E.doto family.');
@@ -762,10 +772,20 @@ export class TeleconsultationService {
         [d.id, beninDayOf(new Date())],
       ),
     ]);
-    return { slot_minutes: Number(d.slot_minutes), rules: rules.map((r: any) => ({ ...r, weekday: Number(r.weekday) })), time_off: offs };
+    const house = Number(d.is_house) === 1;
+    return {
+      slot_minutes: house ? HOUSE_SLOT_MINUTES : Number(d.slot_minutes),
+      rules: house ? HOUSE_RULES : rules.map((r: any) => ({ ...r, weekday: Number(r.weekday) })),
+      time_off: offs,
+      // Médecin E.doto family : heures fixes, non modifiables
+      fixed_hours: house ? HOUSE_HOURS_LABEL : null,
+    };
   }
 
   private async saveScheduleOf(d: any, body: any) {
+    if (Number(d.is_house) === 1) {
+      throw new BadRequestException(`Le médecin E.doto family a des heures fixes : ${HOUSE_HOURS_LABEL.toLowerCase()}.`);
+    }
     const rules = cleanAvailability(body?.rules);
     const slot = cleanSlotMinutes(body?.slot_minutes ?? d.slot_minutes);
     const conn = await this.pool.getConnection();
