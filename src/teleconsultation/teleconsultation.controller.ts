@@ -200,7 +200,9 @@ export class TcAdminController {
   }
 
   @Get('doctors')
-  doctors() {
+  async doctors() {
+    // Le médecin E.doto family existe toujours (créé s'il manque)
+    await this.tc.ensureHouseDoctor();
     return this.admin.doctors();
   }
 

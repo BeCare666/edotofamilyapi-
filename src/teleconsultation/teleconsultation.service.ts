@@ -31,8 +31,11 @@ import {
   formatShortCode,
   freeSlots,
   HOUSE_HOURS_LABEL,
+  HOUSE_NAME,
+  HOUSE_PLACEHOLDER_EMAIL,
   HOUSE_RULES,
   HOUSE_SLOT_MINUTES,
+  HOUSE_TITLE,
   houseGaps,
   isDay,
   jitsiUrl,
@@ -73,12 +76,36 @@ export class TeleconsultationService {
   // Réservation (jeune connecté)
   // =====================================================================
 
-  /** Médecins réservables : fiche active et compte activé (is_house = médecin E.doto family) */
+  /**
+   * Médecin E.doto family toujours présent (20/10/2026) : créé ici s'il n'existe pas, actif tout de suite,
+   * sans invitation. Ses rendez-vous sont visibles dans l'admin ; le compte médecin les reçoit une fois invité.
+   */
+  private houseReady = false;
+  async ensureHouseDoctor() {
+    if (this.houseReady) return;
+    try {
+      await this.pool.query(
+        `INSERT INTO tc_doctors (name, email, title, slot_minutes, is_house, is_active)
+         SELECT ?, ?, ?, ?, 1, 1 FROM DUAL WHERE NOT EXISTS (SELECT 1 FROM tc_doctors WHERE is_house = 1)`,
+        [HOUSE_NAME, HOUSE_PLACEHOLDER_EMAIL, HOUSE_TITLE, HOUSE_SLOT_MINUTES],
+      );
+      this.houseReady = true;
+    } catch (e: any) {
+      console.error('[téléconsultation] médecin E.doto family :', e?.message);
+    }
+  }
+
+  /**
+   * Médecins réservables : fiche active et compte activé ;
+   * le médecin E.doto family est réservable dès que sa fiche est active, même sans compte activé.
+   */
   private async bookableDoctors() {
+    await this.ensureHouseDoctor();
     const [rows]: any = await this.pool.query(
       `SELECT d.id, d.name, d.title, d.bio, d.slot_minutes, d.is_house FROM tc_doctors d
-       JOIN users u ON u.id = d.user_id AND u.role = 'doctor' AND u.is_active = 1
-       WHERE d.is_active = 1 AND d.activated_at IS NOT NULL`,
+       LEFT JOIN users u ON u.id = d.user_id
+       WHERE d.is_active = 1
+         AND (d.is_house = 1 OR (d.activated_at IS NOT NULL AND u.role = 'doctor' AND u.is_active = 1))`,
     );
     // Médecin E.doto family : consultations de 30 minutes, quelle que soit sa fiche
     return (rows as { id: number; name: string; title: string | null; bio: string | null; slot_minutes: number; is_house: number }[]).map((d) =>
@@ -981,6 +1008,9 @@ export class TeleconsultationService {
     const [[t]]: any = await this.pool.query(`SELECT id, name, email, user_id, activated_at FROM ${table} WHERE id = ?`, [targetId]);
     if (!t) throw new NotFoundException(kind === 'doctor' ? 'Médecin introuvable.' : 'Centre introuvable.');
     if (t.activated_at) throw new BadRequestException('Cet espace est déjà actif.');
+    if (/\.invalid$/i.test(String(t.email))) {
+      throw new BadRequestException("Renseignez d'abord la vraie adresse e-mail de ce médecin (bouton Modifier), puis envoyez l'invitation.");
+    }
     let userId: number | null = t.user_id ? Number(t.user_id) : null;
     if (!userId) {
       const [[existing]]: any = await this.pool.query(`SELECT id, role FROM users WHERE email = ? LIMIT 1`, [t.email]);

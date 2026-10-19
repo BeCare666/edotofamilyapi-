@@ -194,6 +194,7 @@ export function invitationEmail(kind: 'doctor' | 'center', name: string, link: s
 }
 
 export async function mail(email: string | null | undefined, subject: string, message: string) {
-  if (!email) return;
+  // Adresse provisoire (domaine .invalid, ex. médecin E.doto family pas encore renseigné) : aucun envoi
+  if (!email || /\.invalid$/i.test(email.trim())) return;
   await sendVerificationEmail({ email, subject, message });
 }

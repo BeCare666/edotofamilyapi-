@@ -98,9 +98,13 @@ export class TcAdminService {
   }
 
   async updateDoctor(id: number, body: any) {
-    const [[cur]]: any = await this.pool.query(`SELECT id, email, activated_at FROM tc_doctors WHERE id = ?`, [id]);
+    const [[cur]]: any = await this.pool.query(`SELECT id, email, activated_at, is_house FROM tc_doctors WHERE id = ?`, [id]);
     if (!cur) throw new NotFoundException('Médecin introuvable.');
     const d = this.parseDoctor(body);
+    // Il faut toujours un médecin E.doto family : on le remplace en cochant la case sur un autre médecin
+    if (Number(cur.is_house) === 1 && !d.is_house) {
+      throw new BadRequestException('Il faut toujours un médecin E.doto family : cochez la case sur un autre médecin pour le remplacer.');
+    }
     if (cur.activated_at && d.email !== cur.email) throw new BadRequestException("L'adresse e-mail d'un espace actif ne se change pas ici.");
     await this.pool.query(`UPDATE tc_doctors SET name = ?, email = ?, phone = ?, title = ?, bio = ?, slot_minutes = ?, is_house = ? WHERE id = ?`, [
       d.name,
@@ -117,6 +121,12 @@ export class TcAdminService {
   }
 
   async setDoctorActive(id: number, active: boolean) {
+    if (!active) {
+      const [[cur]]: any = await this.pool.query(`SELECT is_house FROM tc_doctors WHERE id = ?`, [id]);
+      if (cur && Number(cur.is_house) === 1) {
+        throw new BadRequestException('Le médecin E.doto family ne se désactive pas : il prend en charge les heures sans autre médecin.');
+      }
+    }
     const [res]: any = await this.pool.query(`UPDATE tc_doctors SET is_active = ? WHERE id = ?`, [active ? 1 : 0, id]);
     if (!res?.affectedRows) throw new NotFoundException('Médecin introuvable.');
     return { success: true, message: active ? 'Médecin réactivé : ses créneaux sont de nouveau proposés.' : 'Médecin désactivé : plus aucun créneau proposé. Les rendez-vous déjà pris restent.' };

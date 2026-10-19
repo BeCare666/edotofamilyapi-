@@ -203,6 +203,10 @@ export function freeSlots(opts: {
 export const HOUSE_SLOT_MINUTES = 30;
 export const HOUSE_RULES: AvailabilityRule[] = [1, 2, 3, 4, 5].map((weekday) => ({ weekday, start_time: '08:00', end_time: '18:00', modes: 'both' }));
 export const HOUSE_HOURS_LABEL = 'Lundi à vendredi, 8 h à 18 h, consultations de 30 minutes';
+// Fiche créée automatiquement (20/10/2026) : réservable sans invitation ; adresse provisoire jusqu'à saisie dans l'admin
+export const HOUSE_NAME = 'Médecin E.doto family';
+export const HOUSE_TITLE = 'Équipe médicale E.doto family';
+export const HOUSE_PLACEHOLDER_EMAIL = 'medecin-edoto-family@edotofamily.invalid';
 
 /**
  * Médecin E.doto family (20/10/2026) : il prend en charge toutes les heures où aucun autre médecin n'est libre.
