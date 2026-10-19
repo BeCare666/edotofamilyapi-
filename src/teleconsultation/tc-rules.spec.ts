@@ -3,6 +3,7 @@ import {
   cleanAvailability,
   formatShortCode,
   freeSlots,
+  houseGaps,
   newReference,
   newShortCode,
   normalizeShortCode,
@@ -65,6 +66,19 @@ describe('Recherche des anciennes listes admin', () => {
     expect(parseLegacySearch('name:abc;is_active:true').fields.is_active).toBe('true');
     expect(parseLegacySearch('serviettes').text).toBe('serviettes');
     expect(parseLegacySearch('').text).toBe('');
+  });
+});
+
+describe('Téléconsultation : médecin E.doto family', () => {
+  const at = (h: number, m = 0) => beninToUtc('2026-10-20', h * 60 + m);
+  it('ne garde que les heures où aucun autre médecin n’est libre', () => {
+    const house = [at(9), at(9, 30), at(10), at(10, 30)];
+    const others = [{ start: at(9, 30), minutes: 30 }, { start: at(10, 15), minutes: 20 }];
+    expect(houseGaps(house, 30, others).map((d) => d.toISOString())).toEqual([at(9).toISOString()]);
+  });
+  it('garde toutes ses heures quand aucun autre médecin n’est libre', () => {
+    const house = [at(14), at(14, 30)];
+    expect(houseGaps(house, 30, [])).toHaveLength(2);
   });
 });
 

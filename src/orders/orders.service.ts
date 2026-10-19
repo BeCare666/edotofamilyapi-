@@ -988,7 +988,10 @@ export class OrdersService {
     if (order.pickup_point_id) {
       try {
         const [pickupRows]: any = await pool.query(
-          `SELECT id, name, pickup_lng, pickup_lat, email, pickup_address FROM users WHERE id = ? LIMIT 1`,
+          // phone : téléphone du profil du point (bouton d'appel sur la carte, 20/10/2026)
+          `SELECT id, name, pickup_lng, pickup_lat, email, pickup_address,
+                  (SELECT p.contact FROM profiles p WHERE p.customer_id = users.id LIMIT 1) AS phone
+           FROM users WHERE id = ? LIMIT 1`,
           [order.pickup_point_id]
         );
 

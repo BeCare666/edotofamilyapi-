@@ -30,6 +30,7 @@ import {
   cleanText,
   formatShortCode,
   freeSlots,
+  houseGaps,
   isDay,
   jitsiUrl,
   newInvitationToken,
@@ -69,14 +70,14 @@ export class TeleconsultationService {
   // Réservation (jeune connecté)
   // =====================================================================
 
-  /** Médecins réservables : fiche active et compte activé */
+  /** Médecins réservables : fiche active et compte activé (is_house = médecin E.doto family) */
   private async bookableDoctors() {
     const [rows]: any = await this.pool.query(
-      `SELECT d.id, d.name, d.title, d.slot_minutes FROM tc_doctors d
+      `SELECT d.id, d.name, d.title, d.bio, d.slot_minutes, d.is_house FROM tc_doctors d
        JOIN users u ON u.id = d.user_id AND u.role = 'doctor' AND u.is_active = 1
        WHERE d.is_active = 1 AND d.activated_at IS NOT NULL`,
     );
-    return rows as { id: number; name: string; title: string | null; slot_minutes: number }[];
+    return rows as { id: number; name: string; title: string | null; bio: string | null; slot_minutes: number; is_house: number }[];
   }
 
   /** Créneaux libres de chaque médecin réservable sur une période (jours du Bénin) */
@@ -101,7 +102,7 @@ export class TeleconsultationService {
         [...ids, utcSql(to), utcSql(from)],
       ),
     ]);
-    return doctors.map((d) => ({
+    const per = doctors.map((d) => ({
       doctor: d,
       slots: freeSlots({
         rules: rules.filter((r: any) => Number(r.doctor_id) === Number(d.id)).map((r: any) => ({ ...r, weekday: Number(r.weekday) })),
@@ -115,9 +116,20 @@ export class TeleconsultationService {
         mode,
       }),
     }));
+    // Médecin E.doto family : seulement aux heures où aucun autre médecin n'est libre (20/10/2026)
+    const others = per
+      .filter((p) => Number(p.doctor.is_house) !== 1)
+      .flatMap((p) => p.slots.map((start) => ({ start, minutes: Number(p.doctor.slot_minutes) || DEFAULT_SLOT_MINUTES })));
+    for (const p of per) {
+      if (Number(p.doctor.is_house) === 1) p.slots = houseGaps(p.slots, Number(p.doctor.slot_minutes) || DEFAULT_SLOT_MINUTES, others);
+    }
+    return per;
   }
 
-  /** Calendrier public : jours et heures libres (tous médecins confondus), sans nom de médecin */
+  /**
+   * Calendrier public (20/10/2026) : pour chaque jour, les médecins disponibles et leurs heures libres.
+   * Le médecin E.doto family couvre les heures où aucun autre médecin n'est libre.
+   */
   async availability(q: any) {
     const mode = q?.mode ? parseMode(q.mode) : null;
     const today = beninDayOf(new Date());
@@ -125,28 +137,39 @@ export class TeleconsultationService {
     const fromDay = isDay(q?.from) && q.from > today ? q.from : today;
     const toDay = isDay(q?.to) && q.to < last ? q.to : last;
     const per = await this.slotsByDoctor(fromDay, toDay < fromDay ? fromDay : toDay, mode);
-    const map = new Map<string, { start: string; minutes: number; doctors: number }>();
+    const days = new Map<string, Map<number, string[]>>();
     for (const { doctor, slots } of per) {
       for (const s of slots) {
-        const k = s.toISOString();
-        const cur = map.get(k);
-        const minutes = Number(doctor.slot_minutes) || DEFAULT_SLOT_MINUTES;
-        if (cur) cur.doctors += 1;
-        else map.set(k, { start: k, minutes, doctors: 1 });
+        const day = beninDayOf(s);
+        if (!days.has(day)) days.set(day, new Map());
+        const byDoctor = days.get(day)!;
+        const id = Number(doctor.id);
+        if (!byDoctor.has(id)) byDoctor.set(id, []);
+        byDoctor.get(id)!.push(s.toISOString());
       }
     }
-    const days: Record<string, { start: string; minutes: number }[]> = {};
-    [...map.values()]
-      .sort((a, b) => a.start.localeCompare(b.start))
-      .forEach((s) => {
-        const day = beninDayOf(new Date(s.start));
-        (days[day] ||= []).push({ start: s.start, minutes: s.minutes });
-      });
+    const withSlots = per.filter((p) => p.slots.length);
     return {
       timezone: 'Africa/Porto-Novo',
       window: { from: today, to: last },
-      doctors_available: per.filter((p) => p.slots.length).length,
-      days: Object.entries(days).map(([date, slots]) => ({ date, slots })),
+      doctors_available: withSlots.length,
+      // Fiches visibles par le jeune : nom, fonction, présentation (aucune coordonnée)
+      doctors: withSlots
+        .map(({ doctor: d }) => ({
+          id: Number(d.id),
+          name: d.name,
+          title: d.title,
+          bio: d.bio,
+          minutes: Number(d.slot_minutes) || DEFAULT_SLOT_MINUTES,
+          is_house: Number(d.is_house) === 1,
+        }))
+        .sort((a, b) => Number(a.is_house) - Number(b.is_house) || a.name.localeCompare(b.name)),
+      days: [...days.entries()]
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([date, byDoctor]) => ({
+          date,
+          doctors: [...byDoctor.entries()].map(([doctor_id, starts]) => ({ doctor_id, slots: starts.sort() })),
+        })),
     };
   }
 
@@ -178,10 +201,15 @@ export class TeleconsultationService {
       throw new BadRequestException(`Vous avez déjà ${MAX_UPCOMING_PER_PATIENT} rendez-vous à venir. Annulez-en un pour en prendre un autre.`);
     }
 
-    // Médecins réellement libres à cette heure, du moins chargé au plus chargé
+    // Médecin choisi par le jeune (facultatif), sinon le moins chargé des médecins libres à cette heure
+    const chosen = body?.doctor_id !== undefined && body?.doctor_id !== null && body?.doctor_id !== '' ? Number(body.doctor_id) : null;
+    if (chosen !== null && (!Number.isInteger(chosen) || chosen <= 0)) throw new BadRequestException('Médecin invalide.');
     const day = beninDayOf(start);
     const per = await this.slotsByDoctor(day, day, mode);
-    const free = per.filter((p) => p.slots.some((s) => s.getTime() === start.getTime())).map((p) => p.doctor);
+    const free = per
+      .filter((p) => p.slots.some((s) => s.getTime() === start.getTime()))
+      .map((p) => p.doctor)
+      .filter((d) => chosen === null || Number(d.id) === chosen);
     if (!free.length) throw new ConflictException('Ce créneau n’est plus disponible. Choisissez une autre heure.');
     const ids = free.map((d) => Number(d.id));
     const [loads]: any = await this.pool.query(
@@ -700,6 +728,32 @@ export class TeleconsultationService {
 
   async doctorSchedule(userId: number) {
     const d = await this.doctorFor(userId);
+    return this.scheduleOf(d);
+  }
+
+  async doctorSaveSchedule(userId: number, body: any) {
+    const d = await this.doctorFor(userId);
+    return this.saveScheduleOf(d, body);
+  }
+
+  // Horaires d'un médecin par son identifiant : saisis par le super admin (20/10/2026)
+  private async doctorById(id: number) {
+    const [[d]]: any = await this.pool.query(`SELECT id, name, slot_minutes, is_house FROM tc_doctors WHERE id = ? LIMIT 1`, [id]);
+    if (!d) throw new NotFoundException('Médecin introuvable.');
+    return d;
+  }
+
+  async adminSchedule(doctorId: number) {
+    const d = await this.doctorById(doctorId);
+    return { doctor: { id: Number(d.id), name: d.name, is_house: Number(d.is_house) === 1 }, ...(await this.scheduleOf(d)) };
+  }
+
+  async adminSaveSchedule(doctorId: number, body: any) {
+    const d = await this.doctorById(doctorId);
+    return this.saveScheduleOf(d, body);
+  }
+
+  private async scheduleOf(d: any) {
     const [[rules], [offs]]: any = await Promise.all([
       this.pool.query(`SELECT weekday, start_time, end_time, modes FROM tc_availability WHERE doctor_id = ? ORDER BY weekday, start_time`, [d.id]),
       this.pool.query(
@@ -711,8 +765,7 @@ export class TeleconsultationService {
     return { slot_minutes: Number(d.slot_minutes), rules: rules.map((r: any) => ({ ...r, weekday: Number(r.weekday) })), time_off: offs };
   }
 
-  async doctorSaveSchedule(userId: number, body: any) {
-    const d = await this.doctorFor(userId);
+  private async saveScheduleOf(d: any, body: any) {
     const rules = cleanAvailability(body?.rules);
     const slot = cleanSlotMinutes(body?.slot_minutes ?? d.slot_minutes);
     const conn = await this.pool.getConnection();

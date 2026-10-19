@@ -196,6 +196,21 @@ export function freeSlots(opts: {
   return out.sort((a, b) => a.getTime() - b.getTime());
 }
 
+/**
+ * Médecin E.doto family (20/10/2026) : il prend en charge toutes les heures où aucun autre médecin n'est libre.
+ * Ses créneaux qui chevauchent un créneau libre d'un autre médecin sont retirés.
+ */
+export function houseGaps(house: Date[], houseMinutes: number, others: { start: Date; minutes: number }[]): Date[] {
+  return house.filter((s) => {
+    const a = s.getTime();
+    const b = a + houseMinutes * 60000;
+    return !others.some((o) => {
+      const c = o.start.getTime();
+      return a < c + o.minutes * 60000 && b > c;
+    });
+  });
+}
+
 // ---- Saisies ----
 const str = (v: unknown) => (typeof v === 'string' ? v : v === null || v === undefined ? '' : String(v));
 export function cleanText(v: unknown, max: number, label: string, required = false): string | null {

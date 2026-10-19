@@ -464,6 +464,7 @@ export class CampaignsService {
     const [rows]: [RowDataPacket[], any] = await pool.query(
       `SELECT r.id, r.campaign_id, c.title AS campaign_title, c.location AS campaign_location,
               r.pickup_center, pc.name AS pickup_center_name, pc.pickup_lat, pc.pickup_lng,
+              (SELECT p.contact FROM profiles p WHERE p.customer_id = pc.id LIMIT 1) AS pickup_phone,
               r.otp_used, r.otp_expires_at, r.verified_at, r.picked_up, r.picked_up_at,
               r.order_status, r.created_at
        FROM campaign_registrations r

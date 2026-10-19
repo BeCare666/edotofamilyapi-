@@ -40,7 +40,14 @@ export class TcAdminService {
       title: cleanText(body?.title, 120, 'La fonction'),
       bio: cleanText(body?.bio, 600, 'La présentation'),
       slot_minutes: body?.slot_minutes !== undefined && body?.slot_minutes !== '' ? cleanSlotMinutes(body.slot_minutes) : 30,
+      // Médecin E.doto family : prend en charge les heures où aucun autre médecin n'est libre (un seul à la fois)
+      is_house: body?.is_house === true || body?.is_house === 1 || body?.is_house === '1' ? 1 : 0,
     };
+  }
+
+  /** Un seul médecin E.doto family : le choisir retire ce rôle aux autres */
+  private async keepSingleHouse(id: number, isHouse: number) {
+    if (isHouse) await this.pool.query(`UPDATE tc_doctors SET is_house = 0 WHERE id <> ? AND is_house = 1`, [id]);
   }
 
   async doctors() {
@@ -49,7 +56,7 @@ export class TcAdminService {
               (SELECT COUNT(*) FROM tc_availability av WHERE av.doctor_id = d.id) AS rules_count,
               (SELECT COUNT(*) FROM tc_appointments a WHERE a.doctor_id = d.id AND a.status = 'booked' AND a.ends_at > UTC_TIMESTAMP()) AS upcoming,
               (SELECT COUNT(*) FROM tc_appointments a WHERE a.doctor_id = d.id AND a.status = 'completed') AS completed
-       FROM tc_doctors d ORDER BY d.name`,
+       FROM tc_doctors d ORDER BY d.is_house DESC, d.name`,
     );
     return rows.map((r: any) => ({
       id: Number(r.id),
@@ -59,6 +66,7 @@ export class TcAdminService {
       title: r.title,
       bio: r.bio,
       slot_minutes: Number(r.slot_minutes),
+      is_house: Number(r.is_house) === 1,
       is_active: Number(r.is_active) === 1,
       account_status: accountStatus(r),
       account_label: ACCOUNT_LABEL[accountStatus(r)],
@@ -74,9 +82,10 @@ export class TcAdminService {
     const d = this.parseDoctor(body);
     try {
       const [res]: any = await this.pool.query(
-        `INSERT INTO tc_doctors (name, email, phone, title, bio, slot_minutes) VALUES (?, ?, ?, ?, ?, ?)`,
-        [d.name, d.email, d.phone, d.title, d.bio, d.slot_minutes],
+        `INSERT INTO tc_doctors (name, email, phone, title, bio, slot_minutes, is_house) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [d.name, d.email, d.phone, d.title, d.bio, d.slot_minutes, d.is_house],
       );
+      await this.keepSingleHouse(Number(res.insertId), d.is_house);
       return { success: true, id: Number(res.insertId), message: 'Médecin ajouté. Envoyez-lui son invitation pour activer son espace.' };
     } catch (e: any) {
       if (e?.code === 'ER_DUP_ENTRY') throw new ConflictException('Un médecin existe déjà avec cette adresse e-mail.');
@@ -89,15 +98,17 @@ export class TcAdminService {
     if (!cur) throw new NotFoundException('Médecin introuvable.');
     const d = this.parseDoctor(body);
     if (cur.activated_at && d.email !== cur.email) throw new BadRequestException("L'adresse e-mail d'un espace actif ne se change pas ici.");
-    await this.pool.query(`UPDATE tc_doctors SET name = ?, email = ?, phone = ?, title = ?, bio = ?, slot_minutes = ? WHERE id = ?`, [
+    await this.pool.query(`UPDATE tc_doctors SET name = ?, email = ?, phone = ?, title = ?, bio = ?, slot_minutes = ?, is_house = ? WHERE id = ?`, [
       d.name,
       d.email,
       d.phone,
       d.title,
       d.bio,
       d.slot_minutes,
+      d.is_house,
       id,
     ]);
+    await this.keepSingleHouse(id, d.is_house);
     return { success: true, message: 'Fiche du médecin mise à jour.' };
   }
 

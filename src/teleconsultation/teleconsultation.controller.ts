@@ -224,6 +224,17 @@ export class TcAdminController {
     return this.tc.invite('doctor', id);
   }
 
+  // Heures disponibles d'un médecin, saisies par le super admin (20/10/2026)
+  @Get('doctors/:id/schedule')
+  doctorSchedule(@Param('id', ParseIntPipe) id: number) {
+    return this.tc.adminSchedule(id);
+  }
+
+  @Put('doctors/:id/schedule')
+  saveDoctorSchedule(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+    return this.tc.adminSaveSchedule(id, body);
+  }
+
   @Get('centers')
   centers() {
     return this.admin.centers();
