@@ -61,6 +61,7 @@ import {
   siteUrl,
 } from './tc-notify';
 import { iso, num, utcSql } from './tc-db';
+import { CONCLUSIONS, CONCLUSION_LABEL } from '../contraception/contraception-rules';
 
 const MAX_UPCOMING_PER_PATIENT = 2; // rendez-vous à venir par jeune (évite les réservations en série)
 
@@ -228,7 +229,23 @@ export class TeleconsultationService {
     const start = new Date(String(body?.starts_at ?? ''));
     if (Number.isNaN(start.getTime())) throw new BadRequestException('Choisissez un créneau.');
     const phone = mode === 'phone' ? cleanPhone(body?.phone) : cleanPhone(body?.phone, { required: false });
-    const reason = cleanText(body?.reason, 300, 'Le motif');
+    let reason = cleanText(body?.reason, 300, 'Le motif');
+
+    // Étape 3 d'une adoption de contraceptif (21/10/2026) : rencontre obligatoire avec un médecin
+    const requestId = body?.contraception_request_id ? Number(body.contraception_request_id) : null;
+    let creq: any = null;
+    if (requestId) {
+      [[creq]] = await this.pool.query(
+        `SELECT r.id, r.status, r.requires_doctor, m.name AS method_name
+         FROM contraception_requests r JOIN contraceptive_methods m ON m.id = r.method_id WHERE r.id = ? AND r.user_id = ? LIMIT 1`,
+        [requestId, userId],
+      );
+      if (!creq) throw new NotFoundException('Demande de contraception introuvable.');
+      if (creq.status !== 'accepted' || Number(creq.requires_doctor) !== 1) {
+        throw new BadRequestException('Cette demande n’attend pas de rendez-vous avec un médecin.');
+      }
+      if (!reason) reason = `Adoption d'un contraceptif : ${creq.method_name}`;
+    }
 
     const [[{ n: upcoming }]]: any = await this.pool.query(
       `SELECT COUNT(*) AS n FROM tc_appointments WHERE patient_user_id = ? AND status = 'booked' AND ends_at > UTC_TIMESTAMP()`,
@@ -281,6 +298,12 @@ export class TeleconsultationService {
           room,
           reason,
         };
+        if (creq) {
+          await this.pool.query(`UPDATE contraception_requests SET appointment_id = ?, status = 'meeting' WHERE id = ? AND status = 'accepted'`, [
+            Number(res.insertId),
+            creq.id,
+          ]);
+        }
         await this.notifyBooked(Number(res.insertId), appt, Number(doctor.id));
         return {
           id: Number(res.insertId),
@@ -370,6 +393,7 @@ export class TeleconsultationService {
        WHERE id = ? AND status = 'booked'`,
       [reason, id],
     );
+    await this.releaseContraception(id);
     mail(a.doctor_email, `Rendez-vous annulé : ${a.reference}`, cancellationEmail(this.toMail(a), true, reason)).catch((e) =>
       console.error('[téléconsultation] e-mail d’annulation :', e?.message),
     );
@@ -405,12 +429,14 @@ export class TeleconsultationService {
     const [rows]: any = await this.pool.query(
       `SELECT f.id, f.token, f.short_code, f.status, ${iso('f.expires_at')}, ${iso('f.created_at')}, ${iso('f.completed_at')},
               r.request_type, r.patient_summary, r.urgency, a.mode, a.reference, ${iso('a.starts_at', 'consulted_at')},
-              d.name AS doctor_name, d.title AS doctor_title,
+              d.name AS doctor_name, d.title AS doctor_title, m.name AS method_name, f.outcome,
               c.name AS center_name, c.organization, c.address, c.city, c.phone AS center_phone, c.opening_hours, c.lat, c.lng
        FROM tc_referrals f
-       JOIN tc_reports r ON r.id = f.report_id
-       JOIN tc_appointments a ON a.id = f.appointment_id
-       JOIN tc_doctors d ON d.id = a.doctor_id
+       LEFT JOIN tc_reports r ON r.id = f.report_id
+       LEFT JOIN tc_appointments a ON a.id = f.appointment_id
+       LEFT JOIN tc_doctors d ON d.id = a.doctor_id
+       LEFT JOIN contraception_requests cr ON cr.id = f.contraception_request_id
+       LEFT JOIN contraceptive_methods m ON m.id = cr.method_id
        JOIN tc_centers c ON c.id = f.center_id
        WHERE f.patient_user_id = ? ORDER BY f.created_at DESC`,
       [userId],
@@ -434,10 +460,14 @@ export class TeleconsultationService {
       expires_at: f.expires_at,
       created_at: f.created_at,
       completed_at: f.completed_at ?? null,
-      request_label: REQUEST_TYPES[f.request_type] ?? f.request_type,
-      urgency_label: URGENCY_LABEL[f.urgency] ?? f.urgency,
+      request_label: f.method_name ? `Contraception : ${f.method_name}` : REQUEST_TYPES[f.request_type] ?? f.request_type,
+      urgency_label: f.urgency ? URGENCY_LABEL[f.urgency] ?? f.urgency : null,
       patient_summary: f.patient_summary ?? null,
-      consultation: { reference: f.reference, mode: f.mode, mode_label: MODE_LABEL[f.mode as Mode], date: f.consulted_at, doctor: f.doctor_name, doctor_title: f.doctor_title },
+      outcome: f.outcome ?? null,
+      // Sans téléconsultation (contraceptif sans médecin) : pas de consultation
+      consultation: f.reference
+        ? { reference: f.reference, mode: f.mode, mode_label: MODE_LABEL[f.mode as Mode], date: f.consulted_at, doctor: f.doctor_name, doctor_title: f.doctor_title }
+        : null,
       center: {
         name: f.center_name,
         organization: ORGANIZATION_LABEL[f.organization] ?? f.organization,
@@ -610,6 +640,9 @@ export class TeleconsultationService {
       },
       report: report ?? null,
       referral: referral ? { ...referral, short_code: formatShortCode(referral.short_code) } : null,
+      // Adoption d'un contraceptif : le médecin conclut l'adoption dans le compte rendu (étape 4)
+      contraception: await this.contraceptionOfAppointment(id),
+      conclusions: CONCLUSION_LABEL,
       history: history.map((h: any) => ({ ...h, request_label: REQUEST_TYPES[h.request_type] ?? h.request_type })),
       centers: centers.map((c: any) => ({ id: Number(c.id), name: c.name, city: c.city, organization: ORGANIZATION_LABEL[c.organization] ?? c.organization })),
       options: { request_types: REQUEST_TYPES, urgency: URGENCY_LABEL },
@@ -623,11 +656,30 @@ export class TeleconsultationService {
     return { success: true, room_url: a.mode === 'video' && a.room ? jitsiUrl(a.room) : null, phone: a.patient_phone };
   }
 
+  /** Rendez-vous annulé ou manqué : la demande de contraception attend un nouveau rendez-vous */
+  async releaseContraception(appointmentId: number) {
+    await this.pool.query(
+      `UPDATE contraception_requests SET status = 'accepted', appointment_id = NULL WHERE appointment_id = ? AND status = 'meeting'`,
+      [appointmentId],
+    );
+  }
+
+  /** Demande de contraception liée à un rendez-vous (avec le nom de la méthode) */
+  private async contraceptionOfAppointment(appointmentId: number) {
+    const [[r]]: any = await this.pool.query(
+      `SELECT r.id, r.status, r.youth_note, m.name AS method_name, m.slug AS method_slug
+       FROM contraception_requests r JOIN contraceptive_methods m ON m.id = r.method_id WHERE r.appointment_id = ? LIMIT 1`,
+      [appointmentId],
+    );
+    return r ?? null;
+  }
+
   async doctorNoShow(userId: number, id: number) {
     const { a } = await this.ownAppointment(userId, id);
     if (a.status !== 'booked') throw new BadRequestException('Ce rendez-vous n’est plus actif.');
     if (new Date(a.starts_at).getTime() > Date.now()) throw new BadRequestException('Le rendez-vous n’a pas encore commencé.');
     await this.pool.query(`UPDATE tc_appointments SET status = 'no_show', slot_lock = NULL WHERE id = ? AND status = 'booked'`, [id]);
+    await this.releaseContraception(id);
     return { success: true, message: 'Rendez-vous noté « absent ».' };
   }
 
@@ -639,6 +691,7 @@ export class TeleconsultationService {
       `UPDATE tc_appointments SET status = 'cancelled', slot_lock = NULL, cancelled_at = UTC_TIMESTAMP(), cancelled_by = 'doctor', cancel_reason = ? WHERE id = ? AND status = 'booked'`,
       [reason, id],
     );
+    await this.releaseContraception(id);
     mail(a.patient_email, `Rendez-vous annulé : ${a.reference}`, cancellationEmail(this.toMail(a), false, reason)).catch((e) =>
       console.error('[téléconsultation] e-mail d’annulation :', e?.message),
     );
@@ -671,12 +724,18 @@ export class TeleconsultationService {
       patient_summary: cleanText(body?.patient_summary, 1500, 'Le message au jeune', finalize),
     };
     if (finalize && !requestType) throw new BadRequestException('Choisissez la demande du jeune.');
+    const creq = await this.contraceptionOfAppointment(id);
+    const conclusion = (CONCLUSIONS as readonly string[]).includes(body?.adoption_conclusion) ? String(body.adoption_conclusion) : null;
+    if (finalize && creq && !conclusion) throw new BadRequestException('Indiquez la conclusion de l’adoption du contraceptif.');
     const centerId = Number(body?.center_id);
     if (body?.center_id && Number.isInteger(centerId) && centerId > 0) {
       const [[c]]: any = await this.pool.query(`SELECT id FROM tc_centers WHERE id = ? AND is_active = 1`, [centerId]);
       if (!c) throw new BadRequestException('Centre inconnu ou inactif.');
       f.center_id = centerId;
       if (finalize && !f.center_instructions) throw new BadRequestException('Indiquez au centre ce qu’il doit faire pour ce jeune.');
+    }
+    if (finalize && creq && conclusion === 'adopt' && !f.center_id) {
+      throw new BadRequestException('Adoption conclue : choisissez le centre où le jeune ira pour la méthode.');
     }
 
     const cols = Object.keys(f);
@@ -701,7 +760,14 @@ export class TeleconsultationService {
     );
 
     let referral: any = null;
-    if (f.center_id) referral = await this.issueReferral(reportId, a, f.center_id, f.patient_summary, d.name);
+    if (f.center_id) referral = await this.issueReferral(reportId, a, f.center_id, f.patient_summary, d.name, creq && conclusion === 'adopt' ? Number(creq.id) : null);
+    if (creq) {
+      const adopted = conclusion === 'adopt';
+      await this.pool.query(
+        `UPDATE contraception_requests SET concluded_at = UTC_TIMESTAMP(), conclusion = ?, conclusion_note = ?, status = ?, referral_id = ? WHERE id = ?`,
+        [conclusion, f.patient_summary, adopted ? 'center' : 'not_adopted', adopted && referral ? referral.id : null, creq.id],
+      );
+    }
     return {
       success: true,
       message: referral
@@ -711,7 +777,40 @@ export class TeleconsultationService {
     };
   }
 
-  private async issueReferral(reportId: number, a: any, centerId: number, summary: string | null, doctorName: string) {
+  private async issueReferral(reportId: number, a: any, centerId: number, summary: string | null, doctorName: string, contraceptionRequestId: number | null = null) {
+    return this.createReferral({
+      reportId,
+      appointmentId: Number(a.id),
+      patientUserId: Number(a.patient_user_id),
+      patientName: a.patient_name,
+      patientEmail: a.patient_email,
+      patientPhone: a.patient_phone,
+      mode: a.mode as Mode,
+      centerId,
+      summary,
+      doctorName,
+      contraceptionRequestId,
+    });
+  }
+
+  /**
+   * Orientation vers un centre : code QR et code court, e-mail au jeune (et SMS si la consultation était par appel).
+   * Sans téléconsultation (contraceptif sans médecin, 21/10/2026) : pas de rendez-vous ni de compte rendu.
+   */
+  async createReferral(o: {
+    reportId: number | null;
+    appointmentId: number | null;
+    patientUserId: number;
+    patientName: string;
+    patientEmail: string | null;
+    patientPhone: string | null;
+    mode: Mode | null;
+    centerId: number;
+    summary: string | null;
+    doctorName: string;
+    contraceptionRequestId?: number | null;
+    intro?: string | null;
+  }) {
     const expires = new Date(Date.now() + REFERRAL_TTL_DAYS * 86400000);
     let token = '';
     let code = '';
@@ -721,46 +820,49 @@ export class TeleconsultationService {
       code = newShortCode();
       try {
         const [res]: any = await this.pool.query(
-          `INSERT INTO tc_referrals (report_id, appointment_id, patient_user_id, center_id, token, short_code, status, expires_at)
-           VALUES (?, ?, ?, ?, ?, ?, 'issued', ?)`,
-          [reportId, a.id, a.patient_user_id, centerId, token, code, utcSql(expires)],
+          `INSERT INTO tc_referrals (report_id, appointment_id, patient_user_id, center_id, token, short_code, status, expires_at, contraception_request_id)
+           VALUES (?, ?, ?, ?, ?, ?, 'issued', ?, ?)`,
+          [o.reportId, o.appointmentId, o.patientUserId, o.centerId, token, code, utcSql(expires), o.contraceptionRequestId ?? null],
         );
         refId = Number(res.insertId);
       } catch (e: any) {
         if (e?.code !== 'ER_DUP_ENTRY') throw e;
-        const [[already]]: any = await this.pool.query(`SELECT id FROM tc_referrals WHERE report_id = ?`, [reportId]);
-        if (already) throw new ConflictException('Orientation déjà créée pour ce compte rendu.');
+        if (o.reportId) {
+          const [[already]]: any = await this.pool.query(`SELECT id FROM tc_referrals WHERE report_id = ?`, [o.reportId]);
+          if (already) throw new ConflictException('Orientation déjà créée pour ce compte rendu.');
+        }
       }
     }
     if (!refId) throw new InternalServerErrorException('Création du code d’orientation impossible. Réessayez.');
 
-    const [[c]]: any = await this.pool.query(`SELECT * FROM tc_centers WHERE id = ?`, [centerId]);
+    const [[c]]: any = await this.pool.query(`SELECT * FROM tc_centers WHERE id = ?`, [o.centerId]);
     const payload = {
-      patient_name: a.patient_name,
-      mode: a.mode as Mode,
+      patient_name: o.patientName,
+      mode: (o.mode ?? 'video') as Mode,
       token,
       short_code: code,
       expires_at: expires,
       center: { name: c.name, organization_label: ORGANIZATION_LABEL[c.organization] ?? c.organization, address: c.address, city: c.city, phone: c.phone, opening_hours: c.opening_hours },
-      patient_summary: summary,
-      doctor_name: doctorName,
+      patient_summary: o.summary,
+      doctor_name: o.doctorName,
+      intro: o.intro ?? null,
     };
     // Visio : e-mail avec le code QR. Appel : SMS avec le code (+ le même e-mail, qui contient le lien du code QR)
     try {
-      await mail(a.patient_email, 'Votre orientation et votre code QR', referralEmail(payload));
+      await mail(o.patientEmail, 'Votre orientation et votre code QR', referralEmail(payload));
       await this.pool.query(`UPDATE tc_referrals SET sent_email_at = UTC_TIMESTAMP() WHERE id = ?`, [refId]);
     } catch (e: any) {
       console.error('[téléconsultation] e-mail d’orientation :', e?.message);
     }
-    if (a.mode === 'phone' && a.patient_phone) {
+    if (o.mode === 'phone' && o.patientPhone) {
       try {
-        await sendSms(a.patient_phone, referralSms(payload));
+        await sendSms(o.patientPhone, referralSms(payload));
         await this.pool.query(`UPDATE tc_referrals SET sent_sms_at = UTC_TIMESTAMP() WHERE id = ?`, [refId]);
       } catch (e: any) {
         console.error('[téléconsultation] SMS d’orientation :', e?.message);
       }
     }
-    return { short_code: formatShortCode(code), token, center: c.name };
+    return { id: refId, short_code: formatShortCode(code), token, center: c.name };
   }
 
   async doctorSchedule(userId: number) {
@@ -887,19 +989,25 @@ export class TeleconsultationService {
     if (q?.status === 'expired') where.push("f.status IN ('issued','viewed') AND f.expires_at <= UTC_TIMESTAMP()");
     else if (['issued', 'viewed'].includes(q?.status)) { where.push('f.status = ? AND f.expires_at > UTC_TIMESTAMP()'); params.push(q.status); }
     else if (q?.status === 'completed') where.push("f.status = 'completed'");
-    if (Object.keys(URGENCY_LABEL).includes(q?.urgency)) { where.push('r.urgency = ?'); params.push(q.urgency); }
-    if (Object.keys(REQUEST_TYPES).includes(q?.request_type)) { where.push('r.request_type = ?'); params.push(q.request_type); }
+    if (Object.keys(URGENCY_LABEL).includes(q?.urgency)) { where.push("COALESCE(r.urgency, 'routine') = ?"); params.push(q.urgency); }
+    if (Object.keys(REQUEST_TYPES).includes(q?.request_type)) { where.push("COALESCE(r.request_type, 'contraception') = ?"); params.push(q.request_type); }
     const s = typeof q?.search === 'string' ? q.search.trim() : '';
     if (s) {
-      where.push('(f.short_code = ? OR a.patient_name COLLATE utf8mb4_general_ci LIKE ? OR a.reference LIKE ?)');
+      where.push('(f.short_code = ? OR COALESCE(a.patient_name, u.name) COLLATE utf8mb4_general_ci LIKE ? OR a.reference LIKE ?)');
       params.push(normalizeShortCode(s), `%${s}%`, `%${s}%`);
     }
     const [rows]: any = await this.pool.query(
       `SELECT f.id, f.token, f.short_code, f.status, ${iso('f.expires_at')}, ${iso('f.created_at')}, ${iso('f.viewed_at')}, ${iso('f.completed_at')},
-              r.request_type, r.urgency, a.patient_name, a.mode, d.name AS doctor_name
-       FROM tc_referrals f JOIN tc_reports r ON r.id = f.report_id JOIN tc_appointments a ON a.id = f.appointment_id
-       JOIN tc_doctors d ON d.id = a.doctor_id
-       WHERE ${where.join(' AND ')} ORDER BY FIELD(r.urgency, 'urgent', 'soon', 'routine'), f.created_at DESC LIMIT 200`,
+              COALESCE(r.request_type, 'contraception') AS request_type, COALESCE(r.urgency, 'routine') AS urgency,
+              COALESCE(a.patient_name, u.name) AS patient_name, a.mode, d.name AS doctor_name, m.name AS method_name, f.outcome
+       FROM tc_referrals f
+       LEFT JOIN tc_reports r ON r.id = f.report_id
+       LEFT JOIN tc_appointments a ON a.id = f.appointment_id
+       LEFT JOIN tc_doctors d ON d.id = a.doctor_id
+       LEFT JOIN users u ON u.id = f.patient_user_id
+       LEFT JOIN contraception_requests cr ON cr.id = f.contraception_request_id
+       LEFT JOIN contraceptive_methods m ON m.id = cr.method_id
+       WHERE ${where.join(' AND ')} ORDER BY FIELD(COALESCE(r.urgency, 'routine'), 'urgent', 'soon', 'routine'), f.created_at DESC LIMIT 200`,
       params,
     );
     return rows.map((f: any) => {
@@ -914,12 +1022,14 @@ export class TeleconsultationService {
         expires_at: f.expires_at,
         viewed_at: f.viewed_at ?? null,
         completed_at: f.completed_at ?? null,
-        request_label: REQUEST_TYPES[f.request_type] ?? f.request_type,
+        request_label: f.method_name ? `Contraception : ${f.method_name}` : REQUEST_TYPES[f.request_type] ?? f.request_type,
         urgency: f.urgency,
         urgency_label: URGENCY_LABEL[f.urgency] ?? f.urgency,
         patient_name: f.patient_name,
-        doctor_name: f.doctor_name,
-        mode_label: MODE_LABEL[f.mode as Mode],
+        doctor_name: f.doctor_name ?? 'E.doto family',
+        mode_label: f.mode ? MODE_LABEL[f.mode as Mode] : 'Sans téléconsultation',
+        outcome: f.outcome ?? null,
+        is_contraception: !!f.method_name,
       };
     });
   }
@@ -942,15 +1052,29 @@ export class TeleconsultationService {
     if (!f.viewed_at) {
       await this.pool.query(`UPDATE tc_referrals SET viewed_at = UTC_TIMESTAMP(), viewed_by = ?, status = IF(status = 'issued', 'viewed', status) WHERE id = ?`, [userId, f.id]);
     }
-    const [[r]]: any = await this.pool.query(`SELECT * FROM tc_reports WHERE id = ?`, [f.report_id]);
-    const [[a]]: any = await this.pool.query(
-      `SELECT a.reference, a.mode, a.patient_name, a.patient_phone, a.patient_email, ${iso('a.starts_at')}, a.patient_user_id, d.name AS doctor_name, d.title AS doctor_title
-       FROM tc_appointments a JOIN tc_doctors d ON d.id = a.doctor_id WHERE a.id = ?`,
-      [f.appointment_id],
+    const [[r]]: any = f.report_id ? await this.pool.query(`SELECT * FROM tc_reports WHERE id = ?`, [f.report_id]) : [[null]];
+    const [[a]]: any = f.appointment_id
+      ? await this.pool.query(
+          `SELECT a.reference, a.mode, a.patient_name, a.patient_phone, a.patient_email, ${iso('a.starts_at')}, a.patient_user_id, d.name AS doctor_name, d.title AS doctor_title
+           FROM tc_appointments a JOIN tc_doctors d ON d.id = a.doctor_id WHERE a.id = ?`,
+          [f.appointment_id],
+        )
+      : [[null]];
+    const [[u]]: any = await this.pool.query(
+      `SELECT u.name, u.email, p.contact AS phone, u.sex, DATE_FORMAT(u.birth_date, '%Y-%m-%d') AS birth_date
+       FROM users u LEFT JOIN profiles p ON p.customer_id = u.id WHERE u.id = ? LIMIT 1`,
+      [f.patient_user_id],
     );
-    const [[u]]: any = await this.pool.query(`SELECT sex, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date FROM users WHERE id = ?`, [a.patient_user_id]);
+    // Adoption d'un contraceptif liée à cette orientation (21/10/2026)
+    const [[cr]]: any = f.contraception_request_id
+      ? await this.pool.query(
+          `SELECT r.youth_note, r.conclusion, m.name AS method_name, m.requires_doctor
+           FROM contraception_requests r JOIN contraceptive_methods m ON m.id = r.method_id WHERE r.id = ?`,
+          [f.contraception_request_id],
+        )
+      : [[null]];
     const [[fresh]]: any = await this.pool.query(
-      `SELECT status, ${iso('viewed_at')}, ${iso('completed_at')}, completed_note, ${iso('expires_at')}, ${iso('created_at')} FROM tc_referrals WHERE id = ?`,
+      `SELECT status, outcome, ${iso('viewed_at')}, ${iso('completed_at')}, completed_note, ${iso('expires_at')}, ${iso('created_at')} FROM tc_referrals WHERE id = ?`,
       [f.id],
     );
     return {
@@ -964,10 +1088,20 @@ export class TeleconsultationService {
         viewed_at: fresh.viewed_at,
         completed_at: fresh.completed_at,
         completed_note: fresh.completed_note,
+        outcome: fresh.outcome ?? null,
       },
-      patient: { name: a.patient_name, phone: a.patient_phone, email: a.patient_email, sex: u?.sex ?? null, age: u?.birth_date ? ageOn(u.birth_date) : null },
-      consultation: { reference: a.reference, mode_label: MODE_LABEL[a.mode as Mode], date: a.starts_at, doctor: a.doctor_name, doctor_title: a.doctor_title },
-      report: {
+      patient: {
+        name: a?.patient_name ?? u?.name,
+        phone: a?.patient_phone ?? u?.phone ?? null,
+        email: a?.patient_email ?? u?.email ?? null,
+        sex: u?.sex ?? null,
+        age: u?.birth_date ? ageOn(u.birth_date) : null,
+      },
+      consultation: a ? { reference: a.reference, mode_label: MODE_LABEL[a.mode as Mode], date: a.starts_at, doctor: a.doctor_name, doctor_title: a.doctor_title } : null,
+      contraception: cr
+        ? { method: cr.method_name, requires_doctor: Number(cr.requires_doctor) === 1, youth_note: cr.youth_note, conclusion_label: cr.conclusion ? CONCLUSION_LABEL[cr.conclusion] : null }
+        : null,
+      report: r ? {
         request_label: REQUEST_TYPES[r.request_type] ?? r.request_type,
         request_detail: r.request_detail,
         chief_complaint: r.chief_complaint,
@@ -981,7 +1115,7 @@ export class TeleconsultationService {
         urgency: r.urgency,
         urgency_label: URGENCY_LABEL[r.urgency] ?? r.urgency,
         center_instructions: r.center_instructions,
-      },
+      } : null,
       center: { name: c.name },
     };
   }
@@ -989,12 +1123,22 @@ export class TeleconsultationService {
   async centerComplete(userId: number, id: number, body: any) {
     const c = await this.centerFor(userId);
     const note = cleanText(body?.note, 600, 'La note de prise en charge');
+    const [[f]]: any = await this.pool.query(`SELECT contraception_request_id FROM tc_referrals WHERE id = ? AND center_id = ?`, [id, c.id]);
+    // Adoption d'un contraceptif : le centre indique si la méthode a été adoptée (étape 6)
+    const outcome = ['done', 'not_done'].includes(body?.outcome) ? String(body.outcome) : null;
+    if (f?.contraception_request_id && !outcome) throw new BadRequestException('Indiquez si la méthode a été adoptée ou non.');
     const [res]: any = await this.pool.query(
-      `UPDATE tc_referrals SET status = 'completed', completed_at = UTC_TIMESTAMP(), completed_by = ?, completed_note = ?
+      `UPDATE tc_referrals SET status = 'completed', completed_at = UTC_TIMESTAMP(), completed_by = ?, completed_note = ?, outcome = ?
        WHERE id = ? AND center_id = ? AND status IN ('issued','viewed')`,
-      [userId, note, id, c.id],
+      [userId, note, f?.contraception_request_id ? outcome : null, id, c.id],
     );
     if (!res?.affectedRows) throw new BadRequestException('Orientation introuvable ou déjà terminée.');
+    if (f?.contraception_request_id) {
+      await this.pool.query(
+        `UPDATE contraception_requests SET outcome = ?, outcome_at = UTC_TIMESTAMP(), outcome_note = ?, status = ? WHERE id = ? AND status = 'center'`,
+        [outcome, note, outcome === 'done' ? 'followup' : 'not_done', f.contraception_request_id],
+      );
+    }
     return { success: true, message: 'Prise en charge enregistrée.' };
   }
 

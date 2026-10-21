@@ -55,6 +55,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { CommissionsModule } from './commissions/commissions.module';
 import { SponsorsModule } from './sponsors/sponsors.module';
 import { TeleconsultationModule } from './teleconsultation/teleconsultation.module';
+import { ContraceptionModule } from './contraception/contraception.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
 //import { DatabaseService } from './database/database.services'; 
@@ -118,6 +119,7 @@ import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
     CommissionsModule,
     SponsorsModule,
     TeleconsultationModule,
+    ContraceptionModule,
     AdminNotificationsModule,
     SiteAppearanceModule
     //DatabaseService

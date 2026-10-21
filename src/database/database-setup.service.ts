@@ -108,6 +108,7 @@ export class DatabaseSetupService implements OnModuleInit {
       '012_profile_targeting.sql',
       '013_teleconsultation.sql',
       '014_tc_house_doctor.sql',
+      '015_contraception.sql',
       'ai_chat_logs.sql'
     ];
 

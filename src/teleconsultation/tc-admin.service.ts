@@ -300,6 +300,8 @@ export class TcAdminService {
       [reason, id],
     );
     const m = { reference: a.reference, mode: a.mode, starts_at: a.starts_at, patient_name: a.patient_name, doctor_name: a.doctor_name, room: a.room };
+    // Demande de contraception liée : elle attend un nouveau rendez-vous
+    await this.pool.query(`UPDATE contraception_requests SET status = 'accepted', appointment_id = NULL WHERE appointment_id = ? AND status = 'meeting'`, [id]);
     mail(a.patient_email, `Rendez-vous annulé : ${a.reference}`, cancellationEmail(m, false, reason)).catch(() => undefined);
     mail(a.doctor_email, `Rendez-vous annulé : ${a.reference}`, cancellationEmail(m, true, reason)).catch(() => undefined);
     return { success: true, message: 'Rendez-vous annulé : le jeune et le médecin sont prévenus par e-mail.' };
@@ -314,13 +316,13 @@ export class TcAdminService {
     else if (q?.status === 'completed') where.push("f.status = 'completed'");
     const center = Number(q?.center_id);
     if (q?.center_id && Number.isInteger(center) && center > 0) { where.push('f.center_id = ?'); params.push(center); }
-    if (Object.keys(REQUEST_TYPES).includes(q?.request_type)) { where.push('r.request_type = ?'); params.push(q.request_type); }
-    if (Object.keys(URGENCY_LABEL).includes(q?.urgency)) { where.push('r.urgency = ?'); params.push(q.urgency); }
+    if (Object.keys(REQUEST_TYPES).includes(q?.request_type)) { where.push("COALESCE(r.request_type, 'contraception') = ?"); params.push(q.request_type); }
+    if (Object.keys(URGENCY_LABEL).includes(q?.urgency)) { where.push("COALESCE(r.urgency, 'routine') = ?"); params.push(q.urgency); }
     if (isDay(q?.date_from)) { where.push('f.created_at >= ?'); params.push(dayStartUtc(q.date_from)); }
     if (isDay(q?.date_to)) { where.push('f.created_at < ?'); params.push(dayEndUtc(q.date_to)); }
     const s = typeof q?.search === 'string' ? q.search.trim() : '';
     if (s) {
-      where.push('(f.short_code = ? OR a.reference LIKE ? OR a.patient_name COLLATE utf8mb4_general_ci LIKE ?)');
+      where.push('(f.short_code = ? OR a.reference LIKE ? OR COALESCE(a.patient_name, u.name) COLLATE utf8mb4_general_ci LIKE ?)');
       params.push(s.toUpperCase().replace(/[^A-Z0-9]/g, ''), `%${s}%`, `%${s}%`);
     }
     return { where: where.join(' AND '), params };
@@ -330,13 +332,19 @@ export class TcAdminService {
     const { where, params } = this.referralFilters(q);
     const page = Math.max(1, Number(q?.page) || 1);
     const limit = 20;
-    const from = `FROM tc_referrals f JOIN tc_reports r ON r.id = f.report_id JOIN tc_appointments a ON a.id = f.appointment_id
-                  JOIN tc_doctors d ON d.id = a.doctor_id JOIN tc_centers c ON c.id = f.center_id`;
+    // Orientations sans rendez-vous ni compte rendu : contraceptif sans médecin (21/10/2026)
+    const from = `FROM tc_referrals f LEFT JOIN tc_reports r ON r.id = f.report_id LEFT JOIN tc_appointments a ON a.id = f.appointment_id
+                  LEFT JOIN tc_doctors d ON d.id = a.doctor_id JOIN tc_centers c ON c.id = f.center_id
+                  LEFT JOIN users u ON u.id = f.patient_user_id
+                  LEFT JOIN contraception_requests cr ON cr.id = f.contraception_request_id
+                  LEFT JOIN contraceptive_methods m ON m.id = cr.method_id`;
     const [[rows], [[cnt]]]: any = await Promise.all([
       this.pool.query(
         `SELECT f.id, f.short_code, f.status, (f.expires_at <= UTC_TIMESTAMP()) AS is_expired, ${iso('f.created_at')}, ${iso('f.expires_at')},
                 ${iso('f.viewed_at')}, ${iso('f.completed_at')}, f.sent_email_at, f.sent_sms_at,
-                r.request_type, r.urgency, a.reference, a.patient_name, a.mode, d.name AS doctor_name, c.name AS center_name, c.city AS center_city
+                COALESCE(r.request_type, 'contraception') AS request_type, COALESCE(r.urgency, 'routine') AS urgency, a.reference,
+                COALESCE(a.patient_name, u.name) AS patient_name, a.mode, COALESCE(d.name, 'E.doto family') AS doctor_name,
+                c.name AS center_name, c.city AS center_city, m.name AS method_name, f.outcome
          ${from} WHERE ${where} ORDER BY f.created_at DESC LIMIT ? OFFSET ?`,
         [...params, limit, (page - 1) * limit],
       ),
@@ -351,9 +359,10 @@ export class TcAdminService {
           short_code: formatShortCode(f.short_code),
           status,
           status_label: REFERRAL_STATUS_LABEL[status] ?? status,
-          request_label: REQUEST_TYPES[f.request_type] ?? f.request_type,
+          request_label: f.method_name ? `Contraception : ${f.method_name}` : REQUEST_TYPES[f.request_type] ?? f.request_type,
           urgency_label: URGENCY_LABEL[f.urgency] ?? f.urgency,
-          mode_label: MODE_LABEL[f.mode as Mode] ?? f.mode,
+          mode_label: f.mode ? MODE_LABEL[f.mode as Mode] ?? f.mode : 'Sans téléconsultation',
+          reference: f.reference ?? 'Sans rendez-vous',
           email_sent: Boolean(f.sent_email_at),
           sms_sent: Boolean(f.sent_sms_at),
         };
@@ -375,7 +384,10 @@ export class TcAdminService {
          FROM tc_referrals`,
       ),
       this.pool.query(`SELECT c.id, c.name, COUNT(f.id) AS n FROM tc_centers c LEFT JOIN tc_referrals f ON f.center_id = c.id GROUP BY c.id, c.name ORDER BY c.name`),
-      this.pool.query(`SELECT r.request_type AS v, COUNT(*) AS n FROM tc_referrals f JOIN tc_reports r ON r.id = f.report_id GROUP BY r.request_type`),
+      this.pool.query(
+        `SELECT COALESCE(r.request_type, 'contraception') AS v, COUNT(*) AS n FROM tc_referrals f LEFT JOIN tc_reports r ON r.id = f.report_id
+         GROUP BY COALESCE(r.request_type, 'contraception')`,
+      ),
     ]);
     return {
       total: num(s?.total),

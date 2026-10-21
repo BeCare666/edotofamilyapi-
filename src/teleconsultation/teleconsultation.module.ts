@@ -11,5 +11,7 @@ import { TcRemindersCron } from './tc-reminders.cron';
   imports: [DatabaseModule],
   controllers: [TcPublicController, TcPatientController, TcDoctorController, TcCenterController, TcAdminController],
   providers: [TeleconsultationService, TcAdminService, TcRemindersCron],
+  // Utilisé par l'adoption des contraceptifs (orientation vers un centre)
+  exports: [TeleconsultationService],
 })
 export class TeleconsultationModule {}

@@ -44,7 +44,7 @@ export async function sendSms(phone: string | null | undefined, content: string)
 }
 
 // Cadre commun des e-mails (même présentation que les e-mails sponsor)
-function frame(kicker: string, body: string) {
+export function frame(kicker: string, body: string) {
   return `
   <div style="font-family: Poppins, Inter, Arial, sans-serif; max-width: 620px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E9E5DF;">
     <div style="background: #1A1814; padding: 28px; text-align: center;">
@@ -57,7 +57,7 @@ function frame(kicker: string, body: string) {
     </div>
   </div>`;
 }
-const button = (href: string, label: string) =>
+export const button = (href: string, label: string) =>
   `<p style="text-align:center;margin:24px 0;"><a href="${href}" style="display:inline-block;padding:14px 28px;background:#C2185B;color:#ffffff;border-radius:12px;text-decoration:none;font-weight:600;">${esc(label)}</a></p>`;
 const row = (k: string, v: string) =>
   `<tr><td style="padding:8px 0;color:#8A837A;font-size:13px;width:38%;vertical-align:top;">${esc(k)}</td><td style="padding:8px 0;color:#1A1814;font-size:14px;">${v}</td></tr>`;
@@ -147,6 +147,8 @@ export type ReferralMail = {
   center: { name: string; organization_label: string; address?: string | null; city?: string | null; phone?: string | null; opening_hours?: string | null };
   patient_summary?: string | null;
   doctor_name: string;
+  // Phrase d'introduction (orientation sans téléconsultation : contraceptif sans médecin)
+  intro?: string | null;
 };
 
 export function referralEmail(r: ReferralMail) {
@@ -156,7 +158,7 @@ export function referralEmail(r: ReferralMail) {
   return frame(
     'VOTRE ORIENTATION',
     `<p>Bonjour <strong>${esc(r.patient_name)}</strong>,</p>
-     <p>Suite à votre téléconsultation avec ${esc(r.doctor_name)}, vous êtes orienté(e) vers le centre ci-dessous.
+     <p>${r.intro ? esc(r.intro) : `Suite à votre téléconsultation avec ${esc(r.doctor_name)}, vous êtes orienté(e) vers le centre ci-dessous.`}
         Présentez simplement ce code QR à l'accueil : le professionnel du centre verra directement votre dossier, sans avoir à vous reposer de questions.</p>
      <p style="text-align:center;margin:22px 0 8px;"><img src="${qrImg}" width="220" height="220" alt="Code QR de votre orientation" style="border:1px solid #E9E5DF;border-radius:12px;padding:10px;background:#fff;" /></p>
      <p style="text-align:center;margin:0 0 4px;color:#8A837A;font-size:12px;letter-spacing:2px;">CODE DE SECOURS</p>
