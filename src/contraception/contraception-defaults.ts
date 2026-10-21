@@ -186,8 +186,8 @@ export const CONTRACEPTION_DEFAULTS: MethodDefaults[] = [
     efficacy: '93 % en utilisation courante (7 grossesses pour 100 femmes par an), plus de 99 % sans oubli',
     duration: 'Un comprimé chaque jour',
     protects_sti: 0,
-    image_url: '/images/pil-.png',
-    image_credit: null,
+    image_url: '/images/contraception/pilule-combinee.jpg',
+    image_credit: 'Photo : Béria Lima de Rodríguez, CC BY-SA 3.0, Wikimedia Commons',
   },
   {
     slug: 'pilule-progestative',
@@ -459,8 +459,8 @@ export const CONTRACEPTION_DEFAULTS: MethodDefaults[] = [
     efficacy: '88 % en utilisation courante (12 grossesses pour 100 femmes par an), 95 % avec une utilisation correcte',
     duration: 'À chaque cycle',
     protects_sti: 0,
-    image_url: null,
-    image_credit: null,
+    image_url: '/images/contraception/methode-jours-fixes.jpg',
+    image_credit: 'Image : Dellex, CC BY-SA 3.0, Wikimedia Commons',
   },
   {
     slug: 'mama',
@@ -490,7 +490,7 @@ export const CONTRACEPTION_DEFAULTS: MethodDefaults[] = [
     efficacy: '98 % pendant les 6 premiers mois si les trois conditions sont réunies',
     duration: "Jusqu'à 6 mois après l'accouchement",
     protects_sti: 0,
-    image_url: null,
-    image_credit: null,
+    image_url: '/images/contraception/mama.jpg',
+    image_credit: 'Photo : Allison Shigo, CC BY-SA 4.0, Wikimedia Commons',
   },
 ];
