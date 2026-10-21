@@ -28,9 +28,23 @@ describe('Téléconsultation : règles', () => {
     const busy = [{ starts_at: new Date('2026-10-20T08:30:00Z'), ends_at: new Date('2026-10-20T09:00:00Z') }]; // 9h30 Bénin
     const slots = freeSlots({ rules, timeOff: [], busy, slotMinutes: 30, fromDay: '2026-10-20', toDay: '2026-10-20', now: new Date('2026-10-19T12:00:00Z') });
     expect(slots.map((s) => s.toISOString())).toEqual(['2026-10-20T08:00:00.000Z', '2026-10-20T09:00:00.000Z', '2026-10-20T09:30:00.000Z']);
-    // Maintenant = 8h50 Bénin : délai minimum de 30 min → premier créneau 9h30 (pris) puis 10h
-    const later = freeSlots({ rules, timeOff: [], busy, slotMinutes: 30, fromDay: '2026-10-20', toDay: '2026-10-20', now: new Date('2026-10-20T07:50:00Z') });
+    // Maintenant = 4h50 Bénin : délai minimum de 5 heures → rien avant 9h50, donc 10h et 10h30
+    const later = freeSlots({ rules, timeOff: [], busy, slotMinutes: 30, fromDay: '2026-10-20', toDay: '2026-10-20', now: new Date('2026-10-20T03:50:00Z') });
     expect(later.map((s) => s.toISOString())).toEqual(['2026-10-20T09:00:00.000Z', '2026-10-20T09:30:00.000Z']);
+    // Maintenant = 8h50 Bénin : 8h50 + 5 heures = 13h50, plus aucune heure ce jour-là
+    const tooLate = freeSlots({ rules, timeOff: [], busy, slotMinutes: 30, fromDay: '2026-10-20', toDay: '2026-10-20', now: new Date('2026-10-20T07:50:00Z') });
+    expect(tooLate).toEqual([]);
+  });
+
+  it('même jour : si maintenant + 5 heures dépasse 17 h, plus aucune heure, le jour suivant reste proposé', () => {
+    const rules = [1, 2].map((weekday) => ({ weekday, start_time: '08:00', end_time: '18:00', modes: 'both' })); // lundi, mardi
+    const at = (iso: string) => freeSlots({ rules, timeOff: [], busy: [], slotMinutes: 30, fromDay: '2026-10-19', toDay: '2026-10-20', now: new Date(iso) });
+    // Lundi 12 h Bénin : 12 h + 5 h = 17 h, pas au-delà : 17 h et 17 h 30 restent ce jour-là
+    expect(at('2026-10-19T11:00:00Z').filter((d) => d.toISOString() < '2026-10-20').map((d) => d.toISOString())).toEqual(['2026-10-19T16:00:00.000Z', '2026-10-19T16:30:00.000Z']);
+    // Lundi 12 h 10 Bénin : 17 h 10 dépasse 17 h : plus rien lundi, mardi dès 8 h
+    const late = at('2026-10-19T11:10:00Z');
+    expect(late.some((d) => d.toISOString() < '2026-10-20')).toBe(false);
+    expect(late[0].toISOString()).toBe('2026-10-20T07:00:00.000Z');
   });
 
   it('respecte les jours d’absence et le mode de la plage', () => {

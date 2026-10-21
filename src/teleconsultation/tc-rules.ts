@@ -6,7 +6,11 @@ import { createHash, randomBytes, randomInt } from 'crypto';
 
 export const BENIN_OFFSET_MIN = 60;
 export const BOOKING_WINDOW_DAYS = 30; // créneaux proposés sur les 30 prochains jours
-export const MIN_LEAD_MINUTES = 30; // pas de réservation à moins de 30 min (le rappel part 10 min avant)
+// Délai minimum (21/10/2026, demande de l'utilisateur) : une heure n'est réservable qu'à partir de maintenant + 5 heures
+export const MIN_LEAD_MINUTES = 5 * 60;
+// Même jour : si maintenant + 5 heures dépasse 17 h (heure du Bénin), plus aucune heure ce jour-là ;
+// les heures proposées commencent le jour suivant (21/10/2026, demande de l'utilisateur)
+export const SAME_DAY_CUTOFF = '17:00';
 export const REMINDER_MINUTES = 10; // rappel « à moins de 10 min » du début
 export const REFERRAL_TTL_DAYS = 90; // validité du code QR d'orientation
 export const INVITATION_TTL_DAYS = 7;
@@ -176,8 +180,11 @@ export function freeSlots(opts: {
   const { rules, timeOff, busy, slotMinutes, fromDay, toDay, mode } = opts;
   const now = opts.now ?? new Date();
   const earliest = now.getTime() + MIN_LEAD_MINUTES * 60000;
+  const today = beninDayOf(now);
+  const todayClosed = earliest > beninToUtc(today, toMinutes(SAME_DAY_CUTOFF)).getTime();
   const out: Date[] = [];
   for (let day = fromDay; day <= toDay; day = addDays(day, 1)) {
+    if (day === today && todayClosed) continue;
     if (timeOff.some((t) => day >= String(t.date_from).slice(0, 10) && day <= String(t.date_to).slice(0, 10))) continue;
     const wd = weekdayOf(day);
     for (const r of rules) {
