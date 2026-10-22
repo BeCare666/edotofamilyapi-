@@ -1,28 +1,19 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { StripeModule } from 'nestjs-stripe';
-import { AddressesModule } from './addresses/addresses.module';
 import { AnalyticsModule } from './analytics/analytics.module';
-import { AttributesModule } from './attributes/attributes.module';
 import { AuthModule } from './auth/auth.module';
-import { AuthorsModule } from './authors/authors.module';
 import { CategoriesModule } from './categories/categories.module';
 import { SousCategoriesModule } from './sous-categories/categories.module';
 import { SubCategoriesModule } from './sub-categories/categories.module';
 import { CommonModule } from './common/common.module';
-import { CouponsModule } from './coupons/coupons.module';
 import { FeedbackModule } from './feedbacks/feedbacks.module';
-import { ImportsModule } from './imports/imports.module';
-import { ManufacturersModule } from './manufacturers/manufacturers.module';
-import { NewslettersModule } from './newsletters/newsletters.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentIntentModule } from './payment-intent/payment-intent.module';
 import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { PaymentModule } from './payment/payment.module';
 import { ProductsModule } from './products/products.module';
 import { QuestionModule } from './questions/questions.module';
-import { RefundsModule } from './refunds/refunds.module';
-import { ReportsModule } from './reports/reports.module';
 import { ReviewModule } from './reviews/reviews.module';
 import { SettingsModule } from './settings/settings.module';
 import { ShippingsModule } from './shippings/shippings.module';
@@ -33,17 +24,10 @@ import { TypesModule } from './types/types.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/users.module';
 import { WebHookModule } from './webhook/webhook.module';
-import { WishlistsModule } from './wishlists/wishlists.module';
 import { WithdrawsModule } from './withdraws/withdraws.module';
 import { AiModule } from './ai/ai.module';
 import { FaqsModule } from './faqs/faqs.module';
 import { TermsAndConditionsModule } from './terms-and-conditions/terms-and-conditions.module';
-import { FlashSaleModule } from './flash-sale/flash-sale.module';
-import { RefundPoliciesModule } from './refund-policies/refund-policies.module';
-import { RefundReasonModule } from './refund-reasons/refund-reasons.module';
-import { NotifyLogsModule } from './notify-logs/notify-logs.module';
-import { BecomeSellerModule } from './become-seller/become-seller.module';
-import { OwnershipTransferModule } from './ownership-transfer/ownership-transfer.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseModule } from './database/database.module'
 import { CorridorsModule } from './corridors/corridors.module';
@@ -74,7 +58,6 @@ import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
     SousCategoriesModule,
     SubCategoriesModule,
     AnalyticsModule,
-    AttributesModule,
     ShippingsModule,
     TaxesModule,
     TagsModule,
@@ -83,18 +66,9 @@ import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
     WithdrawsModule,
     UploadsModule,
     SettingsModule,
-    CouponsModule,
-    AddressesModule,
-    ImportsModule,
     AuthModule,
-    RefundsModule,
-    AuthorsModule,
-    ManufacturersModule,
-    NewslettersModule,
     ReviewModule,
     QuestionModule,
-    WishlistsModule,
-    ReportsModule,
     FeedbackModule,
     PaymentMethodModule,
     PaymentIntentModule,
@@ -102,13 +76,7 @@ import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
     PaymentModule,
     AiModule,
     FaqsModule,
-    NotifyLogsModule,
     TermsAndConditionsModule,
-    FlashSaleModule,
-    RefundPoliciesModule,
-    RefundReasonModule,
-    BecomeSellerModule,
-    OwnershipTransferModule,
     DatabaseModule,
     ProductCorridorModule,
     CorridorsModule,

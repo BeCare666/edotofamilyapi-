@@ -12,11 +12,13 @@ import { TagsService } from './tags.service';
 import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { GetTagsDto, TagPaginator } from './dto/get-tags.dto';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('tags')
 export class TagsController {
   constructor(private readonly tagsService: TagsService) {}
 
+  @SuperAdminOnly()
   @Post()
   create(@Body() createTagDto: CreateTagDto) {
     return this.tagsService.create(createTagDto);
@@ -32,11 +34,13 @@ export class TagsController {
     return this.tagsService.findOne(param, language);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   update(@Param('id') id: string, @Body() updateTagDto: UpdateTagDto) {
     return this.tagsService.update(+id, updateTagDto);
   }
 
+  @SuperAdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.tagsService.remove(+id);

@@ -10,6 +10,7 @@ import {
 import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { AbusiveReportService } from './reports.service';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('abusive_reports')
 export class AbusiveReportsController {
@@ -27,18 +28,21 @@ export class AbusiveReportsController {
   }
 
   // create a new feedback
+  @SuperAdminOnly()
   @Post()
   create(@Body() createReportDto: CreateReportDto) {
     return this.reportService.create(createReportDto);
   }
 
   // update a feedback
+  @SuperAdminOnly()
   @Put(':id')
   update(@Param('id') id: string, @Body() updateReportDto: UpdateReportDto) {
     return this.reportService.update(+id, updateReportDto);
   }
 
   // delete a feedback
+  @SuperAdminOnly()
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.reportService.delete(+id);

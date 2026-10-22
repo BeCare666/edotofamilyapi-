@@ -2,16 +2,19 @@
 import { Controller, Post, Body, Get, Param, Delete } from '@nestjs/common';
 import { CountriesService } from './countries.service';
 import { CreateCountryDto } from './dto/create-countries.dto';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('countries')
 export class CountriesController {
     constructor(private readonly countriesService: CountriesService) { }
 
+    @SuperAdminOnly()
     @Post()
     create(@Body() dto: CreateCountryDto) {
         return this.countriesService.createCountry(dto);
     }
 
+    @SuperAdminOnly()
     @Post('bulk')
     createMany(@Body() dtos: CreateCountryDto[]) {
         return this.countriesService.createMany(dtos);
@@ -27,6 +30,7 @@ export class CountriesController {
         return this.countriesService.findOne(Number(id));
     }
 
+    @SuperAdminOnly()
     @Delete(':id')
     remove(@Param('id') id: string) {
         return this.countriesService.remove(Number(id));

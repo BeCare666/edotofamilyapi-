@@ -12,11 +12,13 @@ import { TypesService } from './types.service';
 import { CreateTypeDto } from './dto/create-type.dto';
 import { UpdateTypeDto } from './dto/update-type.dto';
 import { GetTypesDto } from './dto/get-types.dto';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('types')
 export class TypesController {
   constructor(private readonly typesService: TypesService) {}
 
+  @SuperAdminOnly()
   @Post()
   create(@Body() createTypeDto: CreateTypeDto) {
     return this.typesService.create(createTypeDto);
@@ -32,11 +34,13 @@ export class TypesController {
     return this.typesService.getTypeBySlug(slug);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   update(@Param('id') id: string, @Body() updateTypeDto: UpdateTypeDto) {
     return this.typesService.update(+id, updateTypeDto);
   }
 
+  @SuperAdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.typesService.remove(+id);

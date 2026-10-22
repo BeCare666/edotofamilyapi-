@@ -13,15 +13,18 @@ import { SousCategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { GetCategoriesDto } from './dto/get-categories.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('souscategories')
 export class CategoriesController {
   constructor(private readonly SousCategoriesService: SousCategoriesService) { }
 
+  @SuperAdminOnly()
   @Post()
   create(@Body() createCategoryDto: CreateCategoryDto) {
     return this.SousCategoriesService.create(createCategoryDto);
   }
+  @SuperAdminOnly()
   @Post('batch')
   async createBatch(@Body() dtos: CreateCategoryDto[]) {
     return this.SousCategoriesService.createMany(dtos);
@@ -49,6 +52,7 @@ export class CategoriesController {
     return this.SousCategoriesService.getCategory(param, language);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -57,6 +61,7 @@ export class CategoriesController {
     return this.SousCategoriesService.update(+id, updateCategoryDto);
   }
 
+  @SuperAdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.SousCategoriesService.remove(+id);

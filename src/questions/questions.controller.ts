@@ -16,6 +16,7 @@ import { GetQuestionDto } from './dto/get-questions.dto';
 import { UpdateQuestionDto } from './dto/update-question.dto';
 import { QuestionService } from './questions.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 @Controller('questions')
 export class QuestionController {
   constructor(private questionService: QuestionService) { }
@@ -43,6 +44,7 @@ export class QuestionController {
   }
 
   // update
+  @SuperAdminOnly()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -52,6 +54,7 @@ export class QuestionController {
   }
 
   // delete
+  @SuperAdminOnly()
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.questionService.remove(+id);

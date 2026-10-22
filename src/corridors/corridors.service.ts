@@ -52,7 +52,15 @@ export class CorridorsService {
     const fields = [];
     const params = [];
 
+    // Uniquement les colonnes réelles : un nom de champ n'entre jamais tel quel dans le SQL
+    const allowedFields = [
+      'from_countries_id', 'from_countries_code', 'from_latitude', 'from_longitude',
+      'to_countries_id', 'to_countries_code', 'to_latitude', 'to_longitude',
+      'douanes', 'taxes', 'logistique',
+    ];
+
     for (const [key, value] of Object.entries(updateDto)) {
+      if (!allowedFields.includes(key)) continue;
       fields.push(`${key} = ?`);
       params.push(value);
     }

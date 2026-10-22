@@ -12,11 +12,13 @@ import { TaxesService } from './taxes.service';
 import { CreateTaxDto } from './dto/create-tax.dto';
 import { UpdateTaxDto } from './dto/update-tax.dto';
 import { GetTaxesDto } from './dto/get-taxes.dto';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('taxes')
 export class TaxesController {
   constructor(private readonly taxesService: TaxesService) {}
 
+  @SuperAdminOnly()
   @Post()
   create(@Body() createTaxDto: CreateTaxDto) {
     return this.taxesService.create(createTaxDto);
@@ -32,11 +34,13 @@ export class TaxesController {
     return this.taxesService.findOne(+id);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   update(@Param('id') id: string, @Body() updateTaxDto: UpdateTaxDto) {
     return this.taxesService.update(+id, updateTaxDto);
   }
 
+  @SuperAdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.taxesService.remove(+id);

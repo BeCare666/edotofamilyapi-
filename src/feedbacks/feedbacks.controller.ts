@@ -14,6 +14,7 @@ import { CreateFeedBackDto } from './dto/create-feedback.dto';
 import { UpdateFeedBackDto } from './dto/update-feedback.dto';
 import { FeedbackService } from './feedbacks.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('feedbacks')
 export class FeedbackController {
@@ -44,6 +45,7 @@ export class FeedbackController {
   }
 
   // update a feedback
+  @SuperAdminOnly()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -53,6 +55,7 @@ export class FeedbackController {
   }
 
   // delete a feedback
+  @SuperAdminOnly()
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.feedbackService.delete(+id);

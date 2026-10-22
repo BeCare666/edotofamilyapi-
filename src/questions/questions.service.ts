@@ -79,10 +79,12 @@ export class QuestionService {
   }
 
   async update(id: number, dto: UpdateQuestionDto) {
-    const fields = Object.keys(dto)
-      .map((key) => `${key} = ?`)
-      .join(', ');
-    const values = Object.values(dto);
+    // Uniquement les colonnes réelles : un nom de champ n'entre jamais tel quel dans le SQL
+    const allowedFields = ['question', 'answer'];
+    const entries = Object.entries(dto).filter(([key]) => allowedFields.includes(key));
+    if (!entries.length) return this.findQuestion(id);
+    const fields = entries.map(([key]) => `${key} = ?`).join(', ');
+    const values = entries.map(([, value]) => value);
 
     await this.db.getPool().query(
       `UPDATE questions SET ${fields}, updated_at = NOW() WHERE id = ?`,

@@ -115,7 +115,8 @@
     "coverageDirectory": "../coverage",
     "testEnvironment": "node",
     "moduleNameMapper": {
-      "^src/(.*)$": "<rootDir>/$1"
+      "^src/(.*)$": "<rootDir>/$1",
+      "^@db/(.*)$": "<rootDir>/db/pixer/$1"
     },
     "globals": {
       "ts-jest": {

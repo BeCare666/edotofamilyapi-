@@ -79,7 +79,9 @@ export class TagsService {
 
   async update(id: number, updateTagDto: UpdateTagDto) {
     const pool = this.DatabaseService.getPool();
-    const fields = Object.entries(updateTagDto).filter(([_, v]) => v !== undefined);
+    // Uniquement les colonnes réelles : un nom de champ n'entre jamais tel quel dans le SQL
+    const allowedFields = ['name', 'slug', 'language', 'icon', 'details', 'type_id'];
+    const fields = Object.entries(updateTagDto).filter(([k, v]) => v !== undefined && allowedFields.includes(k));
 
     if (fields.length === 0) {
       throw new Error('No fields to update');

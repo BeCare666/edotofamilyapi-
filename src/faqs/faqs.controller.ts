@@ -12,11 +12,13 @@ import { FaqsService } from './faqs.service';
 import { GetFaqsDto } from './dto/get-faqs.dto';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('faqs')
 export class FaqsController {
   constructor(private faqService: FaqsService) {}
 
+  @SuperAdminOnly()
   @Post()
   createFaq(@Body() createFaqDto: CreateFaqDto) {
     return this.faqService.create(createFaqDto);
@@ -32,6 +34,7 @@ export class FaqsController {
     return this.faqService.getFaq(param, language);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -41,6 +44,7 @@ export class FaqsController {
     return this.faqService.update(+id, updateFaqDto);
   }
 
+  @SuperAdminOnly()
   @Delete(':id')
   deleteFaq(@Param('id') id: string) {
     return this.faqService.remove(+id);

@@ -1,5 +1,6 @@
 import { Controller, Get, Post, Param, Body } from '@nestjs/common';
 import { ProductCorridorService } from './product-corridor.service';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('product-corridors')
 export class ProductCorridorController {
@@ -15,6 +16,7 @@ export class ProductCorridorController {
         return this.service.getValidCorridors(productId);
     }
 
+    @SuperAdminOnly()
     @Post('link')
     async linkProductToCorridors(
         @Body() data: { productId: number; corridorIds: number[] },

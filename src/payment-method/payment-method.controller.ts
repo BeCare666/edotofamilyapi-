@@ -13,26 +13,31 @@ import { GetPaymentMethodsDto } from './dto/get-payment-methods.dto';
 import { DefaultCart } from './dto/set-default-card.dto';
 import { UpdatePaymentMethodDto } from './dto/update-payment-method.dto';
 import { PaymentMethodService } from './payment-method.service';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('cards')
 export class PaymentMethodController {
   constructor(private readonly paymentMethodService: PaymentMethodService) {}
 
+  @SuperAdminOnly()
   @Post()
   create(@Body() createPaymentMethodDto: CreatePaymentMethodDto) {
     return this.paymentMethodService.create(createPaymentMethodDto);
   }
 
+  @SuperAdminOnly()
   @Get()
   findAll(@Query() getTaxesDto: GetPaymentMethodsDto) {
     return this.paymentMethodService.findAll();
   }
 
+  @SuperAdminOnly()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.paymentMethodService.findOne(+id);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   update(
     @Param('id') id: string,
@@ -41,6 +46,7 @@ export class PaymentMethodController {
     return this.paymentMethodService.update(+id, updateTaxDto);
   }
 
+  @SuperAdminOnly()
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.paymentMethodService.remove(+id);
@@ -50,6 +56,7 @@ export class PaymentMethodController {
 @Controller('/save-payment-method')
 export class SavePaymentMethodController {
   constructor(private readonly paymentMethodService: PaymentMethodService) {}
+  @SuperAdminOnly()
   @Post()
   savePaymentMethod(@Body() createPaymentMethodDto: CreatePaymentMethodDto) {
     createPaymentMethodDto.default_card = false;
@@ -60,6 +67,7 @@ export class SavePaymentMethodController {
 @Controller('/set-default-card')
 export class SetDefaultCartController {
   constructor(private readonly paymentMethodService: PaymentMethodService) {}
+  @SuperAdminOnly()
   @Post()
   setDefaultCart(@Body() defaultCart: DefaultCart) {
     return this.paymentMethodService.saveDefaultCart(defaultCart);

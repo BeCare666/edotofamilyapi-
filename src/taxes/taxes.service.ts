@@ -60,8 +60,11 @@ export class TaxesService {
     const fields: string[] = [];
     const values: any[] = [];
 
+    // Uniquement les colonnes réelles : un nom de champ n'entre jamais tel quel dans le SQL
+    const allowedFields = ['country', 'state', 'zip', 'city', 'rate', 'name', 'is_global', 'priority', 'on_shipping'];
+
     Object.entries(updateTaxDto).forEach(([key, value]) => {
-      if (value !== undefined) {
+      if (value !== undefined && allowedFields.includes(key)) {
         fields.push(`${key} = ?`);
         values.push(value);
       }

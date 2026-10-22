@@ -27,6 +27,18 @@ import {
 import { User } from 'src/users/entities/user.entity';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from './mailer';
+import { allowAttempt } from '../sponsors/sponsor-rules';
+import {
+  RESET_CODE_TTL_MINUTES,
+  RESET_INVALID_MESSAGE,
+  RESET_MAX_ATTEMPTS,
+  RESET_REQUEST_LIMITS,
+  RESET_REQUEST_MESSAGE,
+  hashResetCode,
+  newResetCode,
+  normalizeResetEmail,
+  resetCodeMatches,
+} from './password-reset-rules';
 import * as jwt from 'jsonwebtoken';
 import { RowDataPacket } from 'mysql2';
 import { omitPassword } from '../common/sanitize';
@@ -470,13 +482,11 @@ export class AuthService {
   //   };
   //}
 
+  // Route /verify-forget-password-token : répondait toujours « Token verified » (audit du 21/10/2026)
   async verifyForgetPasswordToken(
     verifyForgetPasswordTokenInput: VerifyForgetPasswordDto,
   ): Promise<CoreResponse> {
-    return {
-      success: true,
-      message: 'Token verified',
-    };
+    return this.verifyForgotPasswordToken(verifyForgetPasswordTokenInput);
   }
 
 
@@ -583,25 +593,27 @@ export class AuthService {
 
 
 
-  async forgetPassword({ email }: ForgetPasswordDto): Promise<CoreResponse> {
-    // Vérifier si l'email existe dans users
-    const [users]: any = await this.DatabaseService.query(
-      'SELECT id FROM users WHERE email = ?',
-      [email],
-    );
-    if (users.length === 0) {
-      return { success: false, message: "Aucun utilisateur trouvé avec cet email" };
+  async forgetPassword({ email: rawEmail }: ForgetPasswordDto): Promise<CoreResponse> {
+    const email = normalizeResetEmail(rawEmail);
+    // Réponse identique dans tous les cas : adresse inconnue, demande trop rapprochée ou code envoyé
+    const answer = { success: true, message: RESET_REQUEST_MESSAGE };
+    if (!email) return answer;
+    if (!RESET_REQUEST_LIMITS.every((l) => allowAttempt(`pwd-reset:${l.windowMs}:${email}`, l.max, l.windowMs))) {
+      return answer;
     }
 
-    // Générer un token (6 chiffres aléatoires)
-    const token = Math.floor(100000 + Math.random() * 900000).toString();
+    const [users]: any = await this.DatabaseService.query(
+      'SELECT id FROM users WHERE LOWER(email) = ?',
+      [email],
+    );
+    if (users.length === 0) return answer;
 
-    // Sauvegarder le token en BDD (valide 10 min)
+    // Code à 6 chiffres (générateur cryptographique), enregistré haché : un seul code actif par adresse
+    const token = newResetCode();
+    await this.DatabaseService.query('DELETE FROM password_resets WHERE email = ?', [email]);
     await this.DatabaseService.query(
-      `INSERT INTO password_resets (email, otp, created_at)
-       VALUES (?, ?, NOW())
-       ON DUPLICATE KEY UPDATE otp = VALUES(otp), created_at = NOW()`,
-      [email, token],
+      `INSERT INTO password_resets (email, otp, attempts, created_at) VALUES (?, ?, 0, NOW())`,
+      [email, hashResetCode(token)],
     );
 
     // Envoyer l’email..
@@ -651,53 +663,59 @@ export class AuthService {
     });
 
 
-    return { success: true, message: 'Code OTP envoyé par email' };
+    return answer;
+  }
+
+  // Contrôle du code : 10 minutes, 5 essais au plus, puis le code est détruit
+  private async checkResetCode(email: string, token: string): Promise<boolean> {
+    if (!email || !token) return false;
+    const [rows]: any = await this.DatabaseService.query(
+      `SELECT id, otp, attempts FROM password_resets
+       WHERE email = ? AND created_at >= NOW() - INTERVAL ${RESET_CODE_TTL_MINUTES} MINUTE
+       ORDER BY id DESC LIMIT 1`,
+      [email],
+    );
+    const row = rows[0];
+    if (!row) return false;
+    if (Number(row.attempts) >= RESET_MAX_ATTEMPTS) {
+      await this.DatabaseService.query('DELETE FROM password_resets WHERE email = ?', [email]);
+      return false;
+    }
+    if (resetCodeMatches(token, row.otp)) return true;
+
+    if (Number(row.attempts) + 1 >= RESET_MAX_ATTEMPTS) {
+      await this.DatabaseService.query('DELETE FROM password_resets WHERE email = ?', [email]);
+    } else {
+      await this.DatabaseService.query('UPDATE password_resets SET attempts = attempts + 1 WHERE id = ?', [row.id]);
+    }
+    return false;
   }
 
   // 2. --- VERIFY OTP ---
   async verifyForgotPasswordToken({ email, token }: VerifyForgetPasswordDto): Promise<CoreResponse> {
-    const [rows]: any = await this.DatabaseService.query(
-      `SELECT * FROM password_resets 
-       WHERE email = ? AND otp = ? 
-         AND created_at >= NOW() - INTERVAL 10 MINUTE`,
-      [email, token],
-    );
-
-    if (rows.length === 0) {
-      return { success: false, message: 'Code invalide ou expiré' };
+    if (!(await this.checkResetCode(normalizeResetEmail(email), token))) {
+      return { success: false, message: RESET_INVALID_MESSAGE };
     }
-
     return { success: true, message: 'Code valide' };
   }
 
   // 3. --- RESET PASSWORD ---
-  async resetPassword({ email, token, password }: ResetPasswordDto): Promise<CoreResponse> {
-    // Vérifier OTP valide
-    const [rows]: any = await this.DatabaseService.query(
-      `SELECT * FROM password_resets 
-       WHERE email = ? AND otp = ? 
-         AND created_at >= NOW() - INTERVAL 10 MINUTE`,
-      [email, token],
-    );
-
-    if (rows.length === 0) {
-      return { success: false, message: 'Code invalide ou expiré' };
-    }
-
-    // Hasher le mot de passe
+  async resetPassword({ email: rawEmail, token, password }: ResetPasswordDto): Promise<CoreResponse> {
+    const email = normalizeResetEmail(rawEmail);
+    // Mot de passe contrôlé avant le code : une erreur de saisie ne consomme pas d'essai
     const hashedPassword = await bcrypt.hash(checkPassword(password), 10);
 
-    // Mettre à jour le mot de passe utilisateur
+    if (!(await this.checkResetCode(email, token))) {
+      return { success: false, message: RESET_INVALID_MESSAGE };
+    }
+
     await this.DatabaseService.query(
-      'UPDATE users SET password = ?, updated_at = NOW() WHERE email = ?',
+      'UPDATE users SET password = ?, updated_at = NOW() WHERE LOWER(email) = ?',
       [hashedPassword, email],
     );
 
-    // Supprimer l’OTP utilisé
-    await this.DatabaseService.query(
-      'DELETE FROM password_resets WHERE email = ?',
-      [email],
-    );
+    // Code utilisé : détruit
+    await this.DatabaseService.query('DELETE FROM password_resets WHERE email = ?', [email]);
 
     return { success: true, message: 'Mot de passe réinitialisé avec succès' };
   }

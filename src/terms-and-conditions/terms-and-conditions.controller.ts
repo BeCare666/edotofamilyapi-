@@ -12,11 +12,13 @@ import { TermsAndConditionsService } from './terms-and-conditions.service';
 import { GetTermsAndConditionsDto } from './dto/get-terms-and-conditions.dto';
 import { CreateTermsAndConditionsDto } from './dto/create-terms-and-conditions.dto';
 import { UpdateTermsAndConditionsDto } from './dto/update-terms-and-conditions.dto';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('terms-and-conditions')
 export class TermsAndConditionsController {
   constructor(private termsAndConditionsService: TermsAndConditionsService) {}
 
+  @SuperAdminOnly()
   @Post()
   createTermsAndConditions(
     @Body() createTermsAndConditionsDto: CreateTermsAndConditionsDto,
@@ -34,6 +36,7 @@ export class TermsAndConditionsController {
     return this.termsAndConditionsService.findOne(param, language);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   updateTermsConditions(
     @Param('id') id: string,
@@ -45,6 +48,7 @@ export class TermsAndConditionsController {
     );
   }
 
+  @SuperAdminOnly()
   @Delete(':id')
   deleteTermsAndConditions(@Param('id') id: string) {
     return this.termsAndConditionsService.remove(+id);
@@ -55,6 +59,7 @@ export class TermsAndConditionsController {
 export class DisapproveTermsAndConditionController {
   constructor(private termsAndConditionsService: TermsAndConditionsService) {}
 
+  @SuperAdminOnly()
   @Post()
   async disapproveTermsAndCondition(@Body('id') id) {
     return this.termsAndConditionsService.disapproveTermsAndCondition(id);
@@ -65,6 +70,7 @@ export class DisapproveTermsAndConditionController {
 export class ApproveTermsAndConditionController {
   constructor(private termsAndConditionsService: TermsAndConditionsService) {}
 
+  @SuperAdminOnly()
   @Post()
   async approveTermsAndCondition(@Body('id') id) {
     return this.termsAndConditionsService.approveTermsAndCondition(id);

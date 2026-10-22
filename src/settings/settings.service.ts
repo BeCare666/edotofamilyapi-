@@ -80,8 +80,9 @@ async update(id: number, updateSettingDto: UpdateSettingDto): Promise<Setting> {
         const jsonString = typeof value === 'string' ? value : JSON.stringify(value);
         fields.push('options = ?');
         values.push(jsonString);
-      } else {
-        fields.push(`${key} = ?`);
+      } else if (key === 'language') {
+        // Seule autre colonne modifiable : un nom de champ n'entre jamais tel quel dans le SQL
+        fields.push('language = ?');
         values.push(value);
       }
     }

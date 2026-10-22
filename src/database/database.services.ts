@@ -37,7 +37,9 @@ export class DatabaseService {
       password: process.env.DB_PASSWORD || '',
       database: process.env.DB_NAME || 'test',
       port: parseInt(process.env.DB_PORT || '4000', 10),
-      multipleStatements: true,
+      // Une seule instruction par requête : bloque l'enchaînement « ; DROP … » (audit du 21/10/2026, C1).
+      // Les migrations (db:setup) gardent leur propre connexion dans database-setup.service.ts.
+      multipleStatements: false,
       connectionLimit: 10,
       queueLimit: 0,
       ssl: sslConfig,

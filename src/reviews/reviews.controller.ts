@@ -12,6 +12,7 @@ import { CreateReviewDto } from './dto/create-review.dto';
 import { GetReviewsDto, ReviewPaginator } from './dto/get-reviews.dto';
 import { UpdateReviewDto } from './dto/update-review.dto';
 import { ReviewService } from './reviews.service';
+import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 
 @Controller('reviews')
 export class ReviewController {
@@ -33,17 +34,20 @@ export class ReviewController {
   }
 
   //  create a new review
+  @SuperAdminOnly()
   @Post()
   create(@Body() createReviewDto: CreateReviewDto) {
     return this.reviewService.create(createReviewDto);
   }
 
+  @SuperAdminOnly()
   @Put(':id')
   update(@Param('id') id: string, @Body() updateReviewDto: UpdateReviewDto) {
     return this.reviewService.update(+id, updateReviewDto);
   }
 
   // delete a review
+  @SuperAdminOnly()
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.reviewService.delete(+id);
