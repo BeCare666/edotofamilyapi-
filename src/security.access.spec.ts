@@ -324,7 +324,9 @@ describe("Matrice d'accès HTTP", () => {
     });
     it('demande de kit : connexion requise, adresse du client transmise ; chiffres publics ; éligibilité connectée', async () => {
       await request(http).post('/api/campaigns/register').send({ campaign_id: 1, pickup_center: '2' }).expect(401);
-      await request(http).post('/api/campaigns/register').set(auth(T.customer)).set('X-Forwarded-For', '41.85.1.2, 10.0.0.1')
+      // Adresse posée par Cloudflare ; X-Forwarded-For (choisi par le client) ignoré (audit 1.2)
+      await request(http).post('/api/campaigns/register').set(auth(T.customer))
+        .set('CF-Connecting-IP', '41.85.1.2').set('X-Forwarded-For', '6.6.6.6, 10.0.0.1')
         .send({ campaign_id: 1, pickup_center: '2', city: 'Cotonou', device_id: 'abcdef0123456789abcd' }).expect(201);
       expect(campaigns.register).toHaveBeenLastCalledWith(expect.objectContaining({ device_id: 'abcdef0123456789abcd' }), expect.anything(), '41.85.1.2');
       await request(http).get('/api/campaigns/1/stats').expect(200);

@@ -9,6 +9,8 @@ import { SponsorExportsAdminService } from './sponsor-exports-admin.service';
 import { SponsorProposalsService } from './sponsor-proposals.service';
 import { SponsorLiveService } from './sponsor-live.service';
 import { allowAttempt } from './sponsor-rules';
+import { Throttle } from '@nestjs/throttler';
+import { THROTTLE_SENSITIVE } from '../common/client-throttler.guard';
 import { clientIp } from '../ai/chat/ai-chat.rate-limit';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -34,6 +36,7 @@ export class SponsorInvitationsController {
 export class SponsorSignupController {
   constructor(private readonly accounts: SponsorAccountService) { }
 
+  @Throttle(THROTTLE_SENSITIVE)
   @Post()
   signup(@Req() req: any, @Body() body: any) {
     if (!allowAttempt(`signup:${clientIp(req)}`, 5, 60 * 60 * 1000)) {

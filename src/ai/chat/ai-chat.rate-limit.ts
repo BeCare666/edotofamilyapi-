@@ -1,4 +1,5 @@
 import { RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS } from './ai-chat.constants';
+import { realClientIp } from '../../common/client-ip';
 
 // Limiteur en mémoire par IP (fenêtre glissante). Suffisant pour une instance unique ;
 // à remplacer par un stockage partagé si l'API tourne sur plusieurs instances.
@@ -18,7 +19,7 @@ export function consumeRateLimit(key: string, now = Date.now()): boolean {
   return true;
 }
 
+// Adresse fiable (CF-Connecting-IP), et non la première valeur de X-Forwarded-For choisie par le client
 export function clientIp(req: any): string {
-  const fwd = String(req.headers?.['x-forwarded-for'] || '').split(',')[0].trim();
-  return fwd || req.ip || req.socket?.remoteAddress || 'unknown';
+  return realClientIp(req) || 'unknown';
 }

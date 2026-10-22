@@ -42,10 +42,18 @@ import { TeleconsultationModule } from './teleconsultation/teleconsultation.modu
 import { ContraceptionModule } from './contraception/contraception.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { ClientThrottlerGuard, MINUTE } from './common/client-throttler.guard';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
   imports: [
     ConfigModule.forRoot(),
+    // Audit sécurité 1.2 : 100 requêtes par minute et par adresse IP du client, sur toute l'API
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', limit: 100, ttl: MINUTE }],
+      errorMessage: 'Trop de requêtes. Réessayez dans un instant.',
+    }),
     StripeModule.forRoot({
       apiKey: process.env.STRIPE_API_KEY,
       apiVersion: '2022-11-15',
@@ -93,6 +101,6 @@ import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
     //DatabaseService
   ],
   controllers: [],
-  providers: [],
+  providers: [{ provide: APP_GUARD, useClass: ClientThrottlerGuard }],
 })
 export class AppModule { }

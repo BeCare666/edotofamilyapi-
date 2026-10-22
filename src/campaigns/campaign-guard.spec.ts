@@ -71,8 +71,9 @@ describe('Marques anti-doublon', () => {
     expect(buildGuardKeys({ userId: 5, email: 'a@t.io', deviceId: DEVICE, fingerprint: FP, ip: '1.2.3.4' }).map((k) => k.kind)).toEqual(['user', 'email', 'device']);
   });
 
-  it('adresse du client : en-têtes du proxy, sinon connexion', () => {
-    expect(clientIpFrom({ headers: { 'x-forwarded-for': '41.85.1.2, 10.0.0.1' } })).toBe('41.85.1.2');
+  it('adresse du client : CF-Connecting-IP, sinon connexion ; X-Forwarded-For et True-Client-IP ignorés', () => {
+    expect(clientIpFrom({ headers: { 'x-forwarded-for': '41.85.1.2, 10.0.0.1' }, ip: '10.0.0.9' })).toBe('10.0.0.9');
+    expect(clientIpFrom({ headers: { 'true-client-ip': '6.6.6.6' }, ip: '10.0.0.9' })).toBe('10.0.0.9');
     expect(clientIpFrom({ headers: { 'cf-connecting-ip': '197.1.1.1', 'x-forwarded-for': '9.9.9.9' } })).toBe('197.1.1.1');
     expect(clientIpFrom({ headers: {}, ip: '::ffff:127.0.0.1' })).toBe('127.0.0.1');
     expect(clientIpFrom({ headers: {} })).toBeNull();

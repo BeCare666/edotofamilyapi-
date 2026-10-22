@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Body, Req, Query, Res, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Query, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
+import { THROTTLE_LOGIN, THROTTLE_SENSITIVE, MINUTE } from '../common/client-throttler.guard';
+import { allowAttempt } from '../sponsors/sponsor-rules';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { Response } from 'express';
@@ -19,6 +22,7 @@ import * as jwt from 'jsonwebtoken';
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
 
+  @Throttle(THROTTLE_SENSITIVE)
   @Post('register')
   createAccount(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
@@ -27,9 +31,14 @@ export class AuthController {
   createAccountpickUpPoint(@Body() registerDto: RegisterDto) {
     return this.authService.registerPickUpPoint(registerDto);
   }
+  // Audit 1.2 : 5 essais par minute par IP (Throttle) et par adresse e-mail
+  @Throttle(THROTTLE_LOGIN)
   @Post('token')
   login(@Body() loginDto: LoginDto) {
     const { email, password } = loginDto;
+    if (!allowAttempt(`login:${String(email || '').trim().toLowerCase()}`, 5, MINUTE)) {
+      throw new HttpException('Trop de tentatives. Réessayez dans une minute.', HttpStatus.TOO_MANY_REQUESTS);
+    }
     return this.authService.login(email, password);
   }
 
@@ -51,11 +60,13 @@ export class AuthController {
     return this.authService.resendVerificationEmail(email);
   }
 
+  @Throttle(THROTTLE_SENSITIVE)
   @Post('forget-password')
   forgetPassword(@Body() forgetPasswordDto: ForgetPasswordDto) {
     return this.authService.forgetPassword(forgetPasswordDto);
   }
 
+  @Throttle(THROTTLE_SENSITIVE)
   @Post('reset-password')
   resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
     return this.authService.resetPassword(resetPasswordDto);
@@ -72,6 +83,7 @@ export class AuthController {
     return true;
   }
 
+  @Throttle(THROTTLE_SENSITIVE)
   @Post('verify-forget-password-token')
   verifyForgetPassword(
     @Body() verifyForgetPasswordDto: VerifyForgetPasswordDto,

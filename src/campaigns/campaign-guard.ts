@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import { realClientIp } from '../common/client-ip';
 
 // Une seule demande de kit par personne et par campagne (demande du 06/10/2026), même en changeant
 // de compte. Chaque demande enregistre des « marques » : compte, e-mail, appareil (identifiant tiré
@@ -33,13 +34,9 @@ export const guardHash = (kind: GuardKind, value: string) => createHash('sha256'
 
 const enabled = (name: string) => String(process.env[name] ?? '').toLowerCase() !== 'off';
 
-// Adresse du client : en-têtes posés par le proxy d'hébergement, sinon la connexion
+// Adresse du client : CF-Connecting-IP posé par Cloudflare, sinon la connexion (voir common/client-ip.ts)
 export function clientIpFrom(req: any): string | null {
-  const h = req?.headers || {};
-  const first = (v: any) => String(Array.isArray(v) ? v[0] : v || '').split(',')[0].trim();
-  const ip = first(h['cf-connecting-ip']) || first(h['true-client-ip']) || first(h['x-forwarded-for']) || req?.ip || req?.socket?.remoteAddress || '';
-  const clean = ip.replace(/^::ffff:/, '').trim();
-  return clean && clean.length <= 64 ? clean : null;
+  return realClientIp(req);
 }
 
 export function buildGuardKeys(input: GuardInput): GuardKey[] {
