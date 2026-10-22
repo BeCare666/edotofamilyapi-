@@ -3,13 +3,17 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
+import { applySecurity } from './common/cors';
 
 if (process.env.NODE_ENV !== 'production') {
   dotenv.config();
 }
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, { cors: true, logger: ['error', 'warn', 'log', 'debug', 'verbose'], });
+  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn', 'log', 'debug', 'verbose'], });
+
+  // Audit sécurité 1.3 : en-têtes de sécurité, et CORS limité au site et à l'admin
+  applySecurity(app);
 
   // Préfixe toutes les routes avec /api
   app.setGlobalPrefix('api');
