@@ -12,6 +12,7 @@ import * as jwt from 'jsonwebtoken';
 import { createPool } from 'mysql2/promise';
 import * as bcrypt from 'bcrypt';
 import { pickupCityOf } from '../campaigns/pickup-city';
+import { bumpTokenVersion, signSession } from '../auth/session';
 import { normCity } from '../common/geo-city';
 @Injectable()
 export class UsersService {
@@ -446,6 +447,8 @@ async getUserFacets(role?: string) {
       'UPDATE users SET is_active = ? WHERE id = ?',
       [!user.is_active, id]
     );
+    // Audit 1.5 : blocage ou déblocage → les jetons émis avant ne valent plus
+    await bumpTokenVersion(pool, 'id = ?', [id]);
     return this.findOne(id);
   }
 
@@ -606,6 +609,8 @@ async getUserFacets(role?: string) {
     // 3️⃣ Mise à jour du rôle
     try {
       await this.DatabaseService.query('UPDATE users SET role = ? WHERE id = ?', ['store_owner', userId]);
+      // Audit 1.5 : changement de rôle → l'ancien jeton « customer » ne vaut plus
+      await bumpTokenVersion(this.DatabaseService, 'id = ?', [userId]);
     } catch (error) {
       console.error("Erreur lors de la mise à jour du rôle :", error);
       throw new InternalServerErrorException("Impossible de mettre à jour le rôle de l'utilisateur.");
@@ -614,15 +619,8 @@ async getUserFacets(role?: string) {
     // 4️⃣ Générer un nouveau token JWT
     let token: string;
     try {
-      token = jwt.sign(
-        {
-          id: user.id,
-          email: user.email,
-          permissions: ['store_owner'],
-        },
-        process.env.JWT_SECRET_KEY as string,
-        { expiresIn: '7d' }
-      );
+      // Version incrémentée juste au-dessus
+      token = signSession({ ...user, token_version: (Number(user.token_version) || 0) + 1 }, 'store_owner');
     } catch (error) {
       console.error("Erreur lors de la génération du token :", error);
       throw new InternalServerErrorException("Impossible de générer un nouveau token.");

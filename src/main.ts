@@ -10,6 +10,10 @@ if (process.env.NODE_ENV !== 'production') {
 }
 
 async function bootstrap() {
+  // Audit sécurité 1.5 : sans secret, les jetons seraient signés avec une valeur connue
+  if (!process.env.JWT_SECRET_KEY) {
+    throw new Error('JWT_SECRET_KEY manquant : démarrage refusé.');
+  }
   const app = await NestFactory.create(AppModule, { logger: ['error', 'warn', 'log', 'debug', 'verbose'], });
 
   // Audit sécurité 1.3 : en-têtes de sécurité, et CORS limité au site et à l'admin

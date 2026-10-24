@@ -35,7 +35,7 @@ import { PickupAdminController } from './pickup/pickup-admin.controller';
 import { PickupAdminService } from './pickup/pickup-admin.service';
 
 const token = (id: number, role: string) =>
-  jwt.sign({ id, email: `${role}@t.io`, permissions: [role] }, process.env.JWT_SECRET_KEY);
+  jwt.sign({ id, email: `${role}@t.io`, permissions: [role], tv: 0 }, process.env.JWT_SECRET_KEY);
 
 const T = {
   admin: token(1, 'super_admin'),
@@ -65,6 +65,10 @@ const products = {
 // products.shop_id = 7 ; shop 7 appartient à l'owner 30
 const db = {
   query: jest.fn(async (sql: string, params: any[]) => {
+    // JwtStrategy (audit 1.5) : comptes actifs, version 0 ; le blocage du point 21 reste vu par ActivePickupGuard
+    if (sql.includes('SELECT id, role, is_active, token_version FROM users')) {
+      return [[{ id: params[0], role: 'x', is_active: 1, token_version: 0 }], []];
+    }
     // ActivePickupGuard : le point 21 est bloqué
     if (sql.includes('SELECT is_active, pickup_approved FROM users')) {
       return [[{ is_active: params[0] === 21 ? 0 : 1, pickup_approved: 1 }], []];

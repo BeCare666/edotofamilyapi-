@@ -11,7 +11,8 @@ import { JwtStrategy } from './jwt.strategy';
     DatabaseModule,
     PassportModule.register({ defaultStrategy: 'jwt' }), // Assure l'import de PassportModule
     JwtModule.register({
-      secret: process.env.JWT_SECRET_KEY || 'default_secret_key', // valeur par défaut si env manquante
+      // Audit 1.5 : plus de valeur par défaut, main.ts refuse de démarrer sans JWT_SECRET_KEY
+      secret: process.env.JWT_SECRET_KEY,
       signOptions: { expiresIn: '1h' },
     }),
   ],

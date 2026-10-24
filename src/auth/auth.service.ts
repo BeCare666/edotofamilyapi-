@@ -9,6 +9,7 @@ import {
 } from '@nestjs/common';
 import { checkPassword, cleanBirthDate, cleanEmail, cleanName, cleanOrgName, cleanSex } from '../common/field-rules';
 import * as bcrypt from 'bcrypt';
+import { bumpTokenVersion, isBlocked, signEmailVerification, signSession } from './session';
 import {
   AuthResponse,
   ChangePasswordDto,
@@ -48,13 +49,17 @@ import {
   CUSTOMER_VERIFICATION_SUBJECT,
   PICKUP_VERIFICATION_SUBJECT,
 } from './verification-emails';
+// Audit 1.5 : messages de connexion
+export const INVALID_CREDENTIALS = 'Identifiants invalides';
+export const ACCOUNT_DISABLED = "Votre compte est désactivé. Contactez l'équipe E.doto family.";
+
 // Anti-abus du renvoi : un e-mail au plus par adresse et par minute (mémoire du processus)
 const RESEND_COOLDOWN_MS = 60 * 1000;
 const lastResendAt = new Map<string, number>();
 
 // Lien de confirmation : même jeton que l'inscription (JWT { email }, 5 minutes)
 export async function sendVerificationLink(user: { email: string; name?: string; role?: string }) {
-  const verificationToken = jwt.sign({ email: user.email }, process.env.JWT_SECRET_KEY, { expiresIn: '5m' });
+  const verificationToken = signEmailVerification(user.email);
   const verificationLink = `${process.env.BASE_URL}/verify-email?token=${verificationToken}`;
   const isPickup = user.role === 'super_pickuppoint';
   await sendVerificationEmail({
@@ -123,11 +128,7 @@ export class AuthService {
     }
 
     // Générer le token de vérification 
-    const verificationToken = jwt.sign(
-      { email },
-      process.env.JWT_SECRET_KEY,
-      { expiresIn: '5m' }
-    );
+    const verificationToken = signEmailVerification(email);
 
     // Lien de vérification
     const verificationLink = `${process.env.BASE_URL}/verify-email?token=${verificationToken}`;
@@ -200,11 +201,7 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     // Génération du token
-    const verificationToken = jwt.sign(
-      { email },
-      process.env.JWT_SECRET_KEY,
-      { expiresIn: '5m' }
-    );
+    const verificationToken = signEmailVerification(email);
 
     // Lien de vérification
     const verificationLink = `${process.env.BASE_URL}/verify-email?token=${verificationToken}`;
@@ -322,7 +319,8 @@ export class AuthService {
     );
 
     const user = rows[0];
-    if (!user) throw new UnauthorizedException('Utilisateur non trouvé');
+    // Audit 1.5 : même message pour un e-mail inconnu et un mauvais mot de passe (pas de détection de comptes)
+    if (!user) throw new UnauthorizedException(INVALID_CREDENTIALS);
 
     //if (!user.is_verified) {
     //  throw new ForbiddenException('Veuillez valider votre email avant de vous connecter.');
@@ -330,14 +328,13 @@ export class AuthService {
 
     const passwordMatch = await bcrypt.compare(password, user.password);
     if (!passwordMatch) {
-      throw new UnauthorizedException('Mot de passe incorrect');
+      throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
     if (user.role === "customer") {
-      const token = jwt.sign({
-        id: user.id,
-        email: user.email,
-        permissions: ['customer'],
-      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+      if (isBlocked(user.is_active)) {
+        throw new ForbiddenException(ACCOUNT_DISABLED);
+      }
+      const token = signSession(user, 'customer');
 
       return {
         token,
@@ -355,11 +352,7 @@ export class AuthService {
           "Votre point de retrait est bloqué. Contactez l'équipe E.doto family.",
         );
       }
-      const token = jwt.sign({
-        id: user.id,
-        email: user.email,
-        permissions: ['super_pickuppoint'],
-      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+      const token = signSession(user, 'super_pickuppoint');
 
       return {
         token,
@@ -367,6 +360,9 @@ export class AuthService {
       };
     }
     else if (user.role === "store_owner") {
+      if (isBlocked(user.is_active)) {
+        throw new ForbiddenException(ACCOUNT_DISABLED);
+      }
       // Vérifier si le shop existe
       const [shops]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
         'SELECT * FROM shops WHERE owner_id = ?',
@@ -377,11 +373,7 @@ export class AuthService {
 
       if (!shop) {
         // Aucun shop → rediriger vers la création
-        const token = jwt.sign({
-          id: user.id,
-          email: user.email,
-          permissions: ['store_owner'],
-        }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+        const token = signSession(user, 'store_owner');
 
         return {
           token,
@@ -395,11 +387,7 @@ export class AuthService {
       }
 
       // Shop trouvé et actif
-      const token = jwt.sign({
-        id: user.id,
-        email: user.email,
-        permissions: ['store_owner'],
-      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+      const token = signSession(user, 'store_owner');
 
       return {
         token,
@@ -411,11 +399,7 @@ export class AuthService {
       if (Number(user.is_active) === 0) {
         throw new ForbiddenException("Votre espace sponsor est désactivé. Contactez l'équipe E.doto family.");
       }
-      const token = jwt.sign({
-        id: user.id,
-        email: user.email,
-        permissions: ['sponsor'],
-      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+      const token = signSession(user, 'sponsor');
 
       return {
         token,
@@ -426,22 +410,17 @@ export class AuthService {
       if (Number(user.is_active) === 0) {
         throw new ForbiddenException("Votre espace est désactivé. Contactez l'équipe E.doto family.");
       }
-      const token = jwt.sign({
-        id: user.id,
-        email: user.email,
-        permissions: [user.role],
-      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+      const token = signSession(user, user.role);
 
       return {
         token,
         permissions: [user.role],
       };
     } else if (user.role === "super_admin") {
-      const token = jwt.sign({
-        id: user.id,
-        email: user.email,
-        permissions: ['super_admin'],
-      }, process.env.JWT_SECRET_KEY, { expiresIn: '7d' });
+      if (isBlocked(user.is_active)) {
+        throw new ForbiddenException(ACCOUNT_DISABLED);
+      }
+      const token = signSession(user, 'super_admin');
 
       return {
         token,
@@ -472,6 +451,8 @@ export class AuthService {
     }
     const hashed = await bcrypt.hash(newPassword, 10);
     await this.DatabaseService.query('UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?', [hashed, userId]);
+    // Audit 1.5 : toutes les sessions du compte, y compris celle-ci, doivent se reconnecter
+    await bumpTokenVersion(this.DatabaseService, 'id = ?', [userId]);
     return { success: true, message: 'Mot de passe modifié.' };
   }
 
@@ -713,6 +694,8 @@ export class AuthService {
       'UPDATE users SET password = ?, updated_at = NOW() WHERE LOWER(email) = ?',
       [hashedPassword, email],
     );
+    // Audit 1.5 : les sessions ouvertes avant la réinitialisation sont fermées
+    await bumpTokenVersion(this.DatabaseService, 'LOWER(email) = ?', [email]);
 
     // Code utilisé : détruit
     await this.DatabaseService.query('DELETE FROM password_resets WHERE email = ?', [email]);

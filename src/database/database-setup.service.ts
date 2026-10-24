@@ -110,6 +110,7 @@ export class DatabaseSetupService implements OnModuleInit {
       '014_tc_house_doctor.sql',
       '015_contraception.sql',
       '016_password_resets_hardening.sql',
+      '017_users_token_version.sql',
       'ai_chat_logs.sql'
     ];
 

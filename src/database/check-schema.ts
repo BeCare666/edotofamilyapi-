@@ -37,6 +37,7 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'tc_referrals', column: 'contraception_request_id', migration: '015' },
   { table: 'tc_referrals', column: 'outcome', migration: '015' },
   { table: 'password_resets', column: 'attempts', migration: '016' },
+  { table: 'users', column: 'token_version', migration: '017' },
 ];
 
 async function main() {

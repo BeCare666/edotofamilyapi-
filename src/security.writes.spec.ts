@@ -16,6 +16,7 @@ import * as supertest from 'supertest';
 const request = ((supertest as any).default ?? supertest) as (app: any) => supertest.SuperTest<supertest.Test>;
 
 import { JwtStrategy } from './auth/jwt.strategy';
+import { DatabaseService } from './database/database.services';
 import { FaqsController } from './faqs/faqs.controller';
 import { FaqsService } from './faqs/faqs.service';
 import {
@@ -60,7 +61,7 @@ import { AiController } from './ai/ai.controller';
 import { AiService } from './ai/ai.service';
 
 const token = (id: number, role: string) =>
-  jwt.sign({ id, email: `${role}@t.io`, permissions: [role] }, process.env.JWT_SECRET_KEY);
+  jwt.sign({ id, email: `${role}@t.io`, permissions: [role], tv: 0 }, process.env.JWT_SECRET_KEY);
 const T = { admin: token(1, 'super_admin'), customer: token(10, 'customer'), owner: token(30, 'store_owner') };
 const auth = (t: string) => ({ Authorization: `Bearer ${t}` });
 
@@ -128,7 +129,12 @@ describe('Écritures réservées au super admin (audit C5)', () => {
         ShopsController, DisapproveShop, StaffsController, DisapproveShopController, ApproveShopController,
         CategoriesController, SousCategoriesController, SubCategoriesController, ShippingsController, AiController,
       ],
-      providers: [JwtStrategy, ...services.map((s) => ({ provide: s, useValue: fakeService() }))],
+      providers: [
+        JwtStrategy,
+        // Audit 1.5 : JwtStrategy relit le compte ; ici tous les comptes sont actifs, version 0
+        { provide: DatabaseService, useValue: { query: async (_sql: string, p: any[]) => [[{ id: p[0], role: 'x', is_active: 1, token_version: 0 }], []] } },
+        ...services.map((s) => ({ provide: s, useValue: fakeService() })),
+      ],
     }).compile();
     app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api');

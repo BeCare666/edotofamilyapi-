@@ -20,6 +20,7 @@ import * as supertest from 'supertest';
 const request = ((supertest as any).default ?? supertest) as (app: any) => supertest.SuperTest<supertest.Test>;
 
 import { JwtStrategy } from './auth/jwt.strategy';
+import { DatabaseService } from './database/database.services';
 import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
 import { IS_PUBLIC_KEY, Public } from './auth/public.decorator';
 
@@ -80,13 +81,17 @@ class DemoClassController {
 
 describe('Guard JWT global (audit 1.4)', () => {
   let app: INestApplication;
-  const token = jwt.sign({ id: 10, permissions: ['customer'] }, process.env.JWT_SECRET_KEY);
+  const token = jwt.sign({ id: 10, permissions: ['customer'], tv: 0 }, process.env.JWT_SECRET_KEY);
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule],
       controllers: [DemoController, DemoClassController],
-      providers: [JwtStrategy, { provide: APP_GUARD, useClass: GlobalJwtAuthGuard }],
+      providers: [
+        JwtStrategy,
+        { provide: DatabaseService, useValue: { query: async (_sql: string, p: any[]) => [[{ id: p[0], role: 'customer', is_active: 1, token_version: 0 }], []] } },
+        { provide: APP_GUARD, useClass: GlobalJwtAuthGuard },
+      ],
     }).compile();
     app = moduleRef.createNestApplication();
     await app.init();

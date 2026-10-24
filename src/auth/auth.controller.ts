@@ -19,6 +19,7 @@ import {
 } from './dto/create-auth.dto';
 import * as jwt from 'jsonwebtoken';
 import { Public } from './public.decorator';
+import { readEmailVerification } from './session';
 @Controller()
 export class AuthController {
   constructor(private readonly authService: AuthService) { }
@@ -121,8 +122,8 @@ export class AuthController {
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: Response) {
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET_KEY) as { email: string };
-      await this.authService.verifyEmail(decoded.email);
+      // Audit 1.5 : seul un jeton émis pour ce lien (purpose 'verify-email') est accepté
+      await this.authService.verifyEmail(readEmailVerification(token));
       return res.redirect(`${process.env.FRONTEND_CALLBACK_URL}/login`);
     } catch (err) {
       return res.status(400).json({ message: 'Lien invalide ou expiré.' });

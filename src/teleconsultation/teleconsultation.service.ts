@@ -61,6 +61,7 @@ import {
   siteUrl,
 } from './tc-notify';
 import { iso, num, utcSql } from './tc-db';
+import { bumpTokenVersion } from '../auth/session';
 import { CONCLUSIONS, CONCLUSION_LABEL } from '../contraception/contraception-rules';
 
 const MAX_UPCOMING_PER_PATIENT = 2; // rendez-vous à venir par jeune (évite les réservations en série)
@@ -1215,6 +1216,8 @@ export class TeleconsultationService {
       [hash, t.user_id, role],
     );
     if (!res?.affectedRows) throw new BadRequestException('Compte introuvable.');
+    // Audit 1.5 : mot de passe choisi → anciennes sessions fermées
+    await bumpTokenVersion(this.pool, 'id = ?', [t.user_id]);
     const table = t.kind === 'doctor' ? 'tc_doctors' : 'tc_centers';
     await this.pool.query(`UPDATE ${table} SET activated_at = UTC_TIMESTAMP() WHERE id = ?`, [t.id]);
     await this.pool.query(`DELETE FROM tc_invitations WHERE kind = ? AND target_id = ?`, [t.kind, t.id]);

@@ -9,6 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
+import { bumpTokenVersion } from '../auth/session';
 import { INVITATION_TTL_DAYS, escapeHtml, newInvitationToken, parseNewPassword, parseSponsorSignup, sha256 } from './sponsor-rules';
 
 const ROLE_LABEL: Record<string, string> = {
@@ -141,6 +142,8 @@ export class SponsorAccountService {
       [hash, row.user_id],
     );
     if (!res?.affectedRows) throw new BadRequestException('Compte sponsor introuvable.');
+    // Audit 1.5 : mot de passe choisi → anciennes sessions fermées
+    await bumpTokenVersion(pool, 'id = ?', [row.user_id]);
     await pool.query(`UPDATE sponsors SET activated_at = NOW() WHERE id = ?`, [row.sponsor_id]);
     await pool.query(`DELETE FROM sponsor_invitations WHERE sponsor_id = ?`, [row.sponsor_id]);
     return { success: true, email: row.email, message: 'Votre espace sponsor est activé. Vous pouvez vous connecter.' };
