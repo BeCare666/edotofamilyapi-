@@ -4,17 +4,20 @@ import { RolesGuard } from '../auth/roles.guard';
 import { CUSTOMER, Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { allowAttempt } from '../sponsors/sponsor-rules';
 import { ContraceptionService } from './contraception.service';
+import { Public } from '../auth/public.decorator';
 
 // Public : catalogue des contraceptifs et fiche détaillée
 @Controller('contraception')
 export class ContraceptionPublicController {
   constructor(private readonly svc: ContraceptionService) {}
 
+  @Public()
   @Get('methods')
   methods() {
     return this.svc.methods();
   }
 
+  @Public()
   @Get('methods/:slug')
   method(@Param('slug') slug: string) {
     return this.svc.method(slug);

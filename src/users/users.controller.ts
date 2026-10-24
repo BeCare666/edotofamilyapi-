@@ -27,6 +27,7 @@ import { OptionalJwtAuthGuard } from '../auth/optional-jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, hasRole, SUPER_ADMIN, STORE_OWNER } from '../auth/roles.decorator';
 import { omitPassword } from '../common/sanitize';
+import { Public } from '../auth/public.decorator';
 
 // Rôles dont la liste est consultable publiquement (sélection d'un point de retrait),
 // avec uniquement des colonnes non sensibles.
@@ -79,6 +80,7 @@ export class UsersController {
     return stripPasswords(await this.usersService.create(createUserDto));
   }
 
+  @Public()
   @UseGuards(OptionalJwtAuthGuard)
   @Get()
   async getAllUsers(@Query() query: GetUsersDto & { role?: string }, @Req() req: any) {

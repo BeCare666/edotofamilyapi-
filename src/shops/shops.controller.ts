@@ -24,6 +24,7 @@ import { UseGuards } from '@nestjs/common';
 
 import { Request } from 'express';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('shops')
 export class ShopsController {
@@ -38,11 +39,13 @@ export class ShopsController {
     return this.shopsService.create({ ...createShopDto, owner_id: ownerId });
   }
 
+  @Public()
   @Get()
   async getShops(@Query() query: GetShopsDto): Promise<ShopPaginator> {
     return this.shopsService.getShops(query);
   }
 
+  @Public()
   @Get(':slug')
   async getShop(@Param('slug') slug: string) {
     return this.shopsService.getShop(slug);
@@ -82,6 +85,7 @@ export class DisapproveShop {
 export class TopShopsController {
   constructor(private shopsService: ShopsService) { }
 
+  @Public()
   @Get()
   async topShops(@Query() query: GetTopShopsDto): Promise<ShopPaginator> {
     return this.shopsService.topShops(query);
@@ -173,6 +177,7 @@ export class FollowedShops {
 export class NearByShopController {
   constructor(private shopsService: ShopsService) { }
 
+  @Public()
   @Get(':lat/:lng')
   async getNearByShop(@Param('lat') lat: string, @Param('lng') lng: string) {
     return this.shopsService.getNearByShop(lat, lng);
@@ -183,6 +188,7 @@ export class NearByShopController {
 export class NewShopsController {
   constructor(private shopsService: ShopsService) { }
 
+  @Public()
   @Get()
   async getNewShops(@Query() query: GetShopsDto): Promise<ShopPaginator> {
     return this.shopsService.getNewShops(query);

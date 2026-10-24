@@ -7,6 +7,7 @@ import { CUSTOMER, DOCTOR, HEALTH_CENTER, Roles, SUPER_ADMIN } from '../auth/rol
 import { allowAttempt } from '../sponsors/sponsor-rules';
 import { TeleconsultationService } from './teleconsultation.service';
 import { TcAdminService } from './tc-admin.service';
+import { Public } from '../auth/public.decorator';
 
 // Public : calendrier des créneaux libres, page du code QR (sans donnée de santé), image du code QR,
 // invitations des médecins et des centres
@@ -14,11 +15,13 @@ import { TcAdminService } from './tc-admin.service';
 export class TcPublicController {
   constructor(private readonly tc: TeleconsultationService) {}
 
+  @Public()
   @Get('availability')
   availability(@Query() q: any) {
     return this.tc.availability(q);
   }
 
+  @Public()
   @Get('qr/:file')
   async qrImage(@Param('file') file: string, @Res() res: Response) {
     const token = String(file).replace(/\.png$/, '');
@@ -30,16 +33,19 @@ export class TcPublicController {
     res.end(png);
   }
 
+  @Public()
   @Get('qr-info/:token')
   qrInfo(@Param('token') token: string) {
     return this.tc.qrInfo(token);
   }
 
+  @Public()
   @Get('invitations/:token')
   invitation(@Param('token') token: string) {
     return this.tc.invitationInfo(token);
   }
 
+  @Public()
   @Post('invitations/accept')
   accept(@Body() body: any) {
     return this.tc.acceptInvitation(body);

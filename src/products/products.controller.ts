@@ -26,16 +26,19 @@ import { GetPopularProductsDto } from './dto/get-popular-products.dto';
 import { GetFollowedShopsProducts } from './dto/get-followed-shops-products.dto';
 import { GetBestSellingProductsDto } from './dto/get-best-selling-products.dto';
 import { GetProductsByCorridorDto } from './dto/get-products-by-corridor.dto';
+import { Public } from '../auth/public.decorator';
 
 @Controller('products')
 export class ProductsController {
   constructor(private readonly productsService: ProductsService,
     private readonly databaseService: DatabaseService,
   ) { }
+  @Public()
   @Get('corridor')
   async getProductsByCorridor(@Query() query: GetProductsByCorridorDto) {
     return this.productsService.getProductsByCorridor(query);
   }
+  @Public()
   @Get('search')
   async searchProducts(
     @Query('countryId') countryId?: string,
@@ -129,6 +132,7 @@ export class ProductsController {
     return this.productsService.getAdminProductFacets(shopId ? Number(shopId) : undefined);
   }
 
+  @Public()
   @Get()
   async getProducts(@Query() query: GetProductsDto): Promise<ProductPaginator> {
     return this.productsService.getProducts(query);
@@ -137,6 +141,7 @@ export class ProductsController {
   //async testSimple() {
   //  return this.productsService.testSimpleGet();
   //}
+  @Public()
   @Get(':slug')
   async getProductBySlug(@Param('slug') slug: string): Promise<Product> {
     return this.productsService.getProductBySlug(slug);
@@ -167,6 +172,7 @@ export class ProductsController {
 export class PopularProductsController {
   constructor(private readonly productsService: ProductsService) { }
 
+  @Public()
   @Get()
   async getProducts(@Query() query: GetPopularProductsDto): Promise<Product[]> {
     return this.productsService.getPopularProducts(query);
@@ -175,6 +181,7 @@ export class PopularProductsController {
 @Controller('best-selling-products')
 export class BestSellingProductsController {
   constructor(private readonly productsService: ProductsService) { }
+  @Public()
   @Get()
   async getProducts(@Query() query: GetBestSellingProductsDto): Promise<Product[]> {
     return this.productsService.getBestSellingProducts(query);
@@ -221,12 +228,14 @@ export class ProductAliasController {
   }
 
   // Alias pour /top-rate-product → /best-selling-products
+  @Public()
   @Get('top-rate-product')
   async topRated(@Query() query: GetBestSellingProductsDto) {
     return this.productsService.getBestSellingProducts(query);
   }
 
   // Alias pour /category-wise-product → /products/search (par catégorie)
+  @Public()
   @Get('category-wise-product')
   async categoryWise(@Query() query: GetProductsDto) {
     // Ici tu peux forcer un filtrage par categoryId si nécessaire

@@ -12,6 +12,7 @@ import { allowAttempt } from './sponsor-rules';
 import { Throttle } from '@nestjs/throttler';
 import { THROTTLE_SENSITIVE } from '../common/client-throttler.guard';
 import { clientIp } from '../ai/chat/ai-chat.rate-limit';
+import { Public } from '../auth/public.decorator';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -20,11 +21,13 @@ const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 export class SponsorInvitationsController {
   constructor(private readonly accounts: SponsorAccountService) { }
 
+  @Public()
   @Get(':token')
   info(@Param('token') token: string) {
     return this.accounts.invitationInfo(token);
   }
 
+  @Public()
   @Post('accept')
   accept(@Body() body: any) {
     return this.accounts.accept(body);
@@ -36,6 +39,7 @@ export class SponsorInvitationsController {
 export class SponsorSignupController {
   constructor(private readonly accounts: SponsorAccountService) { }
 
+  @Public()
   @Throttle(THROTTLE_SENSITIVE)
   @Post()
   signup(@Req() req: any, @Body() body: any) {

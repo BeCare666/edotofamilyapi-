@@ -3,12 +3,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { SiteAppearanceService } from './site-appearance.service';
+import { Public } from '../auth/public.decorator';
 
 // Police du site et de l'admin : lecture publique, modification réservée au super admin
 @Controller()
 export class SiteAppearanceController {
   constructor(private readonly service: SiteAppearanceService) {}
 
+  @Public()
   @Get('site-appearance')
   get() {
     return this.service.get();

@@ -13,6 +13,7 @@ import { GetFaqsDto } from './dto/get-faqs.dto';
 import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('faqs')
 export class FaqsController {
@@ -24,11 +25,13 @@ export class FaqsController {
     return this.faqService.create(createFaqDto);
   }
 
+  @Public()
   @Get()
   findAll(@Query() query: GetFaqsDto) {
     return this.faqService.findAllFaqs(query);
   }
 
+  @Public()
   @Get(':param')
   getFaq(@Param('param') param: string, @Query('language') language: string) {
     return this.faqService.getFaq(param, language);

@@ -3,6 +3,7 @@ import { Controller, Post, Body, Get, Param, Delete } from '@nestjs/common';
 import { CountriesService } from './countries.service';
 import { CreateCountryDto } from './dto/create-countries.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('countries')
 export class CountriesController {
@@ -20,11 +21,13 @@ export class CountriesController {
         return this.countriesService.createMany(dtos);
     }
 
+    @Public()
     @Get()
     findAll() {
         return this.countriesService.findAll();
     }
 
+    @Public()
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.countriesService.findOne(Number(id));

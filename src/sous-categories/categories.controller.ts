@@ -14,6 +14,7 @@ import { CreateCategoryDto } from './dto/create-category.dto';
 import { GetCategoriesDto } from './dto/get-categories.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('souscategories')
 export class CategoriesController {
@@ -30,10 +31,12 @@ export class CategoriesController {
     return this.SousCategoriesService.createMany(dtos);
   }
 
+  @Public()
   @Get()
   findAll(@Query() query: GetCategoriesDto) {
     return this.SousCategoriesService.getCategories(query);
   }
+  @Public()
   @Get('bycategory')
   async listByCategory(@Query('categories_id') categories_id: string) {
     if (!categories_id) {
@@ -47,6 +50,7 @@ export class CategoriesController {
     const rows = await this.SousCategoriesService.findByCategoryId(categoryId);
     return { data: rows };
   }
+  @Public()
   @Get(':param')
   findOne(@Param('param') param: string, @Query('language') language: string) {
     return this.SousCategoriesService.getCategory(param, language);

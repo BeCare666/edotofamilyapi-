@@ -3,6 +3,7 @@ import { CorridorsService } from './corridors.service';
 import { CreateCorridorDto } from './dtos/create-corridor.dto';
 import { UpdateCorridorDto } from './dtos/update-corridor.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('corridors')
 export class CorridorsController {
@@ -14,11 +15,13 @@ export class CorridorsController {
         return this.corridorsService.create(createDto);
     }
 
+    @Public()
     @Get()
     findAll() {
         return this.corridorsService.findAll();
     }
 
+    @Public()
     @Get(':id')
     findOne(@Param('id') id: string) {
         return this.corridorsService.findOne(id);

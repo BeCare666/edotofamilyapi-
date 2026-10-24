@@ -13,6 +13,7 @@ import { CreateTagDto } from './dto/create-tag.dto';
 import { UpdateTagDto } from './dto/update-tag.dto';
 import { GetTagsDto, TagPaginator } from './dto/get-tags.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('tags')
 export class TagsController {
@@ -24,11 +25,13 @@ export class TagsController {
     return this.tagsService.create(createTagDto);
   }
 
+  @Public()
   @Get()
   async findAll(@Query() query: GetTagsDto): Promise<TagPaginator> {
     return this.tagsService.findAll(query);
   }
 
+  @Public()
   @Get(':param')
   findOne(@Param('param') param: string, @Query('language') language: string) {
     return this.tagsService.findOne(param, language);

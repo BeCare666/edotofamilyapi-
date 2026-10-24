@@ -4,6 +4,7 @@ import { SettingsService } from './settings.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('settings')
 export class SettingsController {
@@ -18,6 +19,7 @@ export class SettingsController {
     return this.settingsService.create(createSettingDto);
   }
 
+  @Public()
   @Get()
   findAll() {
     return this.settingsService.findAll();

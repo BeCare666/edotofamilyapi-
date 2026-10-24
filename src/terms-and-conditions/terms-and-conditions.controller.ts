@@ -13,6 +13,7 @@ import { GetTermsAndConditionsDto } from './dto/get-terms-and-conditions.dto';
 import { CreateTermsAndConditionsDto } from './dto/create-terms-and-conditions.dto';
 import { UpdateTermsAndConditionsDto } from './dto/update-terms-and-conditions.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('terms-and-conditions')
 export class TermsAndConditionsController {
@@ -26,11 +27,13 @@ export class TermsAndConditionsController {
     return this.termsAndConditionsService.create(createTermsAndConditionsDto);
   }
 
+  @Public()
   @Get()
   getTermsAndConditions(@Query() query: GetTermsAndConditionsDto) {
     return this.termsAndConditionsService.findAllTermsAndConditions(query);
   }
 
+  @Public()
   @Get(':param')
   findOne(@Param('param') param: string, @Query('language') language: string) {
     return this.termsAndConditionsService.findOne(param, language);

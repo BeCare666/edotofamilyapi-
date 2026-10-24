@@ -3,12 +3,14 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { DeliveryService } from './delivery.service';
+import { Public } from '../auth/public.decorator';
 
 // Public : prix de la livraison affiché avant la commande (aucune donnée personnelle).
 @Controller('delivery')
 export class DeliveryController {
   constructor(private readonly deliveryService: DeliveryService) { }
 
+  @Public()
   @Get('quote')
   quote(@Query('lat') lat: string, @Query('lng') lng: string) {
     return this.deliveryService.quote(lat, lng);
@@ -20,16 +22,19 @@ export class DeliveryController {
 export class CourierLinksController {
   constructor(private readonly deliveryService: DeliveryService) { }
 
+  @Public()
   @Post(':token/open')
   open(@Param('token') token: string, @Body() body: any) {
     return this.deliveryService.courierOpen(token, body?.device_id);
   }
 
+  @Public()
   @Post(':token/unlock')
   unlock(@Param('token') token: string, @Body() body: any) {
     return this.deliveryService.courierUnlock(token, body);
   }
 
+  @Public()
   @Post(':token/deliver')
   deliver(@Param('token') token: string, @Body() body: any) {
     return this.deliveryService.courierDeliver(token, body);

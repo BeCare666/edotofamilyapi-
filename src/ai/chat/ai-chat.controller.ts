@@ -2,12 +2,14 @@ import { Body, Controller, HttpException, HttpStatus, Post, Req, Res } from '@ne
 import { AiChatDto } from './ai-chat.dto';
 import { AiChatService } from './ai-chat.service';
 import { clientIp, consumeRateLimit } from './ai-chat.rate-limit';
+import { Public } from '../../auth/public.decorator';
 
 // POST /api/ai/chat — ouvert à tous (sans connexion), réponse en flux SSE.
 @Controller('ai')
 export class AiChatController {
   constructor(private readonly aiChatService: AiChatService) {}
 
+  @Public()
   @Post('chat')
   async chat(@Body() dto: AiChatDto, @Req() req: any, @Res() res: any) {
     const turns = this.aiChatService.normalize(dto);

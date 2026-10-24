@@ -45,6 +45,7 @@ import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ClientThrottlerGuard, MINUTE } from './common/client-throttler.guard';
+import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
   imports: [
@@ -101,6 +102,10 @@ import { ClientThrottlerGuard, MINUTE } from './common/client-throttler.guard';
     //DatabaseService
   ],
   controllers: [],
-  providers: [{ provide: APP_GUARD, useClass: ClientThrottlerGuard }],
+  // Ordre voulu : la limitation de débit s'applique aussi aux requêtes refusées faute de jeton
+  providers: [
+    { provide: APP_GUARD, useClass: ClientThrottlerGuard },
+    { provide: APP_GUARD, useClass: GlobalJwtAuthGuard },
+  ],
 })
 export class AppModule { }

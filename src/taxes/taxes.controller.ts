@@ -13,6 +13,7 @@ import { CreateTaxDto } from './dto/create-tax.dto';
 import { UpdateTaxDto } from './dto/update-tax.dto';
 import { GetTaxesDto } from './dto/get-taxes.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { Public } from '../auth/public.decorator';
 
 @Controller('taxes')
 export class TaxesController {
@@ -24,11 +25,13 @@ export class TaxesController {
     return this.taxesService.create(createTaxDto);
   }
 
+  @Public()
   @Get()
   findAll(@Query() getTaxesDto: GetTaxesDto) {
     return this.taxesService.findAll();
   }
 
+  @Public()
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.taxesService.findOne(+id);

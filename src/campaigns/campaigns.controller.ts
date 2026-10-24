@@ -6,27 +6,32 @@ import { RolesGuard } from '../auth/roles.guard';
 import { ActivePickupGuard } from '../auth/active-pickup.guard';
 import { Roles, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
 import { clientIpFrom } from './campaign-guard';
+import { Public } from '../auth/public.decorator';
 
 @Controller()
 export class CampaignsController {
   constructor(private readonly campaignsService: CampaignsService) { }
 
+  @Public()
   @Get('campaigns/active')
   getActive() {
     return this.campaignsService.getActiveCampaign();
   }
 
+  @Public()
   @Get('campaigns/upcoming')
   getUpcoming() {
     return this.campaignsService.getUpcomingCampaigns();
   }
 
+  @Public()
   @Get('campaigns/:id')
   getById(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.getCampaignById(id);
   }
 
   // Chiffres publics (sans données nominatives) d'une campagne en cours ou à venir
+  @Public()
   @Get('campaigns/:id/stats')
   getStats(@Param('id', ParseIntPipe) id: number) {
     return this.campaignsService.getPublicStats(id);
@@ -45,11 +50,13 @@ export class CampaignsController {
   locate(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
     return this.campaignsService.locateForCampaign(id, body?.lat, body?.lng);
   }
+  @Public()
   @Get('campaigns/active/city/:city')
   getActiveByCity(@Param('city') city: string) {
     return this.campaignsService.getActiveCampaignByCity(city);
   }
 
+  @Public()
   @Get('campaigns/active/count')
   getActiveCount() {
     return this.campaignsService.getActiveCampaignsCount();
