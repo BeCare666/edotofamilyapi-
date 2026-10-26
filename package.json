@@ -65,6 +65,7 @@
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
     "rxjs": "^7.5.6",
+    "sanitize-html": "2.13.1",
     "sib-api-v3-sdk": "^8.5.0",
     "stripe": "^11.2.0",
     "typeorm": "^0.3.25"
@@ -84,6 +85,7 @@
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfkit": "^0.17.3",
     "@types/qrcode": "1.5.5",
+    "@types/sanitize-html": "2.13.0",
     "@types/supertest": "^2.0.12",
     "@typescript-eslint/eslint-plugin": "^5.33.1",
     "@typescript-eslint/parser": "^5.33.1",

@@ -8,6 +8,7 @@ import { GetPopularProductsDto } from './dto/get-popular-products.dto';
 import { GetBestSellingProductsDto } from './dto/get-best-selling-products.dto';
 import { GetProductsByCorridorDto } from './dto/get-products-by-corridor.dto';
 import { paginate } from 'src/common/pagination/paginate';
+import { safeHtml } from '../common/safe-html';
 import { Product } from './entities/product.entity';
 import { ProductPaginator } from './interfaces/product-paginator.interface';
 @Injectable()
@@ -175,7 +176,7 @@ export class ProductsService {
         owner_id ?? null,
         name,
         finalSlug,
-        description ?? null,
+        safeHtml(description) ?? null,
         type_id ?? null,
         parsedPrice ?? null,
         shop_id ?? null,
@@ -604,6 +605,7 @@ export class ProductsService {
     for (const [key, raw] of Object.entries(input)) {
       if (!ProductsService.EDITABLE_COLUMNS.has(key)) continue;
       let value: any = raw === '' && key !== 'description' && key !== 'preview_url' ? null : raw;
+      if (key === 'description') value = safeHtml(value);
       if (value === undefined) continue;
       if (value === null && !ProductsService.CLEARABLE_COLUMNS.has(key)) continue;
       if (typeof value === 'boolean') value = value ? 1 : 0;

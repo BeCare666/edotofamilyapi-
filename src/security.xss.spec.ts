@@ -1,0 +1,105 @@
+/**
+ * Audit sécurité 1.6 (26/10/2026, H1) : le HTML enregistré (produits, FAQ, conditions générales, boutiques)
+ * est nettoyé avant d'entrer en base. Le contenu réel (h2, h3, p, strong, listes) reste identique.
+ */
+import { safeHtml } from './common/safe-html';
+import { FaqsService } from './faqs/faqs.service';
+import { TermsAndConditionsService } from './terms-and-conditions/terms-and-conditions.service';
+import { ProductsService } from './products/products.service';
+import { ShopsService } from './shops/shops.service';
+
+const EVIL =
+  '<p onclick="alert(1)">Bonjour</p><script>alert(document.cookie)</script><img src=x onerror=alert(1)>' +
+  '<a href="javascript:alert(1)">lien</a><svg onload=alert(1)></svg><iframe src="https://evil.example"></iframe>';
+const EVIL_CLEAN = '<p>Bonjour</p><a>lien</a>';
+
+function fakeDb() {
+  const calls: { sql: string; params: any[] }[] = [];
+  const query = jest.fn(async (sql: string, params: any[] = []) => {
+    calls.push({ sql, params });
+    if (sql.trim().startsWith('SELECT')) return [[], []];
+    return [{ insertId: 1, affectedRows: 1 }, []];
+  });
+  const connection = { query, beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(), release: jest.fn() };
+  return { calls, db: { query, getPool: () => ({ query, getConnection: async () => connection }) } as any };
+}
+
+const writes = (calls: { sql: string; params: any[] }[]) => calls.filter((c) => /^\s*(INSERT|UPDATE)/.test(c.sql));
+
+describe('safeHtml', () => {
+  it('retire scripts, événements, images, iframes et liens javascript:, garde le texte', () => {
+    expect(safeHtml(EVIL)).toBe(EVIL_CLEAN);
+  });
+
+  it('garde un lien https, retire http, mailto et les liens relatifs au protocole', () => {
+    expect(safeHtml('<a href="https://www.edotofamily.com" target="_blank" style="color:red">ok</a>')).toBe(
+      '<a href="https://www.edotofamily.com">ok</a>',
+    );
+    expect(safeHtml('<a href="http://x.example">a</a><a href="mailto:x@y.z">b</a><a href="//evil.example">c</a>')).toBe(
+      '<a>a</a><a>b</a><a>c</a>',
+    );
+  });
+
+  it('description réelle de production inchangée', () => {
+    const real =
+      '<h2>🧪 Test de Grossesse – Fiable et rapide</h2><p>Le <strong>test de grossesse</strong> permet de savoir.</p>' +
+      '<h3>Avantages</h3><ul><li>Rapide</li><li>Fiable</li></ul>';
+    expect(safeHtml(real)).toBe(real);
+  });
+
+  it('b et i deviennent strong et em ; style et class retirés', () => {
+    expect(safeHtml('<p class="ql-align-center" style="color:red"><b>a</b> <i>b</i></p>')).toBe(
+      '<p><strong>a</strong> <em>b</em></p>',
+    );
+  });
+
+  it('null et undefined passent tels quels (champ non modifié)', () => {
+    expect(safeHtml(null)).toBeNull();
+    expect(safeHtml(undefined)).toBeUndefined();
+  });
+});
+
+describe('nettoyage à l’enregistrement', () => {
+  it('FAQ : création et modification', async () => {
+    const { db, calls } = fakeDb();
+    const s = new FaqsService(db);
+    jest.spyOn(s, 'getFaq').mockResolvedValue({} as any);
+    await s.create({ faq_title: 'Titre', faq_description: EVIL } as any);
+    await s.update(1, { faq_title: 'Titre', faq_description: EVIL } as any);
+    const w = writes(calls);
+    expect(w).toHaveLength(2);
+    w.forEach((c) => expect(c.params).toContain(EVIL_CLEAN));
+    w.forEach((c) => expect(c.params).not.toContain(EVIL));
+  });
+
+  it('conditions générales : création et modification', async () => {
+    const { db, calls } = fakeDb();
+    const s = new TermsAndConditionsService(db);
+    jest.spyOn(s, 'findOne').mockResolvedValue({} as any);
+    await s.create({ title: 'CGV', description: EVIL } as any);
+    await s.update(1, { title: 'CGV', description: EVIL } as any);
+    const w = writes(calls);
+    expect(w).toHaveLength(2);
+    w.forEach((c) => expect(c.params).toContain(EVIL_CLEAN));
+  });
+
+  it('produit : modification', async () => {
+    const { db, calls } = fakeDb();
+    const s = new ProductsService(db);
+    jest.spyOn(s, 'getProductById').mockResolvedValue({} as any);
+    await s.update(1, { description: EVIL, name: 'Kit' } as any);
+    const [u] = writes(calls);
+    expect(u.params).toContain(EVIL_CLEAN);
+    expect(u.params).toContain('Kit');
+  });
+
+  it('boutique : modification', async () => {
+    const { db, calls } = fakeDb();
+    const s = new ShopsService(db);
+    jest.spyOn(s as any, 'getShopById').mockResolvedValue({} as any);
+    await s.update(1, { description: EVIL, name: 'Boutique' } as any);
+    const [u] = writes(calls);
+    expect(u.params).toContain(EVIL_CLEAN);
+    expect(u.params).toContain('Boutique');
+  });
+});

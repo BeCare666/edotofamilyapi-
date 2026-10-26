@@ -3,6 +3,7 @@ import { DatabaseService } from 'src/database/database.services';
 import { CreateTermsAndConditionsDto } from './dto/create-terms-and-conditions.dto';
 import { UpdateTermsAndConditionsDto } from './dto/update-terms-and-conditions.dto';
 import { GetTermsAndConditionsDto } from './dto/get-terms-and-conditions.dto';
+import { safeHtml } from 'src/common/safe-html';
 
 @Injectable()
 export class TermsAndConditionsService {
@@ -28,7 +29,7 @@ export class TermsAndConditionsService {
       [
         dto.title,
         slug,
-        dto.description,
+        safeHtml(dto.description),
         dto.type || 'global',
         dto.issued_by || 'Super Admin',
         dto.is_approved ? 1 : 0,
@@ -196,7 +197,7 @@ export class TermsAndConditionsService {
        WHERE id=?`,
       [
         dto.title,
-        dto.description,
+        safeHtml(dto.description),
         dto.type,
         dto.issued_by,
         dto.is_approved ? 1 : 0,

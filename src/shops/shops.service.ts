@@ -10,6 +10,7 @@ import { User } from 'src/users/entities/user.entity';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
 import { boolParam, parseLegacySearch, sortDir } from '../common/legacy-search';
+import { safeHtml } from '../common/safe-html';
 
 @Injectable()
 export class ShopsService {
@@ -124,7 +125,7 @@ export class ShopsService {
         owner_id,
         name,
         finalSlug,
-        description ?? null,
+        safeHtml(description) ?? null,
         is_active,
         contact ?? null,
         website ?? null,
@@ -389,7 +390,7 @@ export class ShopsService {
       for (const [key, value] of Object.entries(rest)) {
         if (allowedFields.includes(key)) {
           fieldsToUpdate.push(`${key} = ?`);
-          params.push(value);
+          params.push(key === "description" ? safeHtml(value) : value);
         }
       }
 

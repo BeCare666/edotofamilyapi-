@@ -5,6 +5,7 @@ import { CreateFaqDto } from './dto/create-faq.dto';
 import { UpdateFaqDto } from './dto/update-faq.dto';
 import Fuse from 'fuse.js';
 import { paginate } from 'src/common/pagination/paginate';
+import { safeHtml } from 'src/common/safe-html';
 
 @Injectable()
 export class FaqsService {
@@ -34,7 +35,7 @@ export class FaqsService {
       [
         dto.faq_title,
         slug,
-        dto.faq_description,
+        safeHtml(dto.faq_description),
         dto.faq_type || 'shop',
         dto.issued_by || 'Admin',
         dto.language || 'en',
@@ -177,7 +178,7 @@ export class FaqsService {
        WHERE id=?`,
       [
         dto.faq_title,
-        dto.faq_description,
+        safeHtml(dto.faq_description),
         dto.faq_type,
         dto.issued_by,
         dto.language,
