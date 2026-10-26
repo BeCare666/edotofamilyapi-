@@ -130,6 +130,7 @@ describe('Inventaire des routes publiques (audit 1.4)', () => {
   };
 
   const publicRoutes: string[] = [];
+  const allRoutes: string[] = [];
   const publicClasses: string[] = [];
   for (const file of walk(__dirname)) {
     const text = fs.readFileSync(file, 'utf8');
@@ -142,9 +143,10 @@ describe('Inventaire des routes publiques (audit 1.4)', () => {
       if (decos(n).some((d) => name(d) === 'Public')) publicClasses.push(n.name?.getText() || file);
       for (const m of n.members) {
         const h = decos(m).find((d) => HTTP.includes(name(d)));
-        if (!h || !decos(m).some((d) => name(d) === 'Public')) continue;
+        if (!h) continue;
         const route = '/' + [arg(ctl), arg(h)].filter(Boolean).join('/').replace(/\/+/g, '/').replace(/^\//, '');
-        publicRoutes.push(`${name(h).toUpperCase()} ${route}`);
+        allRoutes.push(`${name(h).toUpperCase()} ${route}`);
+        if (decos(m).some((d) => name(d) === 'Public')) publicRoutes.push(`${name(h).toUpperCase()} ${route}`);
       }
     });
   }
@@ -156,5 +158,11 @@ describe('Inventaire des routes publiques (audit 1.4)', () => {
     for (const r of ['GET /me', 'POST /follow-shop', 'POST /my-questions', 'GET /order-status', 'POST /payments/webhook',
       'POST /webhook/flutterwave', 'GET /staffs', 'GET /feedbacks', 'POST /otp-login', 'POST /social-login-token'])
       expect(publicRoutes).not.toContain(r);
+  });
+  // Audit sécurité 1.7 (26/10/2026) : FeexPay seul, les webhooks Flutterwave non signés sont supprimés.
+  it('webhooks Flutterwave supprimés', () => {
+    expect(allRoutes.length).toBeGreaterThan(100);
+    expect(allRoutes).not.toContain('POST /payments/webhook');
+    expect(allRoutes).not.toContain('POST /webhook/flutterwave');
   });
 });

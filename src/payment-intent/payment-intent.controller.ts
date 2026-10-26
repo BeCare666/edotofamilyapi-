@@ -39,9 +39,5 @@ export class PaymentIntentController {
 
     return this.PaymentIntentService.confirmPayment(paymentIntentId, tx_ref, transaction_id);
   }
-  @Post('webhook')
-  async flutterwaveWebhook(@Body() body: any) {
-    return this.PaymentIntentService.handleFlutterwaveWebhook(body);
-  }
 
 }

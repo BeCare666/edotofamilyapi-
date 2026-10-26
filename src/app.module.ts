@@ -23,7 +23,6 @@ import { TaxesModule } from './taxes/taxes.module';
 import { TypesModule } from './types/types.module';
 import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/users.module';
-import { WebHookModule } from './webhook/webhook.module';
 import { WithdrawsModule } from './withdraws/withdraws.module';
 import { AiModule } from './ai/ai.module';
 import { FaqsModule } from './faqs/faqs.module';
@@ -81,7 +80,6 @@ import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
     FeedbackModule,
     PaymentMethodModule,
     PaymentIntentModule,
-    WebHookModule,
     PaymentModule,
     AiModule,
     FaqsModule,

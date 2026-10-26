@@ -316,30 +316,6 @@ export class PaymentIntentService {
   }
 
   // ---------------------------
-  // Webhook Flutterwave
-  // ---------------------------
-  async handleFlutterwaveWebhook(body: any) {
-    const tx_ref = body.data?.tx_ref;
-    const transaction_id = body.data?.transaction_id;
-    const status = body.data?.status;
-
-    if (!tx_ref || !transaction_id || status !== 'successful') {
-      return { success: false };
-    }
-
-    const [piRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT * FROM payment_intents WHERE JSON_EXTRACT(payment_intent_info, '$.tx_ref') = ?`,
-      [tx_ref]
-    );
-    const paymentIntent = piRows[0];
-    if (!paymentIntent) return { success: false };
-
-    await this.confirmPayment(paymentIntent.id, tx_ref, transaction_id);
-
-    return { success: true };
-  }
-
-  // ---------------------------
   // Confirme le paiement et génère facture
   // ---------------------------
   async confirmPayment(paymentIntentId: number, tx_ref: string, transaction_id: string) {
