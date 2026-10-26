@@ -53,6 +53,22 @@ describe('safeHtml', () => {
     );
   });
 
+  // Contournements corrigés entre sanitize-html 2.13.1 et 2.18.0 (audit 2.1, 26/10/2026)
+  it('contournements connus (noscript, textarea, meta refresh, SVG) neutralisés', () => {
+    const payloads = [
+      '<noscript><p title="</noscript><img src=x onerror=alert(1)>"></p></noscript>',
+      '<textarea></textarea/><img src=x onerror=alert(1)></textarea>',
+      '<meta http-equiv="refresh" content="0;url=javascript:alert(1)">',
+      '<svg><animate attributeName="href" values="javascript:alert(1)"/><a><text>x</text></a></svg>',
+      '<form action="javascript:alert(1)"><button formaction="javascript:alert(1)">x</button></form>',
+    ];
+    for (const p of payloads) {
+      const out = safeHtml(p) as string;
+      expect(out).not.toMatch(/<(img|script|meta|svg|animate|form|button|noscript|textarea)\b/i);
+      expect(out).not.toMatch(/onerror|javascript:/i);
+    }
+  });
+
   it('null et undefined passent tels quels (champ non modifié)', () => {
     expect(safeHtml(null)).toBeNull();
     expect(safeHtml(undefined)).toBeUndefined();

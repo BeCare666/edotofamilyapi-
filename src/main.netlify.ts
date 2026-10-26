@@ -16,6 +16,7 @@ let server: Handler;
 
 async function bootstrapServer(): Promise<Handler> {
     const expressApp = express();
+    expressApp.set('query parser', 'extended'); // Express 5 (audit 2.1) : comportement d'avant
     const adapter = new ExpressAdapter(expressApp);
 
     const app = await NestFactory.create(AppModule, adapter, { cors: true });

@@ -1,5 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
@@ -14,7 +15,14 @@ async function bootstrap() {
   if (!process.env.JWT_SECRET_KEY) {
     throw new Error('JWT_SECRET_KEY manquant : démarrage refusé.');
   }
-  const app = await NestFactory.create(AppModule, { logger: ['error', 'warn', 'log', 'debug', 'verbose'], });
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { logger: ['error', 'warn', 'log', 'debug', 'verbose'], });
+  // NestJS 11 / Express 5 (audit 2.1, 26/10/2026) : lecture des paramètres d'URL inchangée (objets et tableaux)
+  app.set('query parser', 'extended');
+  // Express 5 ne crée plus req.body = {} sans corps : un @Body() vide redevient {} comme avant (au lieu d'un 500)
+  app.use((req, _res, next) => {
+    if (req.body === undefined) req.body = {};
+    next();
+  });
 
   // Audit sécurité 1.3 : en-têtes de sécurité, et CORS limité au site et à l'admin
   applySecurity(app);
