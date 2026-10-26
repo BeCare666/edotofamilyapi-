@@ -21,7 +21,9 @@ async function bootstrapServer(): Promise<Handler> {
     const app = await NestFactory.create(AppModule, adapter, { cors: true });
 
     app.setGlobalPrefix('api');
-    app.useGlobalPipes(new ValidationPipe());
+    // class-validator 0.14 (audit 2.1, 26/10/2026) : forbidUnknownValues passe à true par défaut et rejetterait
+    // les DTO sans décorateur. Comportement d'avant gardé jusqu'à la validation stricte (2.3).
+    app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
     app.use('/uploads', express.static(join(__dirname, '..', 'uploads')));
 
     app.use((req, res, next) => {

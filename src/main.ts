@@ -23,7 +23,9 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Applique les validations DTO globalement
-  app.useGlobalPipes(new ValidationPipe());
+  // class-validator 0.14 (audit 2.1, 26/10/2026) : forbidUnknownValues passe à true par défaut et rejetterait
+  // les DTO sans décorateur. Comportement d'avant gardé jusqu'à la validation stricte (2.3).
+  app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
 
   // Logger simple pour Render (optionnel)   
   app.use((req, res, next) => {

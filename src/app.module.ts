@@ -27,7 +27,6 @@ import { WithdrawsModule } from './withdraws/withdraws.module';
 import { AiModule } from './ai/ai.module';
 import { FaqsModule } from './faqs/faqs.module';
 import { TermsAndConditionsModule } from './terms-and-conditions/terms-and-conditions.module';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { DatabaseModule } from './database/database.module'
 import { CorridorsModule } from './corridors/corridors.module';
 import { CountriesModule } from './countries/countries.module';
