@@ -5,7 +5,6 @@ import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
 import { SousCategoriesModule } from './sous-categories/categories.module';
-import { SubCategoriesModule } from './sub-categories/categories.module';
 import { CommonModule } from './common/common.module';
 import { FeedbackModule } from './feedbacks/feedbacks.module';
 import { OrdersModule } from './orders/orders.module';
@@ -25,13 +24,9 @@ import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/users.module';
 import { WithdrawsModule } from './withdraws/withdraws.module';
 import { AiModule } from './ai/ai.module';
-import { FaqsModule } from './faqs/faqs.module';
-import { TermsAndConditionsModule } from './terms-and-conditions/terms-and-conditions.module';
 import { DatabaseModule } from './database/database.module'
-import { CorridorsModule } from './corridors/corridors.module';
 import { CountriesModule } from './countries/countries.module';
 import { CampaignsModule } from './campaigns/campaigns.module';
-import { ProductCorridorModule } from './product-corridors/product-corridor.module';
 import { PickupModule } from './pickup/pickup.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { CommissionsModule } from './commissions/commissions.module';
@@ -63,7 +58,6 @@ import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
     OrdersModule,
     CategoriesModule,
     SousCategoriesModule,
-    SubCategoriesModule,
     AnalyticsModule,
     ShippingsModule,
     TaxesModule,
@@ -81,11 +75,7 @@ import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
     PaymentIntentModule,
     PaymentModule,
     AiModule,
-    FaqsModule,
-    TermsAndConditionsModule,
     DatabaseModule,
-    ProductCorridorModule,
-    CorridorsModule,
     CountriesModule,
     CampaignsModule,
     PickupModule,

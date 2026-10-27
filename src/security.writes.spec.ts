@@ -17,24 +17,14 @@ const request = ((supertest as any).default ?? supertest) as (app: any) => super
 
 import { JwtStrategy } from './auth/jwt.strategy';
 import { DatabaseService } from './database/database.services';
-import { FaqsController } from './faqs/faqs.controller';
-import { FaqsService } from './faqs/faqs.service';
-import {
-  TermsAndConditionsController, DisapproveTermsAndConditionController, ApproveTermsAndConditionController,
-} from './terms-and-conditions/terms-and-conditions.controller';
-import { TermsAndConditionsService } from './terms-and-conditions/terms-and-conditions.service';
 import { TagsController } from './tags/tags.controller';
 import { TagsService } from './tags/tags.service';
 import { TypesController } from './types/types.controller';
 import { TypesService } from './types/types.service';
 import { TaxesController } from './taxes/taxes.controller';
 import { TaxesService } from './taxes/taxes.service';
-import { CorridorsController } from './corridors/corridors.controller';
-import { CorridorsService } from './corridors/corridors.service';
 import { CountriesController } from './countries/countries.controller';
 import { CountriesService } from './countries/countries.service';
-import { ProductCorridorController } from './product-corridors/product-corridor.controller';
-import { ProductCorridorService } from './product-corridors/product-corridor.service';
 import { WithdrawsController } from './withdraws/withdraws.controller';
 import { WithdrawsService } from './withdraws/withdraws.service';
 import { AbusiveReportsController } from './reviews/reports.controller';
@@ -53,8 +43,6 @@ import { CategoriesController } from './categories/categories.controller';
 import { CategoriesService } from './categories/categories.service';
 import { CategoriesController as SousCategoriesController } from './sous-categories/categories.controller';
 import { SousCategoriesService } from './sous-categories/categories.service';
-import { CategoriesController as SubCategoriesController } from './sub-categories/categories.controller';
-import { CategoriesService as SubCategoriesService } from './sub-categories/categories.service';
 import { ShippingsController } from './shippings/shippings.controller';
 import { ShippingsService } from './shippings/shippings.service';
 import { AiController } from './ai/ai.controller';
@@ -79,33 +67,36 @@ const fakeService = () => {
 
 // Routes fermées le 22/10/2026 : [méthode, chemin]
 const CLOSED: [string, string][] = [
-  ['post', '/api/faqs'], ['put', '/api/faqs/1'], ['delete', '/api/faqs/1'],
-  ['post', '/api/terms-and-conditions'], ['put', '/api/terms-and-conditions/1'], ['delete', '/api/terms-and-conditions/1'],
-  ['post', '/api/approve-terms-and-conditions'], ['post', '/api/disapprove-terms-and-conditions'],
   ['post', '/api/tags'], ['put', '/api/tags/1'], ['delete', '/api/tags/1'],
   ['post', '/api/types'], ['put', '/api/types/1'], ['delete', '/api/types/1'],
   ['post', '/api/taxes'], ['put', '/api/taxes/1'], ['delete', '/api/taxes/1'],
-  ['post', '/api/corridors'], ['patch', '/api/corridors/1'], ['delete', '/api/corridors/1'],
-  ['post', '/api/countries'], ['post', '/api/countries/bulk'], ['delete', '/api/countries/1'],
-  ['post', '/api/product-corridors/link'],
-  ['post', '/api/withdraws'], ['get', '/api/withdraws'], ['get', '/api/withdraws/1'],
-  ['post', '/api/withdraws/1/approve'], ['delete', '/api/withdraws/1'],
+  ['post', '/api/countries'], ['delete', '/api/countries/1'],
+  ['get', '/api/withdraws'], ['get', '/api/withdraws/1'],
   ['post', '/api/abusive_reports'], ['put', '/api/abusive_reports/1'], ['delete', '/api/abusive_reports/1'],
   ['post', '/api/reviews'], ['put', '/api/reviews/1'], ['delete', '/api/reviews/1'],
   ['put', '/api/questions/1'], ['delete', '/api/questions/1'],
-  ['put', '/api/feedbacks/1'], ['delete', '/api/feedbacks/1'],
+  ['get', '/api/feedbacks'], ['get', '/api/feedbacks/1'],
   ['post', '/api/shops'], ['put', '/api/shops/1'], ['delete', '/api/shops/1'], ['post', '/api/shops/approve'],
   ['post', '/api/disapprove-shop/1'], ['post', '/api/disapprove-shop'], ['post', '/api/approve-shop'],
   ['post', '/api/staffs'], ['put', '/api/staffs/1'], ['delete', '/api/staffs/1'],
   ['post', '/api/categories'], ['post', '/api/categories/bulk'], ['patch', '/api/categories/1'], ['delete', '/api/categories/1'],
   ['post', '/api/souscategories'], ['post', '/api/souscategories/batch'], ['put', '/api/souscategories/1'], ['delete', '/api/souscategories/1'],
-  ['post', '/api/sub_categories'], ['post', '/api/sub_categories/createMany'], ['patch', '/api/sub_categories/1'], ['delete', '/api/sub_categories/1'],
   ['post', '/api/shippings'], ['put', '/api/shippings/1'], ['delete', '/api/shippings/1'],
   ['post', '/api/generate-descriptions'],
 ];
 
+// Routes supprimées par le nettoyage N5 (27/10/2026) : plus aucune réponse, même pour le super admin
+const REMOVED: [string, string][] = [
+  ['get', '/api/faqs'], ['post', '/api/faqs'], ['get', '/api/terms-and-conditions'],
+  ['post', '/api/approve-terms-and-conditions'], ['post', '/api/disapprove-terms-and-conditions'],
+  ['get', '/api/corridors'], ['post', '/api/corridors'], ['post', '/api/product-corridors/link'],
+  ['get', '/api/sub_categories'], ['post', '/api/sub_categories'], ['post', '/api/countries/bulk'],
+  ['post', '/api/withdraws'], ['post', '/api/withdraws/1/approve'], ['delete', '/api/withdraws/1'],
+  ['post', '/api/feedbacks'], ['put', '/api/feedbacks/1'], ['delete', '/api/feedbacks/1'],
+];
+
 // Lectures utilisées par le site et le formulaire produit : restent publiques
-const STILL_PUBLIC: string[] = ['/api/types', '/api/tags', '/api/countries', '/api/categories', '/api/faqs', '/api/shops'];
+const STILL_PUBLIC: string[] = ['/api/types', '/api/tags', '/api/countries', '/api/categories', '/api/shops'];
 
 jest.setTimeout(60000);
 
@@ -115,19 +106,18 @@ describe('Écritures réservées au super admin (audit C5)', () => {
 
   beforeAll(async () => {
     const services = [
-      FaqsService, TermsAndConditionsService, TagsService, TypesService, TaxesService, CorridorsService,
-      CountriesService, ProductCorridorService, WithdrawsService, AbusiveReportService, ReviewService,
+      TagsService, TypesService, TaxesService,
+      CountriesService, WithdrawsService, AbusiveReportService, ReviewService,
       QuestionService, FeedbackService, ShopsService, CategoriesService, SousCategoriesService,
-      SubCategoriesService, ShippingsService, AiService,
+      ShippingsService, AiService,
     ];
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
       controllers: [
-        FaqsController, TermsAndConditionsController, DisapproveTermsAndConditionController, ApproveTermsAndConditionController,
-        TagsController, TypesController, TaxesController, CorridorsController, CountriesController, ProductCorridorController,
+        TagsController, TypesController, TaxesController, CountriesController,
         WithdrawsController, AbusiveReportsController, ReviewController, QuestionController, FeedbackController,
         ShopsController, DisapproveShop, StaffsController, DisapproveShopController, ApproveShopController,
-        CategoriesController, SousCategoriesController, SubCategoriesController, ShippingsController, AiController,
+        CategoriesController, SousCategoriesController, ShippingsController, AiController,
       ],
       providers: [
         JwtStrategy,
@@ -160,6 +150,10 @@ describe('Écritures réservées au super admin (audit C5)', () => {
   it.each(CLOSED)('%s %s : le super admin passe les guards', async (method, path) => {
     const res = await (request(http) as any)[method](path).set(auth(T.admin)).send({});
     expect([401, 403]).not.toContain(res.status);
+  });
+
+  it.each(REMOVED)('%s %s : supprimée (N5) → 404', async (method, path) => {
+    await (request(http) as any)[method](path).set(auth(T.admin)).send({}).expect(404);
   });
 
   it.each(STILL_PUBLIC)('GET %s reste public', async (path) => {

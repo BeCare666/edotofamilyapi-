@@ -178,27 +178,6 @@ export class PopularProductsController {
     return this.productsService.getPopularProducts(query);
   }
 }
-@Controller('best-selling-products')
-export class BestSellingProductsController {
-  constructor(private readonly productsService: ProductsService) { }
-  @Public()
-  @Get()
-  async getProducts(@Query() query: GetBestSellingProductsDto): Promise<Product[]> {
-    return this.productsService.getBestSellingProducts(query);
-  }
-}
-
-@Controller('followed-shops-popular-products')
-export class FollowedShopsProductsController {
-  constructor(private readonly productsService: ProductsService) { }
-
-  @Get()
-  async followedShopsPopularProducts(
-    @Query() query: GetFollowedShopsProducts,
-  ): Promise<Product[]> {
-    return this.productsService.followedShopsPopularProducts(query);
-  }
-}
 @Controller('draft-products')
 export class DraftProductsController {
   constructor(private readonly productsService: ProductsService) { }

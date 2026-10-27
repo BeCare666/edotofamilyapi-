@@ -33,20 +33,18 @@ const PUBLIC_ROUTES = [
   'GET /verify-email', 'POST /logout',
   'POST /ai/chat',
   'GET /products', 'GET /products/:slug', 'GET /products/corridor', 'GET /products/search',
-  'GET /popular-products', 'GET /best-selling-products', 'GET /top-rate-product', 'GET /category-wise-product',
+  'GET /popular-products', 'GET /top-rate-product', 'GET /category-wise-product',
   'GET /campaigns/active', 'GET /campaigns/upcoming', 'GET /campaigns/:id', 'GET /campaigns/:id/stats',
-  'GET /campaigns/active/city/:city', 'GET /campaigns/active/count',
+  'GET /campaigns/active/count',
   'GET /categories', 'GET /categories/:param',
   'GET /souscategories', 'GET /souscategories/:param', 'GET /souscategories/bycategory',
-  'GET /sub_categories', 'GET /sub_categories/:param',
   'GET /types', 'GET /types/:slug', 'GET /tags', 'GET /tags/:param',
   'GET /contraception/methods', 'GET /contraception/methods/:slug',
-  'GET /corridors', 'GET /corridors/:id', 'GET /countries', 'GET /countries/:id',
+  'GET /countries', 'GET /countries/:id',
   'GET /shippings', 'GET /shippings/:id', 'GET /taxes', 'GET /taxes/:id',
   'GET /settings', 'GET /site-appearance',
-  'GET /faqs', 'GET /faqs/:param', 'GET /terms-and-conditions', 'GET /terms-and-conditions/:param',
   'GET /reviews', 'GET /reviews/:id', 'GET /questions', 'GET /questions/:id',
-  'GET /shops', 'GET /shops/:slug', 'GET /top-shops', 'GET /new-shops', 'GET /near-by-shop/:lat/:lng',
+  'GET /shops', 'GET /shops/:slug', 'GET /new-shops',
   'GET /pickup', 'GET /pickup/:id', 'GET /delivery/quote',
   'POST /courier-links/:token/open', 'POST /courier-links/:token/unlock', 'POST /courier-links/:token/deliver',
   'GET /sponsor-invitations/:token', 'POST /sponsor-invitations/accept', 'POST /sponsor-signup',
@@ -164,5 +162,18 @@ describe('Inventaire des routes publiques (audit 1.4)', () => {
     expect(allRoutes.length).toBeGreaterThan(100);
     expect(allRoutes).not.toContain('POST /payments/webhook');
     expect(allRoutes).not.toContain('POST /webhook/flutterwave');
+  });
+  // Nettoyage N5 (27/10/2026) : modules et routes sans aucun appel, supprimés
+  it('routes du nettoyage N5 supprimées', () => {
+    const removed = allRoutes.filter((r) =>
+      /^\w+ \/(corridors|product-corridors|sub_categories|faqs|terms-and-conditions|approve-terms-and-conditions|disapprove-terms-and-conditions|profiles|downloads|my-questions|best-selling-products|followed-shops-popular-products|top-shops|follow-shop|followed-shops|near-by-shop)(\/|$)/.test(r));
+    expect(removed).toEqual([]);
+    for (const r of ['POST /social-login-token', 'POST /otp-login', 'POST /contact-us', 'GET /campaigns/active/city/:city',
+      'POST /countries/bulk', 'POST /withdraws', 'POST /withdraws/:id/approve', 'DELETE /withdraws/:id',
+      'POST /feedbacks', 'PUT /feedbacks/:id', 'DELETE /feedbacks/:id'])
+      expect(allRoutes).not.toContain(r);
+    // Lectures gardées
+    for (const r of ['GET /countries', 'GET /withdraws', 'GET /feedbacks', 'GET /products/corridor'])
+      expect(allRoutes).toContain(r);
   });
 });

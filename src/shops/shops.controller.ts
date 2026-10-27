@@ -81,17 +81,6 @@ export class DisapproveShop {
   }
 }
 
-@Controller('top-shops')
-export class TopShopsController {
-  constructor(private shopsService: ShopsService) { }
-
-  @Public()
-  @Get()
-  async topShops(@Query() query: GetTopShopsDto): Promise<ShopPaginator> {
-    return this.shopsService.topShops(query);
-  }
-}
-
 @Controller('staffs')
 export class StaffsController {
   constructor(private readonly shopsService: ShopsService) { }
@@ -144,43 +133,6 @@ export class ApproveShopController {
   @Post()
   async approveShop(@Body('id') id) {
     return this.shopsService.approveShop(id);
-  }
-}
-
-@Controller('follow-shop')
-export class FollowShopController {
-  constructor(private shopsService: ShopsService) { }
-
-  @Post()
-  async followShop(@Body('shop_id') shop_id) {
-    return this.shopsService.followShop(shop_id);
-  }
-
-  @Get()
-  async getFollowShop(@Body('shop_id') shop_id) {
-    return this.shopsService.getFollowShop(shop_id);
-  }
-}
-
-@Controller('followed-shops')
-export class FollowedShops {
-  constructor(private readonly shopsService: ShopsService) { }
-
-  @Get()
-  async followedShopsPopularProducts(
-    @Query() query: GetShopsDto,
-  ): Promise<ShopPaginator> {
-    return this.shopsService.getShops(query);
-  }
-}
-@Controller('near-by-shop')
-export class NearByShopController {
-  constructor(private shopsService: ShopsService) { }
-
-  @Public()
-  @Get(':lat/:lng')
-  async getNearByShop(@Param('lat') lat: string, @Param('lng') lng: string) {
-    return this.shopsService.getNearByShop(lat, lng);
   }
 }
 

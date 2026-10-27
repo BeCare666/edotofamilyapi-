@@ -15,12 +15,6 @@ export class CountriesController {
         return this.countriesService.createCountry(dto);
     }
 
-    @SuperAdminOnly()
-    @Post('bulk')
-    createMany(@Body() dtos: CreateCountryDto[]) {
-        return this.countriesService.createMany(dtos);
-    }
-
     @Public()
     @Get()
     findAll() {

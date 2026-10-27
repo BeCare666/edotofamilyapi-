@@ -4,10 +4,8 @@ import { DatabaseModule } from 'src/database/database.module';
 import {
   ProductsController,
   PopularProductsController,
-  FollowedShopsProductsController,
   ProductsStockController,
   DraftProductsController,
-  BestSellingProductsController,
   ProductAliasController,
 } from './products.controller';
 
@@ -16,8 +14,6 @@ import {
   controllers: [
     ProductsController,
     PopularProductsController,
-    FollowedShopsProductsController,
-    BestSellingProductsController,
     ProductsStockController,
     DraftProductsController,
     ProductAliasController,

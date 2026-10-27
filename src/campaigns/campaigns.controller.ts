@@ -51,12 +51,6 @@ export class CampaignsController {
     return this.campaignsService.locateForCampaign(id, body?.lat, body?.lng);
   }
   @Public()
-  @Get('campaigns/active/city/:city')
-  getActiveByCity(@Param('city') city: string) {
-    return this.campaignsService.getActiveCampaignByCity(city);
-  }
-
-  @Public()
   @Get('campaigns/active/count')
   getActiveCount() {
     return this.campaignsService.getActiveCampaignsCount();

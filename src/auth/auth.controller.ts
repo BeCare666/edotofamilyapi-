@@ -47,19 +47,6 @@ export class AuthController {
     return this.authService.login(email, password);
   }
 
-  @Post('social-login-token')
-  socialLogin(@Body() socialLoginDto: SocialLoginDto) {
-    socialLoginDto.provider = socialLoginDto.provider || 'google';
-    return this.authService.socialLoginx(socialLoginDto);
-  }
-
-  @Post('otp-login')
-  otpLogin(@Body() otpLoginDto: OtpLoginDto) {
-    return this.authService.otpLogin(otpLoginDto);
-  }
-
-
-
   @Public()
   @Post('resend-verification-email')
   resendVerificationEmail(@Body('email') email: string) {
@@ -111,13 +98,6 @@ export class AuthController {
     return this.authService.me(req?.headers?.authorization);
   }
 
-  @Post('contact-us')
-  contactUs(@Body() addPointsDto: any) {
-    return {
-      success: true,
-      message: 'Thank you for contacting us. We will get back to you soon.',
-    };
-  }
   @Public()
   @Get('verify-email')
   async verifyEmail(@Query('token') token: string, @Res() res: Response) {

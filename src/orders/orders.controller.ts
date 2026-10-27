@@ -262,30 +262,6 @@ export class OrderStatusController {
 }
 
 // ====================================================================
-//                            ORDER FILES
-// ====================================================================
-@UseGuards(JwtAuthGuard, RolesGuard)
-@Roles(SUPER_ADMIN)
-@Controller('downloads')
-export class OrderFilesController {
-  constructor(private ordersService: OrdersService) {}
-
-  @Get()
-  async getOrderFileItems(
-    @Query() query: GetOrderFilesDto,
-  ): Promise<OrderFilesPaginator> {
-    return this.ordersService.getOrderFileItems(query);
-  }
-
-  @Post('digital-file')
-  async getDigitalFileDownloadUrl(
-    @Body('digital_file_id', ParseIntPipe) digitalFileId: number,
-  ) {
-    return this.ordersService.getDigitalFileDownloadUrl(digitalFileId);
-  }
-}
-
-// ====================================================================
 //                           EXPORT ORDER URL
 // ====================================================================
 @Controller('export-order-url')

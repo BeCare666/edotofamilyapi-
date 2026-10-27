@@ -2,7 +2,6 @@
  * Phase 0.4 de l'audit sécurité (22/10/2026, C1) : les update() dynamiques n'acceptent
  * plus que des colonnes connues. Une clé piégée ne doit jamais entrer dans le SQL.
  */
-import { CorridorsService } from './corridors/corridors.service';
 import { TaxesService } from './taxes/taxes.service';
 import { TagsService } from './tags/tags.service';
 import { QuestionService } from './questions/questions.service';
@@ -23,20 +22,6 @@ function fakeDb() {
 const updates = (calls: { sql: string; params: any[] }[]) => calls.filter((c) => c.sql.startsWith('UPDATE'));
 
 describe('listes blanches des update()', () => {
-  it('corridors : seules les colonnes réelles passent', async () => {
-    const { db, calls } = fakeDb();
-    await new CorridorsService(db).update('1', { [EVIL]: 'x', [EVIL2]: 'y', douanes: 5 } as any);
-    const [u] = updates(calls);
-    expect(u.sql).toBe('UPDATE corridors SET douanes = ?, updated_at = NOW() WHERE id = ?');
-    expect(u.params).toEqual([5, '1']);
-  });
-
-  it('corridors : rien de connu, aucune requête UPDATE', async () => {
-    const { db, calls } = fakeDb();
-    await new CorridorsService(db).update('1', { [EVIL]: 'x' } as any);
-    expect(updates(calls)).toHaveLength(0);
-  });
-
   it('taxes : clé piégée ignorée', async () => {
     const { db, calls } = fakeDb();
     await new TaxesService(db).update(1, { [EVIL2]: 'x', rate: 18 } as any);

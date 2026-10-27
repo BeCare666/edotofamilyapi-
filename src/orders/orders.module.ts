@@ -4,7 +4,6 @@ import { PaymentModule } from 'src/payment/payment.module';
 import {
   DownloadInvoiceController,
   OrderExportController,
-  OrderFilesController,
   OrdersController,
   OrderStatusController,
 } from './orders.controller';
@@ -16,7 +15,6 @@ import { DeliveryModule } from 'src/delivery/delivery.module';
   controllers: [
     OrdersController,
     OrderStatusController,
-    OrderFilesController,
     OrderExportController,
     DownloadInvoiceController,
   ],

@@ -14,11 +14,11 @@ import * as supertest from 'supertest';
 const request = ((supertest as any).default ?? supertest) as (app: any) => supertest.SuperTest<supertest.Test>;
 
 import { JwtStrategy } from './auth/jwt.strategy';
-import { UsersController, AdminController, ProfilesController } from './users/users.controller';
+import { UsersController, AdminController } from './users/users.controller';
 import { UsersService } from './users/users.service';
 import { ProductsController } from './products/products.controller';
 import { ProductsService } from './products/products.service';
-import { OrdersController, OrderStatusController, OrderFilesController } from './orders/orders.controller';
+import { OrdersController, OrderStatusController } from './orders/orders.controller';
 import { OrdersService } from './orders/orders.service';
 import { CampaignsController } from './campaigns/campaigns.controller';
 import { CampaignsService } from './campaigns/campaigns.service';
@@ -152,9 +152,9 @@ describe("Matrice d'accès HTTP", () => {
     const moduleRef = await Test.createTestingModule({
       imports: [PassportModule.register({ defaultStrategy: 'jwt' })],
       controllers: [
-        UsersController, AdminController, ProfilesController,
+        UsersController, AdminController,
         ProductsController,
-        OrdersController, OrderStatusController, OrderFilesController,
+        OrdersController, OrderStatusController,
         CampaignsController, CampaignsAdminController,
         PaymentIntentController,
         UploadsController,
@@ -216,12 +216,12 @@ describe("Matrice d'accès HTTP", () => {
     it('PUT /users/:id sur un autre compte → 403', async () => {
       await request(http).put('/api/users/11').set(auth(T.customer)).send({ name: 'x' }).expect(403);
     });
-    it('block-user / POST /users / admin/list / profiles réservés à super_admin', async () => {
+    it('block-user / POST /users / admin/list réservés à super_admin ; /profiles supprimée (N5)', async () => {
       await request(http).post('/api/users/block-user').set(auth(T.customer)).send({ id: 2 }).expect(403);
       await request(http).post('/api/users/block-user').set(auth(T.admin)).send({ id: 2 }).expect(201);
       await request(http).post('/api/users').set(auth(T.owner)).send({}).expect(403);
       await request(http).get('/api/admin/list').expect(401);
-      await request(http).delete('/api/profiles/3').set(auth(T.customer)).expect(403);
+      await request(http).delete('/api/profiles/3').set(auth(T.admin)).expect(404);
     });
   });
 
@@ -316,9 +316,9 @@ describe("Matrice d'accès HTTP", () => {
       await request(http).post('/api/order-status').send({}).expect(401);
       await request(http).delete('/api/order-status/1').set(auth(T.customer)).expect(403);
     });
-    it('downloads : admin uniquement', async () => {
-      await request(http).get('/api/downloads').expect(401);
-      await request(http).get('/api/downloads').set(auth(T.customer)).expect(403);
+    it('downloads : supprimée (N5)', async () => {
+      await request(http).get('/api/downloads').set(auth(T.admin)).expect(404);
+      await request(http).post('/api/downloads/digital-file').set(auth(T.admin)).send({ digital_file_id: 1 }).expect(404);
     });
   });
 

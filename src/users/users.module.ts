@@ -5,7 +5,6 @@ import {
   AllCustomerController,
   AllStaffsController,
   MyStaffsController,
-  ProfilesController,
   UsersController,
   VendorController,
 } from './users.controller';
@@ -15,7 +14,6 @@ import { DatabaseModule } from '../database/database.module'; // ✅ ici
   imports: [DatabaseModule], // ✅ ici
   controllers: [
     UsersController,
-    ProfilesController,
     AdminController,
     VendorController,
     MyStaffsController,

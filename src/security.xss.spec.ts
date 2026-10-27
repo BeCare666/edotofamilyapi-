@@ -1,10 +1,8 @@
 /**
- * Audit sécurité 1.6 (26/10/2026, H1) : le HTML enregistré (produits, FAQ, conditions générales, boutiques)
+ * Audit sécurité 1.6 (26/10/2026, H1) : le HTML enregistré (produits, boutiques ; FAQ et CGV retirées en N5)
  * est nettoyé avant d'entrer en base. Le contenu réel (h2, h3, p, strong, listes) reste identique.
  */
 import { safeHtml } from './common/safe-html';
-import { FaqsService } from './faqs/faqs.service';
-import { TermsAndConditionsService } from './terms-and-conditions/terms-and-conditions.service';
 import { ProductsService } from './products/products.service';
 import { ShopsService } from './shops/shops.service';
 
@@ -76,29 +74,6 @@ describe('safeHtml', () => {
 });
 
 describe('nettoyage à l’enregistrement', () => {
-  it('FAQ : création et modification', async () => {
-    const { db, calls } = fakeDb();
-    const s = new FaqsService(db);
-    jest.spyOn(s, 'getFaq').mockResolvedValue({} as any);
-    await s.create({ faq_title: 'Titre', faq_description: EVIL } as any);
-    await s.update(1, { faq_title: 'Titre', faq_description: EVIL } as any);
-    const w = writes(calls);
-    expect(w).toHaveLength(2);
-    w.forEach((c) => expect(c.params).toContain(EVIL_CLEAN));
-    w.forEach((c) => expect(c.params).not.toContain(EVIL));
-  });
-
-  it('conditions générales : création et modification', async () => {
-    const { db, calls } = fakeDb();
-    const s = new TermsAndConditionsService(db);
-    jest.spyOn(s, 'findOne').mockResolvedValue({} as any);
-    await s.create({ title: 'CGV', description: EVIL } as any);
-    await s.update(1, { title: 'CGV', description: EVIL } as any);
-    const w = writes(calls);
-    expect(w).toHaveLength(2);
-    w.forEach((c) => expect(c.params).toContain(EVIL_CLEAN));
-  });
-
   it('produit : modification', async () => {
     const { db, calls } = fakeDb();
     const s = new ProductsService(db);
