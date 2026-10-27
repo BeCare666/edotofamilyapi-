@@ -1,10 +1,10 @@
-import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import * as dotenv from 'dotenv';
 import { applySecurity } from './common/cors';
+import { StrictBodyPipe } from './common/strict-body';
 
 if (process.env.NODE_ENV !== 'production') {
   dotenv.config();
@@ -31,9 +31,9 @@ async function bootstrap() {
   app.setGlobalPrefix('api');
 
   // Applique les validations DTO globalement
-  // class-validator 0.14 (audit 2.1, 26/10/2026) : forbidUnknownValues passe à true par défaut et rejetterait
-  // les DTO sans décorateur. Comportement d'avant gardé jusqu'à la validation stricte (2.3).
-  app.useGlobalPipes(new ValidationPipe({ forbidUnknownValues: false }));
+  // Audit sécurité 2.3 (27/10/2026) : liste blanche stricte pour les DTO marqués @StrictDto(),
+  // comportement d'avant (forbidUnknownValues: false) pour les autres. Voir src/common/strict-body.ts.
+  app.useGlobalPipes(new StrictBodyPipe());
 
   // Logger simple pour Render (optionnel)   
   app.use((req, res, next) => {

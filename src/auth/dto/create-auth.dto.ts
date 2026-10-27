@@ -1,7 +1,6 @@
-import { PartialType, PickType } from '@nestjs/swagger';
 import { CoreMutationOutput } from 'src/common/dto/core-mutation-output.dto';
-import { User } from 'src/users/entities/user.entity';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsOptional } from 'class-validator';
+import { IsScalar, StrictDto } from 'src/common/strict-body';
 
 enum Permission {
   SUPER_ADMIN = 'Super admin',
@@ -11,16 +10,29 @@ enum Permission {
 }
 
 // --------- AUTH ---------
-export class RegisterDto extends PickType(User, ['name', 'email', 'password', 'pickup_lat', 'pickup_lng', 'pickup_address']) {
-  permission: Permission = Permission.CUSTOMER;
+// Audit sécurité 2.3 (27/10/2026) : liste blanche stricte (@StrictDto) ; seuls les champs décorés
+// arrivent au service. IsScalar bloque objets et tableaux ; les contrôles métier (nom, e-mail,
+// mot de passe, date) restent dans AuthService avec leurs messages en français.
+@StrictDto()
+export class RegisterDto {
+  @IsOptional() @IsScalar() name?: string;
+  @IsOptional() @IsScalar() email?: string;
+  @IsOptional() @IsScalar() password?: string;
+  @IsOptional() @IsScalar() pickup_lat?: number;
+  @IsOptional() @IsScalar() pickup_lng?: number;
+  @IsOptional() @IsScalar() pickup_address?: string;
   // Inscription des utilisateurs (16/10/2026) : date de naissance (AAAA-MM-JJ) et sexe (female | male)
-  birth_date?: string;
-  sex?: string;
+  @IsOptional() @IsScalar() birth_date?: string;
+  @IsOptional() @IsScalar() sex?: string;
+  // Jamais lu : le rôle est fixé par le serveur (retiré par la liste blanche s'il est envoyé)
+  permission?: Permission;
 }
 
-export class LoginDto extends PartialType(
-  PickType(User, ['email', 'password']),
-) { }
+@StrictDto()
+export class LoginDto {
+  @IsOptional() @IsScalar() email?: string;
+  @IsOptional() @IsScalar() password?: string;
+}
 
 export class SocialLoginDto {
   name: string;
@@ -29,28 +41,32 @@ export class SocialLoginDto {
 }
 
 
+@StrictDto()
 export class ChangePasswordDto {
-  oldPassword?: string;
-  newPassword?: string;
+  @IsOptional() @IsScalar() oldPassword?: string;
+  @IsOptional() @IsScalar() newPassword?: string;
   // Même chose, écrit autrement par la page profil du site
-  old_password?: string;
-  new_password?: string;
+  @IsOptional() @IsScalar() old_password?: string;
+  @IsOptional() @IsScalar() new_password?: string;
 }
 
 // --------- PASSWORD RESET (EMAIL OTP) ---------
+@StrictDto()
 export class ForgetPasswordDto {
-  email: string;
+  @IsOptional() @IsScalar() email: string;
 }
 
+@StrictDto()
 export class VerifyForgetPasswordDto {
-  email: string;
-  token: string; // code OTP reçu par email
+  @IsOptional() @IsScalar() email: string;
+  @IsOptional() @IsScalar() token: string; // code OTP reçu par email
 }
 
+@StrictDto()
 export class ResetPasswordDto {
-  email: string;
-  token: string; // code OTP reçu par email
-  password: string;
+  @IsOptional() @IsScalar() email: string;
+  @IsOptional() @IsScalar() token: string; // code OTP reçu par email
+  @IsOptional() @IsScalar() password: string;
 }
 
 // --------- RESPONSES ---------
