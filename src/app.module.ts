@@ -1,6 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { StripeModule } from 'nestjs-stripe';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { AuthModule } from './auth/auth.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -9,7 +8,6 @@ import { CommonModule } from './common/common.module';
 import { FeedbackModule } from './feedbacks/feedbacks.module';
 import { OrdersModule } from './orders/orders.module';
 import { PaymentIntentModule } from './payment-intent/payment-intent.module';
-import { PaymentMethodModule } from './payment-method/payment-method.module';
 import { PaymentModule } from './payment/payment.module';
 import { ProductsModule } from './products/products.module';
 import { QuestionModule } from './questions/questions.module';
@@ -48,10 +46,6 @@ import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
       throttlers: [{ name: 'default', limit: 100, ttl: MINUTE }],
       errorMessage: 'Trop de requêtes. Réessayez dans un instant.',
     }),
-    StripeModule.forRoot({
-      apiKey: process.env.STRIPE_API_KEY,
-      apiVersion: '2022-11-15',
-    }),
     UsersModule,
     CommonModule,
     ProductsModule,
@@ -71,7 +65,6 @@ import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
     ReviewModule,
     QuestionModule,
     FeedbackModule,
-    PaymentMethodModule,
     PaymentIntentModule,
     PaymentModule,
     AiModule,

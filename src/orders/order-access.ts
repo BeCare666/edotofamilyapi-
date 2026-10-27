@@ -95,4 +95,4 @@ export function safeSortDirection(sortedBy: any): 'ASC' | 'DESC' {
 
 // Passerelles qu'un client peut choisir lui-même. CASH et FULL_WALLET_PAYMENT passent la
 // commande en « payée / terminée » sans vérification : réservés à l'admin.
-export const CUSTOMER_PAYMENT_GATEWAYS = ['FEEXPAY', 'flutterwave'];
+export const CUSTOMER_PAYMENT_GATEWAYS = ['FEEXPAY'];

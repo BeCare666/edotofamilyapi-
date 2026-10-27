@@ -113,7 +113,7 @@ describe('Commande : lieu choisi avant le paiement', () => {
     };
     const { calls, db } = fakeDb(handler);
     const authService = { me: jest.fn().mockResolvedValue({ id: 10, email: 'c@t.io' }) };
-    const svc = new OrdersService(authService as any, {} as any, {} as any, db, new DeliveryService(db));
+    const svc = new OrdersService(authService as any, {} as any, db, new DeliveryService(db));
     return { svc, calls };
   }
   const products = [{ product_id: 1, order_quantity: 2, unit_price: 1, subtotal: 1 }];

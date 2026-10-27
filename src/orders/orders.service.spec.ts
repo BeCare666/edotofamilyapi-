@@ -34,7 +34,7 @@ const ORDER_ROW = { id: 5, customer_id: 10, pickup_point_id: 20, otp_code: '1234
 function makeOrders(handler: Handler) {
   const { calls, db } = fakeDb(handler);
   const authService = { me: jest.fn().mockResolvedValue({ id: 10, email: 'c@t.io' }) };
-  const svc = new OrdersService(authService as any, {} as any, {} as any, db);
+  const svc = new OrdersService(authService as any, {} as any, db);
   return { svc, calls };
 }
 
@@ -261,6 +261,9 @@ describe('OrdersService.create — prix serveur (S10)', () => {
     await expect(svc.create({ products: [{ product_id: 3, order_quantity: 1 }], payment_gateway: 'FULL_WALLET_PAYMENT' } as any, 'Bearer x', customer))
       .rejects.toBeInstanceOf(BadRequestException);
     await expect(svc.create({ products: [{ product_id: 3, order_quantity: 1 }], payment_gateway: 'CASH' } as any, 'Bearer x', customer))
+      .rejects.toBeInstanceOf(BadRequestException);
+    // N9 : FeexPay seul moyen de paiement client
+    await expect(svc.create({ products: [{ product_id: 3, order_quantity: 1 }], payment_gateway: 'flutterwave' } as any, 'Bearer x', customer))
       .rejects.toBeInstanceOf(BadRequestException);
   });
 

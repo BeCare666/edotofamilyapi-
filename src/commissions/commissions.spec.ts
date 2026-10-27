@@ -118,7 +118,7 @@ describe('Commission figée au moment du retrait', () => {
       if (sql.includes('UPDATE orders o')) return { affectedRows: 1 };
       return [{ id: 5 }];
     });
-    const svc = new OrdersService({} as any, {} as any, {} as any, db);
+    const svc = new OrdersService({} as any, {} as any, db);
     await svc.verifyOtp({ order_id: 5, otp_code: '123456' } as any, { id: 20, permissions: ['super_pickuppoint'] });
     const up = calls.find((c) => c.sql.includes('UPDATE orders o'));
     expect(up.sql).toContain('commission_rate =');

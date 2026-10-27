@@ -176,4 +176,13 @@ describe('Inventaire des routes publiques (audit 1.4)', () => {
     for (const r of ['GET /countries', 'GET /withdraws', 'GET /feedbacks', 'GET /products/corridor'])
       expect(allRoutes).toContain(r);
   });
+  // Nettoyage N9 (27/10/2026) : FeexPay seul ; Flutterwave, Stripe, PayPal et cartes enregistrées retirés.
+  // POST /payments/confirm passait une commande en « payée » sans vérification hors Flutterwave.
+  it('routes du nettoyage N9 supprimées, FeexPay gardé', () => {
+    const removed = allRoutes.filter((r) => /^\w+ \/(cards|save-payment-method|set-default-card)(\/|$)/.test(r));
+    expect(removed).toEqual([]);
+    expect(allRoutes).not.toContain('POST /payments/create-intent');
+    expect(allRoutes).not.toContain('POST /payments/confirm');
+    expect(allRoutes).toContain('POST /payments/feexpay/complete');
+  });
 });

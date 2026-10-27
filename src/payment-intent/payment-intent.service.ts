@@ -1,7 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
 import { Pool, RowDataPacket, ResultSetHeader, PoolConnection } from 'mysql2/promise';
-import axios, { AxiosError } from 'axios';
 import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit';
@@ -11,17 +10,6 @@ import { Readable } from 'stream';
 import { sendVerificationEmail } from '../auth/mailer';
 import { randomInt } from 'crypto';
 import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PICKUP_OTP_TTL_MS } from '../orders/pickup-otp-email';
-interface FlutterwavePaymentData {
-  id: number;
-  tx_ref: string;
-  amount: number;
-  currency: string;
-  status: string;
-  customer: { id: number; name: string; email: string; phone_number?: string };
-  payment_type: string;
-  created_at: string;
-  [key: string]: any;
-}
 @Injectable()
 export class PaymentIntentService {
   private pool: Pool;
@@ -36,72 +24,6 @@ export class PaymentIntentService {
     });
   }
 
-  // ---------------------------
-  // Crée un payment intent
-  // ---------------------------
-  async createPaymentIntent(orderId: number, paymentGateway: string) {
-    const [orderRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT * FROM orders WHERE id = ?`,
-      [orderId]
-    );
-    const order = orderRows[0];
-    if (!order) throw new Error('Order not found');
-
-    const [existingIntentRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT * FROM payment_intents WHERE order_id = ? AND status IN ('payment-pending', 'payment-processing')`,
-      [orderId]
-    );
-    if (existingIntentRows.length > 0) {
-      return existingIntentRows[0];
-    }
-
-    const tx_ref = `FLW-${order.id}-${Date.now()}`;
-    const public_key = process.env.FLUTTERWAVE_PUBLIC_KEY;
-
-    const [result] = await this.pool.query<ResultSetHeader>(
-      `INSERT INTO payment_intents
-      (order_id, tracking_number, payment_gateway, status, total_amount, currency, payment_intent_info)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [
-        order.id,
-        order.tracking_number,
-        paymentGateway,
-        'payment-pending',
-        order.total,
-        order.currency || 'USD',
-        JSON.stringify({ tx_ref }),
-      ]
-    );
-
-    const paymentIntentInfo = {
-      tx_ref,
-      amount: order.total,
-      currency: order.currency || 'USD',
-      customer_email: order.customer_email || 'example@example.com',
-      customer_name: order.customer_name || 'Client',
-      customer_phone: order.customer_contact || '',
-      public_key,
-      title: 'Order Payment',
-      description: `Payment for order ${order.tracking_number}`,
-      is_redirect: false,
-      redirect_url: null,
-    };
-
-    await this.pool.query<ResultSetHeader>(
-      `UPDATE payment_intents SET payment_intent_info = ? WHERE id = ?`,
-      [JSON.stringify(paymentIntentInfo), result.insertId]
-    );
-
-    return {
-      id: result.insertId,
-      tracking_number: order.tracking_number,
-      total_amount: order.total,
-      currency: order.currency || 'USD',
-      payment_gateway: paymentGateway,
-      tx_ref,
-      payment_intent_info: paymentIntentInfo,
-    };
-  }
   // Entrée HTTP de POST /payments/feexpay/complete :
   // seul le client de la commande (ou l'admin) peut la déclencher, une seule fois,
   // et l'OTP n'est jamais renvoyé dans la réponse (il part uniquement par e-mail).
@@ -284,104 +206,6 @@ export class PaymentIntentService {
 
 
 
-  // ---------------------------
-  // Vérifie le paiement Flutterwave
-  // ---------------------------
-  private async verifyFlutterwavePayment(
-    tx_ref: string,
-    amount: number,
-    currency: string,
-  ): Promise<FlutterwavePaymentData> {
-    try {
-      const FLW_SECRET_KEY = process.env.FLW_SECRET_KEY;
-      if (!FLW_SECRET_KEY) throw new Error('Flutterwave secret key not configured');
-
-      const response = await axios.get<{ status: string; message: string; data: FlutterwavePaymentData }>(
-        `https://api.flutterwave.com/v3/transactions/verify_by_tx_ref?tx_ref=${tx_ref}`,
-        { headers: { Authorization: `Bearer ${FLW_SECRET_KEY}` } }
-      );
-
-      const data = response.data?.data;
-
-      if (!data || data.status !== 'successful') throw new Error('Payment not verified');
-      if (data.amount !== amount || data.currency !== currency) throw new Error('Payment amount or currency mismatch');
-
-      return data;
-    } catch (error) {
-      if (error instanceof AxiosError) {
-        throw new Error(`Flutterwave API error: ${error.response?.data?.message || error.message}`);
-      }
-      throw error;
-    }
-  }
-
-  // ---------------------------
-  // Confirme le paiement et génère facture
-  // ---------------------------
-  async confirmPayment(paymentIntentId: number, tx_ref: string, transaction_id: string) {
-    const [piRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT * FROM payment_intents WHERE id = ?`,
-      [paymentIntentId]
-    );
-    const paymentIntent = piRows[0];
-    if (!paymentIntent) throw new Error("PaymentIntent not found");
-
-    let paymentData: any = null;
-
-    if (paymentIntent.payment_gateway === "flutterwave") {
-      paymentData = await this.verifyFlutterwavePayment(
-        tx_ref,
-        paymentIntent.total_amount,
-        paymentIntent.currency
-      );
-      if (!paymentData) throw new Error("Payment verification failed");
-    }
-
-    const conn = await this.pool.getConnection();
-    try {
-      await conn.beginTransaction();
-
-      await conn.query<ResultSetHeader>(
-        `UPDATE payment_intents SET status = 'payment-success', updated_at = NOW() WHERE id = ?`,
-        [paymentIntentId]
-      );
-
-      await conn.query<ResultSetHeader>(
-        `UPDATE orders 
-        SET order_status = 'order-processing', 
-            payment_status = 'payment-success',
-            updated_at = NOW() 
-        WHERE id = ?`,
-        [paymentIntent.order_id]
-      );
-
-      await conn.query<ResultSetHeader>(
-        `UPDATE order_children 
-        SET order_status = 'order-processing', 
-            payment_status = 'payment-success',
-            updated_at = NOW() 
-        WHERE order_id = ?`,
-        [paymentIntent.order_id]
-      );
-
-      // ✅ mise à jour wallets Visa Test 5438898014560229 09/32 789 John Doe
-      await this.updateWallets(paymentIntent.order_id, conn);
-
-      await conn.commit();
-    } catch (err) {
-      await conn.rollback();
-      throw err;
-    } finally {
-      conn.release();
-    }
-
-    await this.updateAnalytics(paymentIntent.total_amount, conn);
-
-    // ✅ génère facture multi-shops + client
-    await this.generateInvoices(paymentIntent.order_id, conn);
-
-    return { success: true, paymentData };
-  }
 
   // ---------------------------
   // Mise à jour wallets

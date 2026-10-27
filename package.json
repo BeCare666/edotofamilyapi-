@@ -36,7 +36,6 @@
     "@nestjs/schedule": "^6.0.0",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/throttler": "^6.4.0",
-    "@paypal/checkout-server-sdk": "^1.0.3",
     "@vendia/serverless-express": "^4.12.6",
     "axios": "^1.2.1",
     "bcrypt": "^6.0.0",
@@ -50,7 +49,6 @@
     "multer": "^2.0.1",
     "multer-storage-cloudinary": "^4.0.0",
     "mysql2": "^3.14.1",
-    "nestjs-stripe": "^1.0.0",
     "passport": "^0.7.0",
     "passport-jwt": "^4.0.1",
     "pdfkit": "^0.17.2",
@@ -59,8 +57,7 @@
     "rimraf": "^5.0.10",
     "rxjs": "^7.5.6",
     "sanitize-html": "2.18.0",
-    "sib-api-v3-sdk": "^8.5.0",
-    "stripe": "^11.2.0"
+    "sib-api-v3-sdk": "^8.5.0"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",

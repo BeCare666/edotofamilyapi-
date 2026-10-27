@@ -209,15 +209,6 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
       tracking_number,
     );
 
-    switch (order.payment_gateway.toString().toLowerCase()) {
-      case 'stripe':
-        break;
-      case 'paypal':
-        break;
-      default:
-        break;
-    }
-
     this.ordersService.processChildrenOrder(order);
   }
 }

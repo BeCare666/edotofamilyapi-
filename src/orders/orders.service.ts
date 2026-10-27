@@ -1,6 +1,5 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { AuthService } from 'src/auth/auth.service';
-import { FlutterwaveService } from 'src/payment/flutterwave.service';
 import { FeexpayService } from 'src/payment/feexpay.service';
 import { DatabaseService } from '../database/database.services';
 import { CreateOrderDto } from './dto/create-order.dto';
@@ -21,7 +20,6 @@ import {
   PaymentGatewayType,
   PaymentIntentType,
 } from './entities/order.entity';
-import { PaymentInitDto } from 'src/payment-gateway/payment-gateway.interface';
 import { hasRole, STAFF, STORE_OWNER, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
 import {
   CUSTOMER_PAYMENT_GATEWAYS,
@@ -52,7 +50,6 @@ function isOtpExpired(order: { otp_expires_at?: any }) {
 export class OrdersService {
   constructor(
     private readonly authService: AuthService,
-    private readonly flutterwaveService: FlutterwaveService,
     private readonly feexpayService: FeexpayService,
     private readonly databaseService: DatabaseService,
     private readonly deliveryService?: DeliveryService,
@@ -253,46 +250,8 @@ export class OrdersService {
         );
       }
 
-      // ✅ Paiement Flutterwave
-      if (order.payment_gateway === PaymentGatewayType.FLUTTERWAVE) {
-        const paymentData: PaymentInitDto = {
-          amount: order.total,
-          currency: 'XOF',
-          email: user.email || order.customer_contact,
-          reference: order.tracking_number,
-          metadata: {
-            name: order.customer_contact,
-            order_id: order.id,
-          },
-          callback_url: `${process.env.FRONTEND_URL}/payment/callback?ref=${order.tracking_number}`,
-        };
-
-        const paymentInitResponse = await this.flutterwaveService.initializePayment(paymentData);
-
-        order.payment_intent = {
-          id: Number(paymentInitResponse.payment_id ?? Date.now()),
-          order_id: order.id,
-          tracking_number: order.tracking_number,
-          payment_gateway: paymentInitResponse.gateway,
-          payment_intent_info: paymentInitResponse,
-          order_status: OrderStatusType.PENDING,
-          amount: order.total,
-          currency: 'XOF',
-        } as PaymentIntentType;
-
-        await conn.query(
-          `UPDATE orders SET payment_intent = ?, payment_status = ?, order_status = ? WHERE id = ?`,
-          [
-            JSON.stringify(order.payment_intent),
-            PaymentStatusType.PENDING,
-            OrderStatusType.PENDING,
-            order.id,
-          ],
-        );
-      }
-
-      // ✅ Paiement Feexpay
-      else if (order.payment_gateway === PaymentGatewayType.FEEXPAY) {
+      // ✅ Paiement Feexpay (seul moyen de paiement)
+      if (order.payment_gateway === PaymentGatewayType.FEEXPAY) {
         // ✅ On NE fait plus d'appel HTTP à Feexpay ici
         // On prépare seulement la structure de "payment_intent"
         order.payment_intent = {
@@ -474,14 +433,6 @@ export class OrdersService {
   // =========================
   // PAYMENTS
   // =========================
-  async flutterwavePay(order: Order) {
-    await this.flutterwaveService.pay(order);
-    this.updateOrderStatusAfterPayment(
-      order,
-      OrderStatusType.COMPLETED,
-      PaymentStatusType.SUCCESS,
-    );
-  }
 
   updateOrderStatusAfterPayment(
     order: Order,

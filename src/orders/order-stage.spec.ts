@@ -15,7 +15,7 @@ const admin = { id: 1, permissions: ['super_admin'] };
 const customer = { id: 10, permissions: ['customer'] };
 const orders = (h: Handler) => {
   const f = fakeDb(h);
-  return { ...f, svc: new OrdersService({} as any, {} as any, {} as any, f.db) };
+  return { ...f, svc: new OrdersService({} as any, {} as any, f.db) };
 };
 
 describe('Étapes admin : à traiter / traitées / retirées', () => {
