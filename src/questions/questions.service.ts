@@ -67,7 +67,7 @@ export class QuestionService {
     return (rows as Question[])[0];
   }
 
-  async create(dto: CreateQuestionDto) {
+  async create(dto: CreateQuestionDto & { user_id: number }) {
     const { user_id, shop_id, product_id, question, answer } = dto;
     const [result]: any = await this.db.getPool().query(
       `INSERT INTO questions 

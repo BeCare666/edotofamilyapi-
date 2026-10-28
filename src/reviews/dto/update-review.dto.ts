@@ -1,9 +1,13 @@
-import { PartialType } from '@nestjs/swagger';
+import { IsOptional } from 'class-validator';
+import { IsScalar, StrictDto } from 'src/common/strict-body';
 import { CreateReviewDto } from './create-review.dto';
 
-export class UpdateReviewDto extends PartialType(CreateReviewDto) {
-    positive_feedbacks_count?: number;
-    negative_feedbacks_count?: number;
-    abusive_reports_count?: number;
-    my_feedback?: any;
+// Audit sécurité 2.3 (28/10/2026, lot 5) : champs écrits par ReviewsService.update ; my_feedback
+// est enregistré en JSON.
+@StrictDto()
+export class UpdateReviewDto extends CreateReviewDto {
+  @IsOptional() @IsScalar() positive_feedbacks_count?: number;
+  @IsOptional() @IsScalar() negative_feedbacks_count?: number;
+  @IsOptional() @IsScalar() abusive_reports_count?: number;
+  @IsOptional() my_feedback?: any;
 }

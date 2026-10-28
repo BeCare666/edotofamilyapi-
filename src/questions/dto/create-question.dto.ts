@@ -1,10 +1,12 @@
-import { Question } from '../entities/question.entity';
-import { OmitType } from '@nestjs/swagger';
+import { IsOptional } from 'class-validator';
+import { IsScalar, StrictDto } from 'src/common/strict-body';
 
-export class CreateQuestionDto extends OmitType(Question, [
-  'id',
-  'product',
-  'user',
-  'created_at',
-  'updated_at',
-]) {}
+// Audit sécurité 2.3 (28/10/2026, lot 5) : champs lus par QuestionsService.create ; user_id est
+// fixé par le contrôleur (utilisateur connecté), jamais repris du corps.
+@StrictDto()
+export class CreateQuestionDto {
+  @IsOptional() @IsScalar() shop_id: number;
+  @IsOptional() @IsScalar() product_id: number;
+  @IsOptional() @IsScalar() question?: string;
+  @IsOptional() @IsScalar() answer?: string;
+}
