@@ -34,7 +34,8 @@ export class ShopsController {
   @SuperAdminOnly()
   @Post()
   create(@Req() req, @Body() createShopDto: CreateShopDto) {
-    const ownerId = req.user.userId;  // userId du JWT validé
+    // Le jeton porte « id » (auth/session.ts), pas « userId » (corrigé le 28/10/2026)
+    const ownerId = Number(req.user?.id);
     console.log('Creating shop for user:', ownerId);
     console.log('req.user:', req.user);
     return this.shopsService.create({ ...createShopDto, owner_id: ownerId });

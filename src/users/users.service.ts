@@ -440,20 +440,23 @@ async getUserFacets(role?: string) {
     return `This action removes user #${id}`;
   }
   // ban user
+  // Bloquer et débloquer sont explicites (28/10/2026) : avant, les deux routes inversaient
+  // is_active, si bien que « débloquer » un compte déjà actif le bloquait.
   async banUser(id: number): Promise<User> {
-    const pool = this.DatabaseService.getPool();
-    const user = await this.findOne(id);
-    await pool.query(
-      'UPDATE users SET is_active = ? WHERE id = ?',
-      [!user.is_active, id]
-    );
-    // Audit 1.5 : blocage ou déblocage → les jetons émis avant ne valent plus
-    await bumpTokenVersion(pool, 'id = ?', [id]);
-    return this.findOne(id);
+    return this.setActive(id, false);
   }
 
   async activeUser(id: number): Promise<User> {
-    return this.banUser(id);
+    return this.setActive(id, true);
+  }
+
+  private async setActive(id: number, active: boolean): Promise<User> {
+    const pool = this.DatabaseService.getPool();
+    await this.findOne(id);
+    await pool.query('UPDATE users SET is_active = ? WHERE id = ?', [active ? 1 : 0, id]);
+    // Audit 1.5 : blocage ou déblocage → les jetons émis avant ne valent plus
+    await bumpTokenVersion(pool, 'id = ?', [id]);
+    return this.findOne(id);
   }
 
   async getAllCustomers({ limit = 30, page = 1 }: GetUsersDto): Promise<UserPaginator> {

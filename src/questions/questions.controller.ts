@@ -39,7 +39,8 @@ export class QuestionController {
   @Post()
   @UseGuards(JwtAuthGuard)
   create(@Body() dto: CreateQuestionDto, @Req() req: any) {
-    const userId = req.user?.userId;
+    // Le jeton porte « id » (auth/session.ts), pas « userId » (corrigé le 28/10/2026)
+    const userId = Number(req.user?.id);
     if (!userId) {
       throw new UnauthorizedException('User not authenticated');
     }
