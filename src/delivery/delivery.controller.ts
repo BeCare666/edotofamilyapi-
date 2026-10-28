@@ -4,6 +4,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { DeliveryService } from './delivery.service';
 import { Public } from '../auth/public.decorator';
+import { AssignCourierDto, CourierActionDto, CourierOpenDto, DeliverySettingsDto } from './dto/delivery-body.dto';
 
 // Public : prix de la livraison affiché avant la commande (aucune donnée personnelle).
 @Controller('delivery')
@@ -24,19 +25,19 @@ export class CourierLinksController {
 
   @Public()
   @Post(':token/open')
-  open(@Param('token') token: string, @Body() body: any) {
+  open(@Param('token') token: string, @Body() body: CourierOpenDto) {
     return this.deliveryService.courierOpen(token, body?.device_id);
   }
 
   @Public()
   @Post(':token/unlock')
-  unlock(@Param('token') token: string, @Body() body: any) {
+  unlock(@Param('token') token: string, @Body() body: CourierActionDto) {
     return this.deliveryService.courierUnlock(token, body);
   }
 
   @Public()
   @Post(':token/deliver')
-  deliver(@Param('token') token: string, @Body() body: any) {
+  deliver(@Param('token') token: string, @Body() body: CourierActionDto) {
     return this.deliveryService.courierDeliver(token, body);
   }
 }
@@ -53,7 +54,7 @@ export class DeliveryAdminController {
   }
 
   @Put('settings')
-  updateSettings(@Body() body: any) {
+  updateSettings(@Body() body: DeliverySettingsDto) {
     return this.deliveryService.updateSettings(body);
   }
 
@@ -64,7 +65,7 @@ export class DeliveryAdminController {
   }
 
   @Post('orders/:orderId/assign')
-  assign(@Param('orderId', ParseIntPipe) orderId: number, @Body() body: any) {
+  assign(@Param('orderId', ParseIntPipe) orderId: number, @Body() body: AssignCourierDto) {
     return this.deliveryService.assign(orderId, body);
   }
 

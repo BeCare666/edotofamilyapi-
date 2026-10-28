@@ -3,6 +3,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { CommissionsService } from './commissions.service';
+import { ApplyCommissionDto } from './dto/apply-commission.dto';
 
 // Réglage des commissions des points de retrait : super_admin uniquement
 @UseGuards(JwtAuthGuard, RolesGuard)
@@ -18,7 +19,7 @@ export class CommissionsController {
 
   // :type = orders (pourcentage) | kits (montant par kit) ; body { value, scope: 'all' | 'selected', pickup_point_ids }
   @Put(':type')
-  apply(@Param('type') type: string, @Body() body: any) {
+  apply(@Param('type') type: string, @Body() body: ApplyCommissionDto) {
     return this.commissions.apply(type as any, body);
   }
 }

@@ -5,6 +5,7 @@ import { memoryStorage } from 'multer';
 import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { DatabaseService } from '../database/database.services';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
 
 // Photo de profil (16/10/2026) : tout compte connecté (utilisateur, sponsor, point de retrait,
 // admin) peut envoyer, remplacer ou retirer SA photo. Image JPEG, PNG ou WebP de 3 Mo au plus,
@@ -81,7 +82,7 @@ export class ProfilePhotoController {
   // et sexe seulement s'ils manquent (ensuite verrouillés : ils servent au ciblage des campagnes).
   @UseGuards(JwtAuthGuard)
   @Patch('profile')
-  async updateProfile(@Body() body: any, @Req() req: any) {
+  async updateProfile(@Body() body: UpdateMyProfileDto, @Req() req: any) {
     const userId = Number(req.user?.id);
     if (!userId) throw new BadRequestException('Compte introuvable.');
     const pool = this.db.getPool();
