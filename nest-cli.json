@@ -9,6 +9,10 @@
       {
         "include": "database/sql/**/*",
         "outDir": "dist/src"
+      },
+      {
+        "include": "database/certs/**/*",
+        "outDir": "dist/src"
       }
     ]
   }

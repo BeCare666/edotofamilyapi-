@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import * as mysql from 'mysql2/promise';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { tidbSsl } from './tls';
 
 @Injectable()
 export class DatabaseSetupService implements OnModuleInit {
@@ -21,19 +22,8 @@ export class DatabaseSetupService implements OnModuleInit {
   async run() {
     const isProd = process.env.NODE_ENV === 'production';
 
-    // ✅ chemin cert compatible Nest build (dist ou src).               
-    const certPath = join(process.cwd(), '../database/certs/tidb-ca.pem');
-
-    let sslConfig: any = undefined;
-
-    if (existsSync(certPath)) {
-      const ca = readFileSync(certPath, 'utf8');
-      sslConfig = { ca, rejectUnauthorized: false };
-      console.log('✅ Certificat TiDB chargé');
-    } else {
-      sslConfig = { rejectUnauthorized: false };
-      console.warn('⚠️ Certificat TiDB absent — fallback dev SSL relâché');
-    }
+    // Audit sécurité 2.4 : TLS vérifié (src/database/tls.ts)
+    const sslConfig = tidbSsl();
 
     // ✅ connexion TiDB Cloud.   
     this.connection = await mysql.createConnection({

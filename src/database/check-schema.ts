@@ -2,8 +2,7 @@
 // par les migrations 008 à 015 existent-elles ? Lancement : npm run db:check
 import * as dotenv from 'dotenv';
 import * as mysql from 'mysql2/promise';
-import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { tidbSsl } from './tls';
 
 dotenv.config();
 
@@ -41,8 +40,8 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
 ];
 
 async function main() {
-  const certPath = join(__dirname, 'certs', 'tidb-ca.pem');
-  const ssl = existsSync(certPath) ? { ca: readFileSync(certPath, 'utf8'), rejectUnauthorized: false } : { rejectUnauthorized: false };
+  // Audit sécurité 2.4 : TLS vérifié (src/database/tls.ts)
+  const ssl = tidbSsl();
   const conn = await mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,

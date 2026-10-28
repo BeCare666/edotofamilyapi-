@@ -6,8 +6,7 @@
 import { Injectable } from '@nestjs/common';
 import * as mysql from 'mysql2/promise';
 import { RowDataPacket, OkPacket, FieldPacket } from 'mysql2';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
+import { tidbSsl } from './tls';
 
 type QueryResult = RowDataPacket[] | RowDataPacket[][] | OkPacket | OkPacket[];
 
@@ -16,19 +15,8 @@ export class DatabaseService {
   private pool: mysql.Pool;
 
   constructor() {
-    // ✅ chemin cert pour Nest build (dist ou src)
-    const certPath = join(process.cwd(), '../database/certs/tidb-ca.pem');
-
-    let sslConfig: any;
-
-    if (existsSync(certPath)) {
-      const ca = readFileSync(certPath, 'utf8');
-      sslConfig = { ca, rejectUnauthorized: false };
-      console.log('✅ Certificat TiDB chargé pour pool');
-    } else {
-      sslConfig = { rejectUnauthorized: false };
-      console.warn('⚠️ Certificat TiDB absent — SSL relâché (dev only)');
-    }
+    // Audit sécurité 2.4 : TLS vérifié (src/database/tls.ts)
+    const sslConfig = tidbSsl();
 
     // ✅ création du pool MySQL
     this.pool = mysql.createPool({
