@@ -4,6 +4,7 @@ import { FeexpayService } from 'src/payment/feexpay.service';
 import { DatabaseService } from '../database/database.services';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { UpdateOrderStatusDto } from './dto/create-order-status.dto';
 import { OrderPaginator } from './dto/order-paginator.dto';
 import { GetOrdersDto } from './dto/get-orders.dto';
 import { QueryOrdersOrderByColumn } from './dto/get-order.dto';
@@ -1231,5 +1232,27 @@ export class OrdersService {
       [param, param],
     );
     return rows[0] || null;
+  }
+
+  // PUT et DELETE /order-status/:id agissent sur la table order_status (28/10/2026). Avant, ils
+  // modifiaient et supprimaient une COMMANDE (updateForUser, remove) portant le même identifiant.
+  async updateOrderStatus(id: number, dto: UpdateOrderStatusDto) {
+    const pool = this.databaseService.getPool();
+    // Colonnes réelles de order_status ; un nom de champ n'entre jamais tel quel dans le SQL
+    const allowed = ['name', 'serial', 'language', 'color'];
+    const entries = Object.entries(dto || {}).filter(([k, v]) => allowed.includes(k) && v !== undefined);
+    if (!entries.length) throw new BadRequestException('Aucun champ modifiable fourni.');
+    const [res]: any = await pool.query(
+      `UPDATE order_status SET ${entries.map(([k]) => `${k} = ?`).join(', ')}, updated_at = NOW() WHERE id = ?`,
+      [...entries.map(([, v]) => v), id],
+    );
+    if (!res?.affectedRows) throw new NotFoundException('Statut introuvable.');
+    return this.getOrderStatus(String(id));
+  }
+
+  async removeOrderStatus(id: number) {
+    const [res]: any = await this.databaseService.getPool().query(`DELETE FROM order_status WHERE id = ?`, [id]);
+    if (!res?.affectedRows) throw new NotFoundException('Statut introuvable.');
+    return { success: true, message: `Statut #${id} supprimé.` };
   }
 }

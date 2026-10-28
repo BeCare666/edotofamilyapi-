@@ -51,3 +51,54 @@ describe('Identifiant de l\'utilisateur connecté (jeton : id)', () => {
     expect(svc.create).toHaveBeenCalledWith({ name: 'B', owner_id: 3 });
   });
 });
+
+describe('PUT et DELETE /order-status/:id : table order_status, jamais une commande', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { OrdersService } = require('src/orders/orders.service');
+  const make = (affectedRows = 1) => {
+    const query = jest.fn(async (sql: string) => (sql.startsWith('SELECT') ? [[{ id: 4, name: 'X' }], []] : [{ affectedRows }, []]));
+    return { service: new OrdersService({} as any, {} as any, { getPool: () => ({ query }) } as any), query };
+  };
+
+  it('modification : UPDATE order_status, colonnes réelles seulement', async () => {
+    const { service, query } = make();
+    await service.updateOrderStatus(4, { name: 'Livrée', color: '#00ff00', description: 'ignorée' });
+    const sqls = query.mock.calls.map(([sql]) => sql);
+    expect(sqls.some((s) => s.startsWith('UPDATE order_status SET name = ?, color = ?'))).toBe(true);
+    expect(sqls.some((s) => /\borders\b/.test(s))).toBe(false);
+  });
+
+  it('suppression : DELETE order_status, jamais orders ni order_children', async () => {
+    const { service, query } = make();
+    await service.removeOrderStatus(4);
+    const sqls = query.mock.calls.map(([sql]) => sql);
+    expect(sqls).toEqual(['DELETE FROM order_status WHERE id = ?']);
+  });
+
+  it('statut inconnu → 404 ; aucun champ → 400', async () => {
+    await expect(make(0).service.removeOrderStatus(99)).rejects.toThrow('Statut introuvable.');
+    await expect(make().service.updateOrderStatus(4, {})).rejects.toThrow('Aucun champ modifiable fourni.');
+  });
+});
+
+describe('Avatar du profil admin : adresse lue dans « original »', () => {
+  it('avatar { id, original, thumbnail } enregistré dans avatars et lié au profil', async () => {
+    const query = jest.fn(async (sql: string, _params?: any[]) => {
+      if (sql.startsWith('SELECT id FROM users')) return [[{ id: 5 }], []];
+      if (sql.startsWith('SELECT id FROM avatars')) return [[], []];
+      if (sql.startsWith('INSERT INTO avatars')) return [{ insertId: 77 }, []];
+      if (sql.startsWith('SELECT id FROM profiles')) return [[{ id: 1 }], []];
+      if (sql.startsWith('SELECT')) return [[{ id: 5 }], []];
+      return [{ affectedRows: 1 }, []];
+    });
+    const db: any = { getPool: () => ({ query }), query };
+    const service = new UsersService(db);
+    jest.spyOn(console, 'log').mockImplementation(() => undefined);
+    await service.update(5, { profile: { id: 1, avatar: { id: 3, original: 'https://res.cloudinary.com/x/a.jpg', thumbnail: 'https://res.cloudinary.com/x/a.jpg' } } } as any);
+    const insert = query.mock.calls.find(([sql]) => sql.startsWith('INSERT INTO avatars'));
+    expect(insert?.[1]).toEqual(['https://res.cloudinary.com/x/a.jpg', 'https://res.cloudinary.com/x/a.jpg']);
+    const link = query.mock.calls.find(([sql]) => sql.includes('UPDATE profiles') && sql.includes('avatar_id'));
+    expect(link?.[1]).toContain(77);
+    (console.log as jest.Mock).mockRestore();
+  });
+});

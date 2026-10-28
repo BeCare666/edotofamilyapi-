@@ -12,4 +12,5 @@ export class CreateOrderStatusDto {
   @IsOptional() @IsScalar() language?: string;
 }
 
+@StrictDto()
 export class UpdateOrderStatusDto extends PartialType(CreateOrderStatusDto) {}

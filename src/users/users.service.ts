@@ -349,15 +349,21 @@ async getUserFacets(role?: string) {
           mimeType?: string;
           size?: number;
           originalName?: string;
+          original?: string;
+          thumbnail?: string;
         };
+        // L'admin (profile-update-form.tsx) envoie l'adresse dans « original », pas dans « url »
+        // (28/10/2026) : sans cette reprise, l'avatar n'était jamais enregistré.
+        const rawUrl = avatar.url ?? avatar.original;
+        const avatarUrl = typeof rawUrl === 'string' ? rawUrl : '';
 
-        if (avatar.url) {
-          console.log('Recherche du media existant avec url:', avatar.url);
+        if (avatarUrl) {
+          console.log('Recherche du media existant avec url:', avatarUrl);
 
           // Table avatars : c'est elle que référence profiles.avatar_id (clé étrangère, vérifié le 16/10/2026)
           const [existingMedia]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
             'SELECT id FROM avatars WHERE original = ?',
-            [avatar.url]
+            [avatarUrl]
           );
 
           console.log('Résultat de existingMedia:', existingMedia);
@@ -370,7 +376,7 @@ async getUserFacets(role?: string) {
 
             const [inserted]: [OkPacket, any] = await this.DatabaseService.query<OkPacket>(
               `INSERT INTO avatars (original, thumbnail) VALUES (?, ?)`,
-              [avatar.url, avatar.url]
+              [avatarUrl, avatarUrl]
             );
 
             console.log('Media inséré, insertId:', inserted.insertId);

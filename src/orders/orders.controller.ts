@@ -17,7 +17,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 
-import { CreateOrderStatusDto } from './dto/create-order-status.dto';
+import { CreateOrderStatusDto, UpdateOrderStatusDto } from './dto/create-order-status.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { GetOrderFilesDto, OrderFilesPaginator } from './dto/get-downloads.dto';
 import { GetOrderStatusesDto } from './dto/get-order-statuses.dto';
@@ -240,15 +240,15 @@ export class OrderStatusController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(SUPER_ADMIN)
   @Put(':id')
-  update(@Param('id') id: string, @Body() updateOrderDto: UpdateOrderDto, @Req() req: any) {
-    return this.ordersService.updateForUser(+id, updateOrderDto as any, req.user);
+  update(@Param('id', ParseIntPipe) id: number, @Body() dto: UpdateOrderStatusDto) {
+    return this.ordersService.updateOrderStatus(id, dto);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(SUPER_ADMIN)
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.ordersService.remove(+id);
+  remove(@Param('id', ParseIntPipe) id: number) {
+    return this.ordersService.removeOrderStatus(id);
   }
 }
 
