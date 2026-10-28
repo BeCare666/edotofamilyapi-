@@ -8,6 +8,7 @@ import { Roles, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
 import { clientIpFrom } from './campaign-guard';
 import { Public } from '../auth/public.decorator';
 import { MarkPickupDto, VerifyCampaignOtpDto } from './dto/pickup-otp.dto';
+import { EligibilityDto, LocateDto } from './dto/campaign-body.dto';
 
 @Controller()
 export class CampaignsController {
@@ -41,14 +42,14 @@ export class CampaignsController {
   // La personne connectée peut-elle encore demander un kit (compte, appareil, connexion) ?
   @UseGuards(JwtAuthGuard)
   @Post('campaigns/:id/eligibility')
-  eligibility(@Param('id', ParseIntPipe) id: number, @Body() body: any, @Req() req) {
+  eligibility(@Param('id', ParseIntPipe) id: number, @Body() body: EligibilityDto, @Req() req) {
     return this.campaignsService.checkEligibility(id, req.user.id, body || {}, clientIpFrom(req));
   }
 
   // Ville de la campagne où se trouve la personne (position GPS), avant le choix du point de retrait
   @UseGuards(JwtAuthGuard)
   @Post('campaigns/:id/locate')
-  locate(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  locate(@Param('id', ParseIntPipe) id: number, @Body() body: LocateDto) {
     return this.campaignsService.locateForCampaign(id, body?.lat, body?.lng);
   }
   @Public()

@@ -5,6 +5,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { CampaignsAdminService } from './campaigns-admin.service';
 import { CampaignRequestsService } from './campaign-requests.service';
+import { CampaignInputDto, CreateSponsorDto } from './dto/campaign-body.dto';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -28,7 +29,7 @@ export class CampaignsAdminController {
   }
 
   @Post('sponsors')
-  createSponsor(@Body() body: any) {
+  createSponsor(@Body() body: CreateSponsorDto) {
     return this.admin.createSponsor(body);
   }
 
@@ -83,12 +84,12 @@ export class CampaignsAdminController {
   }
 
   @Post('campaigns')
-  create(@Body() body: any) {
+  create(@Body() body: CampaignInputDto) {
     return this.admin.create(body);
   }
 
   @Put('campaigns/:id')
-  update(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  update(@Param('id', ParseIntPipe) id: number, @Body() body: CampaignInputDto) {
     return this.admin.update(id, body);
   }
 

@@ -13,6 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import { THROTTLE_SENSITIVE } from '../common/client-throttler.guard';
 import { clientIp } from '../ai/chat/ai-chat.rate-limit';
 import { Public } from '../auth/public.decorator';
+import { AdminDecisionDto, SponsorInvitationAcceptDto, SponsorProfileDto, SponsorProposalDto, SponsorSignupDto } from './dto/sponsor-body.dto';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -29,7 +30,7 @@ export class SponsorInvitationsController {
 
   @Public()
   @Post('accept')
-  accept(@Body() body: any) {
+  accept(@Body() body: SponsorInvitationAcceptDto) {
     return this.accounts.accept(body);
   }
 }
@@ -42,7 +43,7 @@ export class SponsorSignupController {
   @Public()
   @Throttle(THROTTLE_SENSITIVE)
   @Post()
-  signup(@Req() req: any, @Body() body: any) {
+  signup(@Req() req: any, @Body() body: SponsorSignupDto) {
     if (!allowAttempt(`signup:${clientIp(req)}`, 5, 60 * 60 * 1000)) {
       throw new HttpException('Trop de tentatives. Réessayez dans une heure.', HttpStatus.TOO_MANY_REQUESTS);
     }
@@ -141,7 +142,7 @@ export class SponsorSpaceController {
   }
 
   @Patch('profile')
-  async profile(@Req() req: any, @Body() body: any) {
+  async profile(@Req() req: any, @Body() body: SponsorProfileDto) {
     return this.space.updateProfile((await this.sponsor(req)).id, body);
   }
 
@@ -163,7 +164,7 @@ export class SponsorSpaceController {
   }
 
   @Post('proposals')
-  async createProposal(@Req() req: any, @Body() body: any) {
+  async createProposal(@Req() req: any, @Body() body: SponsorProposalDto) {
     return this.proposals.create((await this.sponsor(req)).id, body);
   }
 
@@ -203,12 +204,12 @@ export class SponsorsAdminController {
   }
 
   @Post('campaign-proposals/:id/approve')
-  approveProposal(@Param('id', ParseIntPipe) id: number, @Req() req: any, @Body() body: any) {
+  approveProposal(@Param('id', ParseIntPipe) id: number, @Req() req: any, @Body() body: AdminDecisionDto) {
     return this.proposals.decide(id, Number(req.user.id), true, body?.note);
   }
 
   @Post('campaign-proposals/:id/reject')
-  rejectProposal(@Param('id', ParseIntPipe) id: number, @Req() req: any, @Body() body: any) {
+  rejectProposal(@Param('id', ParseIntPipe) id: number, @Req() req: any, @Body() body: AdminDecisionDto) {
     return this.proposals.decide(id, Number(req.user.id), false, body?.reason);
   }
 
@@ -229,7 +230,7 @@ export class SponsorsAdminController {
   }
 
   @Post('sponsor-exports/:id/reject')
-  reject(@Param('id', ParseIntPipe) id: number, @Req() req: any, @Body() body: any) {
+  reject(@Param('id', ParseIntPipe) id: number, @Req() req: any, @Body() body: AdminDecisionDto) {
     return this.exportsAdmin.reject(id, Number(req.user.id), body?.reason);
   }
 }
