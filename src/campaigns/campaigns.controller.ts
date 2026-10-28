@@ -7,6 +7,7 @@ import { ActivePickupGuard } from '../auth/active-pickup.guard';
 import { Roles, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
 import { clientIpFrom } from './campaign-guard';
 import { Public } from '../auth/public.decorator';
+import { MarkPickupDto, VerifyCampaignOtpDto } from './dto/pickup-otp.dto';
 
 @Controller()
 export class CampaignsController {
@@ -95,14 +96,14 @@ export class CampaignsController {
   @UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
   @Roles(SUPER_PICKUPPOINT)
   @Post('campaigns/verify-otp')
-  async verifyCampaignOtp(@Body() body: { registration_id: number; otp: string }, @Req() req) {
+  async verifyCampaignOtp(@Body() body: VerifyCampaignOtpDto, @Req() req) {
     return this.campaignsService.verifyCampaignOtp(body, req.user.id);
   }
 
   @UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
   @Roles(SUPER_PICKUPPOINT)
   @Post('campaigns/mark-pickup')
-  async markPickup(@Body() body: { registration_id: number }, @Req() req) {
+  async markPickup(@Body() body: MarkPickupDto, @Req() req) {
     return this.campaignsService.markPickup(body, req.user.id);
   }
 }

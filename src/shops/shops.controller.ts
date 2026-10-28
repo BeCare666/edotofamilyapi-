@@ -25,6 +25,7 @@ import { UseGuards } from '@nestjs/common';
 import { Request } from 'express';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { ApproveShopDto, IdBodyDto } from '../common/dto/id-body.dto';
 
 @Controller('shops')
 export class ShopsController {
@@ -120,7 +121,7 @@ export class DisapproveShopController {
 
   @SuperAdminOnly()
   @Post()
-  async disapproveShop(@Body('id') id: number) {
+  async disapproveShop(@Body() { id }: IdBodyDto) {
     return this.shopsService.disapproveShop(id);
   }
 }
@@ -131,7 +132,7 @@ export class ApproveShopController {
 
   @SuperAdminOnly()
   @Post()
-  async approveShop(@Body('id') id) {
+  async approveShop(@Body() { id }: ApproveShopDto) {
     return this.shopsService.approveShop(id);
   }
 }

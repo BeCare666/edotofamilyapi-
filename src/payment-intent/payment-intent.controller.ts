@@ -1,6 +1,7 @@
 import { Controller, Post, Body, UseGuards, Res, Req } from '@nestjs/common';
 import { PaymentIntentService } from './payment-intent.service';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CompleteFeexPayDto } from './dto/complete-feexpay.dto';
 
 
 @Controller('payments')
@@ -11,7 +12,7 @@ export class PaymentIntentController {
   @UseGuards(JwtAuthGuard)
   @Post('feexpay/complete')
   async completeFeexPay(
-    @Body() body: { transaction_id: string; custom_id: string; feexpay_response?: any },
+    @Body() body: CompleteFeexPayDto,
     @Req() req: any,
   ) {
     return this.PaymentIntentService.completeFeexPayForUser(body, req.user);

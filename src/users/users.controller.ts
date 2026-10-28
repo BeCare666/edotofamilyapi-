@@ -17,6 +17,7 @@ import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { CreateProfileDto } from './dto/create-profile.dto';
+import { IdBodyDto } from '../common/dto/id-body.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { GetUsersDto } from './dto/get-users.dto';
 import { AddStaffDto } from './dto/add-staff.dto';
@@ -125,7 +126,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(SUPER_ADMIN)
   @Post('unblock-user')
-  async activeUser(@Body('id') id: number) {
+  async activeUser(@Body() { id }: IdBodyDto) {
     return stripPasswords(await this.usersService.activeUser(+id));
   }
 
@@ -140,7 +141,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(SUPER_ADMIN)
   @Post('block-user')
-  async blockUser(@Body('id') id: number) {
+  async blockUser(@Body() { id }: IdBodyDto) {
     return stripPasswords(await this.usersService.banUser(id));
   }
 
