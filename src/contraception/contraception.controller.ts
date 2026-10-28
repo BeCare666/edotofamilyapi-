@@ -5,6 +5,7 @@ import { CUSTOMER, Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { allowAttempt } from '../sponsors/sponsor-rules';
 import { ContraceptionService } from './contraception.service';
 import { Public } from '../auth/public.decorator';
+import { ContraceptionAcceptDto, ContraceptionFollowupDto, ContraceptionMethodActiveDto, ContraceptionMethodDto, ContraceptionRefuseDto, ContraceptionRequestDto } from './dto/contraception-body.dto';
 
 // Public : catalogue des contraceptifs et fiche détaillée
 @Controller('contraception')
@@ -32,7 +33,7 @@ export class ContraceptionYouthController {
   constructor(private readonly svc: ContraceptionService) {}
 
   @Post('requests')
-  create(@Req() req: any, @Body() body: any) {
+  create(@Req() req: any, @Body() body: ContraceptionRequestDto) {
     if (!allowAttempt(`contra-req:${req.user.id}`, 10, 60 * 60 * 1000)) {
       throw new HttpException('Trop de tentatives. Réessayez dans une heure.', HttpStatus.TOO_MANY_REQUESTS);
     }
@@ -50,7 +51,7 @@ export class ContraceptionYouthController {
   }
 
   @Post('requests/:id/followups')
-  followup(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  followup(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: ContraceptionFollowupDto) {
     return this.svc.addYouthFollowup(Number(req.user.id), id, body);
   }
 }
@@ -73,17 +74,17 @@ export class ContraceptionAdminController {
   }
 
   @Post('methods')
-  createMethod(@Body() body: any) {
+  createMethod(@Body() body: ContraceptionMethodDto) {
     return this.svc.createMethod(body);
   }
 
   @Put('methods/:id')
-  updateMethod(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  updateMethod(@Param('id', ParseIntPipe) id: number, @Body() body: ContraceptionMethodDto) {
     return this.svc.updateMethod(id, body);
   }
 
   @Patch('methods/:id/active')
-  methodActive(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  methodActive(@Param('id', ParseIntPipe) id: number, @Body() body: ContraceptionMethodActiveDto) {
     return this.svc.setMethodActive(id, Boolean(body?.active));
   }
 
@@ -98,17 +99,17 @@ export class ContraceptionAdminController {
   }
 
   @Post('requests/:id/accept')
-  accept(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  accept(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: ContraceptionAcceptDto) {
     return this.svc.accept(Number(req.user.id), id, body);
   }
 
   @Post('requests/:id/refuse')
-  refuse(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  refuse(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: ContraceptionRefuseDto) {
     return this.svc.refuse(Number(req.user.id), id, body);
   }
 
   @Post('requests/:id/followups')
-  followup(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  followup(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: ContraceptionFollowupDto) {
     return this.svc.addAdminFollowup(Number(req.user.id), id, body);
   }
 }
