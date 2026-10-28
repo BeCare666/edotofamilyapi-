@@ -1,4 +1,5 @@
-import { PartialType } from '@nestjs/swagger';
+import { StrictDto } from 'src/common/strict-body';
 import { CreateTaxDto } from './create-tax.dto';
 
-export class UpdateTaxDto extends PartialType(CreateTaxDto) {}
+@StrictDto()
+export class UpdateTaxDto extends CreateTaxDto {}
