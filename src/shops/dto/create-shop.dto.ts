@@ -1,41 +1,48 @@
 // create-shop.dto.ts
-export class CreateShopDto {
-  owner_id?: number;
-  name: string;
-  slug: string;
-  description?: string;
-  is_active?: boolean;
+import { Type } from 'class-transformer';
+import { IsObject, IsOptional, ValidateNested } from 'class-validator';
+import { IsScalar, StrictDto } from 'src/common/strict-body';
 
-  // contact et website sont dans ta table shops
-  contact?: string;
-  website?: string;
+// Audit sécurité 2.3 (28/10/2026, lot 3) : liste blanche stricte (@StrictDto). Seuls les champs lus
+// par ShopsService.create et ShopsService.update sont déclarés. Les valeurs écrites telles quelles
+// en base sont simples ; location, documents, bank, raw_payload sont enregistrés en JSON.
+export class ShopImageInput {
+  @IsOptional() @IsScalar() url: string;
+  @IsOptional() @IsScalar() key?: string;
+  @IsOptional() @IsScalar() mimeType?: string;
+  @IsOptional() @IsScalar() size?: number;
+  @IsOptional() @IsScalar() originalName?: string;
+  @IsOptional() @IsScalar() user_id?: number;
+}
 
-  // adresse
-  zip?: string;
-  city?: string;
-  state?: string;
-  country?: string;
-  street_address?: string;
+export class ShopAddressInput {
+  @IsOptional() @IsScalar() zip?: string;
+  @IsOptional() @IsScalar() city?: string;
+  @IsOptional() @IsScalar() state?: string;
+  @IsOptional() @IsScalar() country?: string;
+  @IsOptional() @IsScalar() street_address?: string;
+}
 
-  // localisation JSON
-  location?: Record<string, any>; // ou Location si tu veux taper plus fort
+export class ShopFields {
+  @IsOptional() @IsScalar() name: string;
+  @IsOptional() @IsScalar() slug: string;
+  @IsOptional() @IsScalar() description?: string;
+  @IsOptional() @IsScalar() is_active?: boolean;
+  @IsOptional() @IsScalar() contact?: string;
+  @IsOptional() @IsScalar() website?: string;
+  @IsOptional() @IsObject() location?: Record<string, any>;
+  // null = image retirée (mise à jour)
+  @IsOptional() @IsObject() @ValidateNested() @Type(() => ShopImageInput)
+  cover_image?: ShopImageInput | null;
+  @IsOptional() @IsObject() @ValidateNested() @Type(() => ShopImageInput)
+  logo_image?: ShopImageInput | null;
+}
 
-  // images
-  cover_image?: {
-    url: string;
-    key?: string;
-    mimeType?: string;
-    size?: number;
-    originalName?: string;
-  };
-  logo_image?: {
-    url: string;
-    key?: string;
-    mimeType?: string;
-    size?: number;
-    originalName?: string;
-  };
-
-  // autres
-  categories?: number[];
+@StrictDto()
+export class CreateShopDto extends ShopFields {
+  // POST /staffs (super admin) ; POST /shops le remplace par l'utilisateur connecté
+  @IsOptional() @IsScalar() owner_id?: number;
+  // create lit address.zip, address.city…
+  @IsOptional() @IsObject() @ValidateNested() @Type(() => ShopAddressInput)
+  address?: ShopAddressInput;
 }
