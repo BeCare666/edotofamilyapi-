@@ -7,6 +7,7 @@ import {
   ForgetPasswordDto,
   LoginDto,
   RegisterDto,
+  ResendVerificationDto,
   ResetPasswordDto,
   VerifyForgetPasswordDto,
 } from 'src/auth/dto/create-auth.dto';
@@ -81,6 +82,7 @@ describe('DTO d\'authentification (lot 1)', () => {
     const cases: [any, any][] = [
       [LoginDto, { email: 'a@b.c', password: 'x' }],
       [ForgetPasswordDto, { email: 'a@b.c' }],
+      [ResendVerificationDto, { email: 'a@b.c' }],
       [VerifyForgetPasswordDto, { email: 'a@b.c', token: '123456' }],
       [ResetPasswordDto, { email: 'a@b.c', token: '123456', password: 'x' }],
       [ChangePasswordDto, { oldPassword: 'a', newPassword: 'b', old_password: 'a', new_password: 'b' }],

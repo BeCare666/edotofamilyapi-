@@ -56,6 +56,12 @@ export class ForgetPasswordDto {
   @IsOptional() @IsScalar() email: string;
 }
 
+// POST /resend-verification-email (site services/authService.js), lot 10 du 28/10/2026
+@StrictDto()
+export class ResendVerificationDto {
+  @IsOptional() @IsScalar() email: string;
+}
+
 @StrictDto()
 export class VerifyForgetPasswordDto {
   @IsOptional() @IsScalar() email: string;

@@ -8,6 +8,7 @@ import { Response } from 'express';
 import {
   ChangePasswordDto,
   ForgetPasswordDto,
+  ResendVerificationDto,
   LoginDto,
   OtpDto,
   OtpLoginDto,
@@ -49,7 +50,7 @@ export class AuthController {
 
   @Public()
   @Post('resend-verification-email')
-  resendVerificationEmail(@Body('email') email: string) {
+  resendVerificationEmail(@Body() { email }: ResendVerificationDto) {
     return this.authService.resendVerificationEmail(email);
   }
 

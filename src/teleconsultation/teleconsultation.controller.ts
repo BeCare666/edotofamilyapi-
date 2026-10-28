@@ -8,6 +8,7 @@ import { allowAttempt } from '../sponsors/sponsor-rules';
 import { TeleconsultationService } from './teleconsultation.service';
 import { TcAdminService } from './tc-admin.service';
 import { Public } from '../auth/public.decorator';
+import { TcActiveDto, TcBookDto, TcCenterDto, TcDoctorDto, TcInvitationAcceptDto, TcReasonDto, TcReferralCompleteDto, TcReportDto, TcScheduleDto, TcTimeOffDto } from './dto/tc-body.dto';
 
 // Public : calendrier des créneaux libres, page du code QR (sans donnée de santé), image du code QR,
 // invitations des médecins et des centres
@@ -47,7 +48,7 @@ export class TcPublicController {
 
   @Public()
   @Post('invitations/accept')
-  accept(@Body() body: any) {
+  accept(@Body() body: TcInvitationAcceptDto) {
     return this.tc.acceptInvitation(body);
   }
 }
@@ -60,7 +61,7 @@ export class TcPatientController {
   constructor(private readonly tc: TeleconsultationService) {}
 
   @Post('appointments')
-  book(@Req() req: any, @Body() body: any) {
+  book(@Req() req: any, @Body() body: TcBookDto) {
     if (!allowAttempt(`tc-book:${req.user.id}`, 10, 60 * 60 * 1000)) {
       throw new HttpException('Trop de tentatives. Réessayez dans une heure.', HttpStatus.TOO_MANY_REQUESTS);
     }
@@ -73,7 +74,7 @@ export class TcPatientController {
   }
 
   @Post('appointments/:id/cancel')
-  cancel(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  cancel(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: TcReasonDto) {
     return this.tc.cancelByPatient(Number(req.user.id), id, body);
   }
 
@@ -116,17 +117,17 @@ export class TcDoctorController {
   }
 
   @Post('appointments/:id/cancel')
-  cancel(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  cancel(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: TcReasonDto) {
     return this.tc.doctorCancel(Number(req.user.id), id, body);
   }
 
   @Put('appointments/:id/report')
-  saveDraft(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  saveDraft(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: TcReportDto) {
     return this.tc.saveReport(Number(req.user.id), id, body, false);
   }
 
   @Post('appointments/:id/report/finalize')
-  finalize(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  finalize(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: TcReportDto) {
     return this.tc.saveReport(Number(req.user.id), id, body, true);
   }
 
@@ -136,12 +137,12 @@ export class TcDoctorController {
   }
 
   @Put('schedule')
-  saveSchedule(@Req() req: any, @Body() body: any) {
+  saveSchedule(@Req() req: any, @Body() body: TcScheduleDto) {
     return this.tc.doctorSaveSchedule(Number(req.user.id), body);
   }
 
   @Post('time-off')
-  addTimeOff(@Req() req: any, @Body() body: any) {
+  addTimeOff(@Req() req: any, @Body() body: TcTimeOffDto) {
     return this.tc.doctorAddTimeOff(Number(req.user.id), body);
   }
 
@@ -188,7 +189,7 @@ export class TcCenterController {
   }
 
   @Post('referrals/:id/complete')
-  complete(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  complete(@Req() req: any, @Param('id', ParseIntPipe) id: number, @Body() body: TcReferralCompleteDto) {
     return this.tc.centerComplete(Number(req.user.id), id, body);
   }
 }
@@ -213,17 +214,17 @@ export class TcAdminController {
   }
 
   @Post('doctors')
-  createDoctor(@Body() body: any) {
+  createDoctor(@Body() body: TcDoctorDto) {
     return this.admin.createDoctor(body);
   }
 
   @Put('doctors/:id')
-  updateDoctor(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  updateDoctor(@Param('id', ParseIntPipe) id: number, @Body() body: TcDoctorDto) {
     return this.admin.updateDoctor(id, body);
   }
 
   @Patch('doctors/:id/active')
-  doctorActive(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  doctorActive(@Param('id', ParseIntPipe) id: number, @Body() body: TcActiveDto) {
     return this.admin.setDoctorActive(id, Boolean(body?.active));
   }
 
@@ -239,7 +240,7 @@ export class TcAdminController {
   }
 
   @Put('doctors/:id/schedule')
-  saveDoctorSchedule(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  saveDoctorSchedule(@Param('id', ParseIntPipe) id: number, @Body() body: TcScheduleDto) {
     return this.tc.adminSaveSchedule(id, body);
   }
 
@@ -249,17 +250,17 @@ export class TcAdminController {
   }
 
   @Post('centers')
-  createCenter(@Body() body: any) {
+  createCenter(@Body() body: TcCenterDto) {
     return this.admin.createCenter(body);
   }
 
   @Put('centers/:id')
-  updateCenter(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  updateCenter(@Param('id', ParseIntPipe) id: number, @Body() body: TcCenterDto) {
     return this.admin.updateCenter(id, body);
   }
 
   @Patch('centers/:id/active')
-  centerActive(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  centerActive(@Param('id', ParseIntPipe) id: number, @Body() body: TcActiveDto) {
     return this.admin.setCenterActive(id, Boolean(body?.active));
   }
 
@@ -279,7 +280,7 @@ export class TcAdminController {
   }
 
   @Post('appointments/:id/cancel')
-  cancelAppointment(@Param('id', ParseIntPipe) id: number, @Body() body: any) {
+  cancelAppointment(@Param('id', ParseIntPipe) id: number, @Body() body: TcReasonDto) {
     return this.admin.cancelAppointment(id, body);
   }
 
