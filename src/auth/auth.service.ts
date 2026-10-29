@@ -52,6 +52,17 @@ import {
 } from './verification-emails';
 import { safeError } from '../common/request-log';
 import { TotpChallenge, TotpService } from './totp.service';
+import {
+  codeMatches,
+  consumeChallenge,
+  deviceCodeEmail,
+  emailHint,
+  isTrustedDevice,
+  newDeviceChallenge,
+  newDeviceRoles,
+  readDeviceChallenge,
+  signTrustedDevice,
+} from './device-check';
 // Audit 1.5 : messages de connexion
 export const INVALID_CREDENTIALS = 'Identifiants invalides';
 export const ACCOUNT_DISABLED = "Votre compte est désactivé. Contactez l'équipe E.doto family.";
@@ -326,7 +337,7 @@ export class AuthService {
       [true, email]
     );
   }
-  async login(email: string, password: string): Promise<AuthResponse> {
+  async login(email: string, password: string, device?: string): Promise<AuthResponse> {
     const [rows]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
       'SELECT * FROM users WHERE email = ?',
       [email]
@@ -351,7 +362,49 @@ export class AuthService {
       throw new ForbiddenException(EMAIL_NOT_VERIFIED);
     }
     // Défi { totp_required, setup_required, challenge } à la place de { token, permissions } (admin et site le gèrent)
-    return (this.totp.challengeFor(user) as AuthResponse & TotpChallenge) ?? session;
+    const totpChallenge = this.totp.challengeFor(user);
+    if (totpChallenge) return totpChallenge as AuthResponse & TotpChallenge;
+    // Jeunes et points de retrait : code par e-mail depuis un appareil inconnu (29/10/2026)
+    if (newDeviceRoles().includes(user.role) && !isTrustedDevice(device, user as any)) return this.startDeviceCheck(user);
+    return session;
+  }
+
+  // ---------------- Nouvel appareil : code par e-mail (29/10/2026)
+  private async startDeviceCheck(user: any): Promise<any> {
+    const { code, challenge } = newDeviceChallenge(user);
+    try {
+      await sendVerificationEmail({ email: user.email, subject: 'Votre code de connexion E.doto family', message: deviceCodeEmail(code) });
+    } catch (error) {
+      console.error("Erreur lors de l'envoi du code de connexion :", safeError(error));
+      throw new InternalServerErrorException("Le code de connexion n'a pas pu être envoyé. Réessayez dans un instant.");
+    }
+    return { device_check_required: true, challenge, email_hint: emailHint(user.email) };
+  }
+
+  private async userFromDeviceChallenge(challenge: string) {
+    const c = readDeviceChallenge(challenge);
+    if (!c) throw new UnauthorizedException('Code expiré : connectez-vous de nouveau.');
+    const [[user]]: any = await this.DatabaseService.query<RowDataPacket[]>('SELECT * FROM users WHERE id = ? LIMIT 1', [c.id]);
+    if (!user || (Number(user.token_version) || 0) !== c.tv) throw new UnauthorizedException('Code expiré : connectez-vous de nouveau.');
+    return { c, user };
+  }
+
+  /** Code reçu par e-mail → session et jeton de l'appareil (reconnu 30 jours) */
+  async loginWithDeviceCode(challenge: string, code: string) {
+    const { c, user } = await this.userFromDeviceChallenge(challenge);
+    if (!codeMatches(c, code)) throw new UnauthorizedException('Code incorrect.');
+    if (!consumeChallenge(c.jti)) throw new UnauthorizedException('Ce code a déjà servi : connectez-vous de nouveau.');
+    const session = await this.sessionFor(user);
+    return { ...session, device_token: signTrustedDevice(user) };
+  }
+
+  /** Nouveau code (une fois par minute) */
+  async resendDeviceCode(challenge: string) {
+    const { user } = await this.userFromDeviceChallenge(challenge);
+    if (!allowAttempt(`device-resend:${user.id}`, 1, 60 * 1000)) {
+      throw new BadRequestException('Patientez une minute avant de demander un nouveau code.');
+    }
+    return this.startDeviceCheck(user);
   }
 
   /**

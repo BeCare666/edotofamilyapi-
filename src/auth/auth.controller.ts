@@ -53,7 +53,7 @@ export class AuthController {
     if (!allowAttempt(`login:${String(email || '').trim().toLowerCase()}`, 5, MINUTE)) {
       throw new HttpException('Trop de tentatives. Réessayez dans une minute.', HttpStatus.TOO_MANY_REQUESTS);
     }
-    return this.authService.login(email, password);
+    return this.authService.login(email, password, loginDto.device);
   }
 
   @Public()
@@ -95,6 +95,22 @@ export class AuthController {
     @Body() verifyForgetPasswordDto: VerifyForgetPasswordDto,
   ) {
     return this.authService.verifyForgetPasswordToken(verifyForgetPasswordDto);
+  }
+
+  // Nouvel appareil (jeunes, points de retrait) : code reçu par e-mail, 5 essais par minute et par défi
+  @Public()
+  @Throttle(THROTTLE_LOGIN)
+  @Post('token/device')
+  loginDevice(@Body() body: TotpLoginDto) {
+    this.limitTotp(body?.challenge);
+    return this.authService.loginWithDeviceCode(String(body?.challenge || ''), String(body?.code || ''));
+  }
+
+  @Public()
+  @Throttle(THROTTLE_LOGIN)
+  @Post('token/device/resend')
+  resendDevice(@Body() body: TotpChallengeDto) {
+    return this.authService.resendDeviceCode(String(body?.challenge || ''));
   }
 
   // Inactivité 5 min (29/10/2026) : jeton renouvelé tant que la personne agit (session encore valide).

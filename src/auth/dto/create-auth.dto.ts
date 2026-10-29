@@ -32,6 +32,8 @@ export class RegisterDto {
 export class LoginDto {
   @IsOptional() @IsScalar() email?: string;
   @IsOptional() @IsScalar() password?: string;
+  // Jeton de l'appareil reconnu (nouvel appareil : code par e-mail, 29/10/2026)
+  @IsOptional() @IsScalar() device?: string;
 }
 
 export class SocialLoginDto {

@@ -31,6 +31,8 @@ const PUBLIC_ROUTES = [
   'POST /register', 'POST /register-pick-up-point', 'POST /token',
   // Double authentification (3.1, 29/10/2026) : défi signé à la place de la session
   'POST /token/totp', 'POST /token/totp/setup', 'POST /token/totp/activate',
+  // Nouvel appareil (29/10/2026) : code reçu par e-mail
+  'POST /token/device', 'POST /token/device/resend',
   'POST /forget-password',
   'POST /verify-forget-password-token', 'POST /reset-password', 'POST /resend-verification-email',
   'GET /verify-email', 'POST /logout',

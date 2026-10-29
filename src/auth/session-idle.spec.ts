@@ -1,3 +1,5 @@
+// Nouvel appareil (code par e-mail) testé à part : src/auth/device-check.spec.ts
+process.env.NEW_DEVICE_ROLES = 'off';
 import * as jwt from 'jsonwebtoken';
 import { sessionIdleSeconds, sessionMaxSeconds, sessionStart, signSession } from './session';
 import { AuthService } from './auth.service';

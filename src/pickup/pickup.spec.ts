@@ -1,6 +1,8 @@
 process.env.JWT_SECRET_KEY = 'test-secret';
 jest.mock('../auth/mailer', () => ({ sendVerificationEmail: jest.fn().mockResolvedValue(undefined) }));
 
+// Nouvel appareil (code par e-mail) testé à part : src/auth/device-check.spec.ts
+process.env.NEW_DEVICE_ROLES = 'off';
 import * as bcrypt from 'bcrypt';
 import { BadRequestException, ForbiddenException, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { sendVerificationEmail } from '../auth/mailer';

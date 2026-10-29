@@ -1,3 +1,5 @@
+// Nouvel appareil (code par e-mail) testé à part : src/auth/device-check.spec.ts
+process.env.NEW_DEVICE_ROLES = 'off';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
 import { randomBytes } from 'crypto';

@@ -9,6 +9,8 @@
 process.env.JWT_SECRET_KEY = 'test-secret';
 jest.mock('./auth/mailer', () => ({ sendVerificationEmail: jest.fn().mockResolvedValue(undefined) }));
 
+// Nouvel appareil (code par e-mail) testé à part : src/auth/device-check.spec.ts
+process.env.NEW_DEVICE_ROLES = 'off';
 import { Controller, Get, INestApplication, UseGuards } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { PassportModule } from '@nestjs/passport';
