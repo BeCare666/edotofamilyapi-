@@ -45,10 +45,21 @@ describe('TOTP (RFC 6238)', () => {
     expect(hashRecoveryCode('abcd-efgh')).toBe(hashRecoveryCode('ABCDEFGH'));
   });
 
-  it('TOTP_ROLES : seulement les rôles prévus, vide par défaut', () => {
+  it('TOTP_ROLES : rôles listés, « all » pour tous les comptes, vide par défaut', () => {
     expect(totpRequiredRoles('')).toEqual([]);
     expect(totpRequiredRoles(undefined)).toEqual([]);
-    expect(totpRequiredRoles('super_admin, doctor,customer,sponsor')).toEqual(['super_admin', 'doctor', 'sponsor']);
+    expect(totpRequiredRoles('super_admin, doctor,inconnu,customer')).toEqual(['super_admin', 'doctor', 'customer']);
+    expect(totpRequiredRoles('all')).toEqual(['super_admin', 'doctor', 'health_center', 'sponsor', 'store_owner', 'staff', 'super_pickuppoint', 'customer']);
+    expect(totpRequiredRoles('*')).toHaveLength(8);
+  });
+
+  it('TOTP_ROLES=all : un jeune (customer) reçoit aussi le défi', async () => {
+    process.env.JWT_SECRET_KEY = process.env.JWT_SECRET_KEY || 'cle-de-test';
+    process.env.TOTP_ROLES = 'all';
+    const svc = new TotpService({ getPool: () => ({ query: jest.fn() }) } as any);
+    expect(svc.challengeFor({ id: 9, role: 'customer', token_version: 0 })).toEqual({ totp_required: true, setup_required: true, challenge: expect.any(String) });
+    delete process.env.TOTP_ROLES;
+    expect(svc.challengeFor({ id: 9, role: 'customer', token_version: 0 })).toBeNull();
   });
 });
 

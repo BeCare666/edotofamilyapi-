@@ -102,12 +102,26 @@ export function hashRecoveryCode(code: unknown): string {
   return createHash('sha256').update(`edoto-recovery:${clean}`).digest('hex');
 }
 
-/** Rôles pour lesquels la double authentification est obligatoire (variable TOTP_ROLES, vide = aucun) */
-export const TOTP_ELIGIBLE_ROLES = ['super_admin', 'doctor', 'health_center', 'sponsor'] as const;
+/**
+ * Rôles pour lesquels la double authentification est obligatoire : variable TOTP_ROLES,
+ * liste de rôles ou « all » pour tous les comptes (décision du 29/10/2026 : tous les utilisateurs) ; vide = aucun.
+ */
+export const TOTP_ELIGIBLE_ROLES = [
+  'super_admin',
+  'doctor',
+  'health_center',
+  'sponsor',
+  'store_owner',
+  'staff',
+  'super_pickuppoint',
+  'customer',
+] as const;
 
 export function totpRequiredRoles(env = process.env.TOTP_ROLES): string[] {
-  return String(env || '')
+  const parts = String(env || '')
     .split(',')
     .map((r) => r.trim())
-    .filter((r) => (TOTP_ELIGIBLE_ROLES as readonly string[]).includes(r));
+    .filter(Boolean);
+  if (parts.some((r) => r === 'all' || r === '*')) return [...TOTP_ELIGIBLE_ROLES];
+  return parts.filter((r) => (TOTP_ELIGIBLE_ROLES as readonly string[]).includes(r));
 }
