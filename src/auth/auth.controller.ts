@@ -96,6 +96,13 @@ export class AuthController {
     return this.authService.verifyForgetPasswordToken(verifyForgetPasswordDto);
   }
 
+  // Inactivité 5 min (29/10/2026) : jeton renouvelé tant que la personne agit (session encore valide).
+  // Environ un appel toutes les 3 min : limite globale (100/min) seulement.
+  @Post('token/refresh')
+  refresh(@Req() req) {
+    return this.authService.refreshSession(req.user);
+  }
+
   // ---------------- Double authentification (audit 3.1, 29/10/2026)
   // Connexion, étape 2 : 5 essais par minute par IP et par compte (le défi identifie le compte)
   @Public()

@@ -6,22 +6,44 @@ import { DOCTOR, HEALTH_CENTER, SUPER_ADMIN } from './roles.decorator';
  * - Le jeton porte tv = users.token_version : incrémenter la version invalide tous les jetons du compte
  *   (changement ou réinitialisation du mot de passe, blocage, changement de rôle).
  * - Un jeton sans tv (émis avant le 24/10) est refusé : chacun se reconnecte une fois (décision utilisateur).
- * - Durée : 12 h pour super admin, médecin et centre ; 7 jours pour les autres rôles.
+ * - Durée maximale depuis la connexion : 12 h pour super admin, médecin et centre ; 7 jours pour les autres rôles.
+ * - Inactivité (décision du 29/10/2026) : chaque jeton ne vaut que SESSION_IDLE_MINUTES (5 min par défaut) ;
+ *   l'admin et le site le renouvellent (POST /token/refresh) tant que la personne agit. Le renouvellement
+ *   garde l'heure de connexion (st) : la durée maximale ne peut pas être dépassée.
  */
 
 export const SHORT_SESSION_ROLES = [SUPER_ADMIN, DOCTOR, HEALTH_CENTER];
 
+/** Durée maximale d'une session depuis la connexion */
 export function sessionTtl(role: string): string {
   return SHORT_SESSION_ROLES.includes(role) ? '12h' : '7d';
 }
 
-// user : ligne de la table users (id, email, token_version)
-export function signSession(user: Record<string, any>, role: string): string {
+export function sessionMaxSeconds(role: string): number {
+  return SHORT_SESSION_ROLES.includes(role) ? 12 * 3600 : 7 * 86400;
+}
+
+export function sessionIdleSeconds(env = process.env.SESSION_IDLE_MINUTES): number {
+  const m = Number(env);
+  return (Number.isFinite(m) && m > 0 ? m : 5) * 60;
+}
+
+// user : ligne de la table users (id, email, token_version) ; startedAt : heure de connexion (secondes)
+export function signSession(user: Record<string, any>, role: string, startedAt = Math.floor(Date.now() / 1000)): string {
+  const now = Math.floor(Date.now() / 1000);
+  const left = startedAt + sessionMaxSeconds(role) - now;
+  if (left <= 0) throw new Error('Durée maximale de la session atteinte.');
   return jwt.sign(
-    { id: user.id, email: user.email, permissions: [role], tv: Number(user.token_version) || 0 },
+    { id: user.id, email: user.email, permissions: [role], tv: Number(user.token_version) || 0, st: startedAt },
     process.env.JWT_SECRET_KEY,
-    { expiresIn: sessionTtl(role) } as jwt.SignOptions,
+    { expiresIn: Math.min(sessionIdleSeconds(), left) } as jwt.SignOptions,
   );
+}
+
+/** Renouvellement : même heure de connexion (jetons d'avant le 29/10 : heure d'émission) */
+export function sessionStart(payload: any): number {
+  const st = Number(payload?.st ?? payload?.iat);
+  return Number.isFinite(st) && st > 0 ? st : Math.floor(Date.now() / 1000);
 }
 
 // Lien de vérification d'e-mail : purpose contrôlé, pour qu'un jeton de session ne serve pas de lien

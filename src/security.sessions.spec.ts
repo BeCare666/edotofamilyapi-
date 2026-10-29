@@ -107,11 +107,11 @@ describe('Durée et contenu des jetons (audit 1.5)', () => {
     const d: any = jwt.decode(token);
     return d.exp - d.iat;
   };
-  it('12 h pour super admin, médecin, centre ; 7 jours pour les autres', () => {
+  it('durée maximale 12 h (super admin, médecin, centre) / 7 jours (autres) ; chaque jeton 5 min (inactivité, 29/10)', () => {
     for (const r of ['super_admin', 'doctor', 'health_center']) expect(sessionTtl(r)).toBe('12h');
     for (const r of ['customer', 'store_owner', 'sponsor', 'super_pickuppoint']) expect(sessionTtl(r)).toBe('7d');
-    expect(ttl(signSession({ id: 1, email: 'a@t.io', token_version: 2 }, 'super_admin'))).toBe(12 * 3600);
-    expect(ttl(signSession({ id: 1, email: 'a@t.io', token_version: 2 }, 'customer'))).toBe(7 * 24 * 3600);
+    expect(ttl(signSession({ id: 1, email: 'a@t.io', token_version: 2 }, 'super_admin'))).toBe(5 * 60);
+    expect(ttl(signSession({ id: 1, email: 'a@t.io', token_version: 2 }, 'customer'))).toBe(5 * 60);
   });
   it('tv = token_version, permissions = [rôle]', () => {
     const d: any = jwt.decode(signSession({ id: 5, email: 'a@t.io', token_version: 4 }, 'sponsor'));
@@ -146,12 +146,13 @@ describe('login() (audit 1.5)', () => {
     }
   });
 
-  it('super admin : jeton 12 h portant la version du compte', async () => {
+  it('super admin : jeton de 5 min (renouvelable jusqu’à 12 h) portant la version du compte', async () => {
     const user = { id: 1, email: 'a@t.io', password: hash, role: 'super_admin', is_active: 1, token_version: 6 };
     const res: any = await service(user).login('a@t.io', 'Bon-mot2passe');
     const d: any = jwt.verify(res.token, process.env.JWT_SECRET_KEY);
     expect(d.tv).toBe(6);
-    expect(d.exp - d.iat).toBe(12 * 3600);
+    expect(d.exp - d.iat).toBe(5 * 60);
+    expect(d.st).toBe(d.iat);
     expect(res.permissions).toEqual(['super_admin']);
   });
 });

@@ -10,7 +10,7 @@ import {
 } from '@nestjs/common';
 import { checkPassword, cleanBirthDate, cleanEmail, cleanName, cleanOrgName, cleanSex } from '../common/field-rules';
 import * as bcrypt from 'bcrypt';
-import { bumpTokenVersion, isBlocked, signEmailVerification, signSession } from './session';
+import { bumpTokenVersion, isBlocked, sessionStart, signEmailVerification, signSession } from './session';
 import {
   AuthResponse,
   ChangePasswordDto,
@@ -345,6 +345,23 @@ export class AuthService {
     const session = await this.sessionFor(user);
     // Défi { totp_required, setup_required, challenge } à la place de { token, permissions } (admin et site le gèrent)
     return (this.totp.challengeFor(user) as AuthResponse & TotpChallenge) ?? session;
+  }
+
+  /**
+   * Renouvellement de la session (inactivité 5 min, 29/10/2026). Le guard JWT global a déjà vérifié
+   * le jeton, le compte actif et la version de session ; la durée maximale depuis la connexion est gardée.
+   */
+  async refreshSession(payload: any): Promise<AuthResponse> {
+    const [[user]]: any = await this.DatabaseService.query<RowDataPacket[]>(
+      'SELECT id, email, role, token_version FROM users WHERE id = ? LIMIT 1',
+      [Number(payload?.id)],
+    );
+    if (!user) throw new UnauthorizedException('Session expirée.');
+    try {
+      return { token: signSession(user, user.role, sessionStart(payload)), permissions: [user.role] };
+    } catch {
+      throw new UnauthorizedException('Session expirée : reconnectez-vous.');
+    }
   }
 
   // ---------------- Double authentification (audit 3.1, 29/10/2026)
