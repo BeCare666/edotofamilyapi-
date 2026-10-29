@@ -26,7 +26,7 @@ describe('Nouvel appareil : code par e-mail', () => {
     const query = jest.fn(async () => [[{ ...user, password: hash }]]);
     return new AuthService({ query, getPool: () => ({ query }) } as any);
   };
-  const codeFromMail = () => String(mailer.mock.calls.at(-1)[0].message.match(/>(\d{6})</)[1]);
+  const codeFromMail = () => String(mailer.mock.calls[mailer.mock.calls.length - 1][0].message.match(/>(\d{6})</)[1]);
 
   it('rôles : jeunes et points de retrait par défaut ; « off » désactive ; liste réglable', () => {
     expect(newDeviceRoles(undefined)).toEqual(['customer', 'super_pickuppoint']);
