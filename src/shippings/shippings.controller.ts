@@ -14,6 +14,7 @@ import { UpdateShippingDto } from './dto/update-shipping.dto';
 import { GetShippingsDto } from './dto/get-shippings.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('shippings')
 export class ShippingsController {
@@ -47,6 +48,7 @@ export class ShippingsController {
   }
 
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.shippingsService.remove(+id);

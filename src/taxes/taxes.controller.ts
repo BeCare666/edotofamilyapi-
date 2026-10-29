@@ -14,6 +14,7 @@ import { UpdateTaxDto } from './dto/update-tax.dto';
 import { GetTaxesDto } from './dto/get-taxes.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('taxes')
 export class TaxesController {
@@ -44,6 +45,7 @@ export class TaxesController {
   }
 
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.taxesService.remove(+id);

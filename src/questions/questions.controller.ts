@@ -18,6 +18,7 @@ import { QuestionService } from './questions.service';
 import { JwtAuthGuard } from 'src/auth/jwt-auth.guard';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 @Controller('questions')
 export class QuestionController {
   constructor(private questionService: QuestionService) { }
@@ -59,6 +60,7 @@ export class QuestionController {
 
   // delete
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.questionService.remove(+id);

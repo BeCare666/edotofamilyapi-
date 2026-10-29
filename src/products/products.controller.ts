@@ -27,6 +27,7 @@ import { GetFollowedShopsProducts } from './dto/get-followed-shops-products.dto'
 import { GetBestSellingProductsDto } from './dto/get-best-selling-products.dto';
 import { GetProductsByCorridorDto } from './dto/get-products-by-corridor.dto';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('products')
 export class ProductsController {
@@ -161,6 +162,7 @@ export class ProductsController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(SUPER_ADMIN, STORE_OWNER, STAFF)
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   async remove(@Param('id') id: string, @Req() req: any) {
     await this.assertCanManageProduct(req.user, +id);

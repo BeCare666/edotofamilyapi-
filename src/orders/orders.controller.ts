@@ -32,6 +32,7 @@ import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { ActivePickupGuard } from '../auth/active-pickup.guard';
 import { Roles, SUPER_ADMIN, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
+import { SensitiveAction } from '../auth/step-up';
 @UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
 @Controller('orders')
 export class OrdersController {
@@ -187,6 +188,7 @@ if (!Array.isArray(req.user.permissions) || !req.user.permissions.includes('supe
 
   // ---------------------- DELETE ORDER ----------------------
   @Roles(SUPER_ADMIN)
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.ordersService.remove(+id);
@@ -246,6 +248,7 @@ export class OrderStatusController {
 
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(SUPER_ADMIN)
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.ordersService.removeOrderStatus(id);

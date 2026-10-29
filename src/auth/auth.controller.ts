@@ -5,6 +5,7 @@ import { allowAttempt } from '../sponsors/sponsor-rules';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { TotpService } from './totp.service';
+import { signStepUp } from './step-up';
 import { Response } from 'express';
 import {
   ChangePasswordDto,
@@ -151,6 +152,16 @@ export class AuthController {
   async totpDisable(@Req() req, @Body() body: TotpCodeDto) {
     await this.totpService.disable(await this.totpService.userById(Number(req.user?.id)), body?.code);
     return { success: true, message: 'Double authentification désactivée.' };
+  }
+
+  // Actions sensibles (suppression, export) : code vérifié → autorisation de 5 min (en-tête X-Step-Up)
+  @Throttle(THROTTLE_LOGIN)
+  @Post('me/totp/step-up')
+  async totpStepUp(@Req() req, @Body() body: TotpCodeDto) {
+    const user = await this.totpService.userById(Number(req.user?.id));
+    if (!this.totpService.isEnabled(user)) throw new HttpException('Activez d’abord la double authentification.', HttpStatus.BAD_REQUEST);
+    await this.totpService.checkCode(user, body?.code);
+    return signStepUp(user);
   }
 
   private limitTotp(challenge: unknown) {

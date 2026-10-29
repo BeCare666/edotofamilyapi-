@@ -29,6 +29,7 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles, hasRole, SUPER_ADMIN, STORE_OWNER } from '../auth/roles.decorator';
 import { omitPassword } from '../common/sanitize';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 // Rôles dont la liste est consultable publiquement (sélection d'un point de retrait),
 // avec uniquement des colonnes non sensibles.
@@ -116,6 +117,7 @@ export class UsersController {
   }
 
   @UseGuards(JwtAuthGuard)
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   removeUser(@Param('id') id: string, @Req() req: any) {
     assertSelfOrAdmin(req, +id);

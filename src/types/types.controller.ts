@@ -14,6 +14,7 @@ import { UpdateTypeDto } from './dto/update-type.dto';
 import { GetTypesDto } from './dto/get-types.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('types')
 export class TypesController {
@@ -44,6 +45,7 @@ export class TypesController {
   }
 
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.typesService.remove(+id);

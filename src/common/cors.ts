@@ -23,7 +23,8 @@ export function isAllowedOrigin(origin: string | undefined, env = process.env.NO
 }
 
 export const CORS_METHODS = ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
-export const CORS_HEADERS = ['Authorization', 'Content-Type', 'Accept'];
+// X-Step-Up : autorisation de 5 min après le code de double authentification (actions sensibles, 3.1)
+export const CORS_HEADERS = ['Authorization', 'Content-Type', 'Accept', 'X-Step-Up'];
 
 // Appelé par main.ts. cross-origin : le site et l'admin, sur d'autres domaines, lisent les réponses et fichiers de l'API
 export function applySecurity(app: INestApplication): void {

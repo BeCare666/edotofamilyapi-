@@ -14,6 +14,7 @@ import { THROTTLE_SENSITIVE } from '../common/client-throttler.guard';
 import { clientIp } from '../ai/chat/ai-chat.rate-limit';
 import { Public } from '../auth/public.decorator';
 import { AdminDecisionDto, SponsorInvitationAcceptDto, SponsorProfileDto, SponsorProposalDto, SponsorSignupDto } from './dto/sponsor-body.dto';
+import { SensitiveAction } from '../auth/step-up';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -224,6 +225,7 @@ export class SponsorsAdminController {
     return this.exportsAdmin.list(status);
   }
 
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Post('sponsor-exports/:id/approve')
   approve(@Param('id', ParseIntPipe) id: number, @Req() req: any) {
     return this.exportsAdmin.approve(id, Number(req.user.id));

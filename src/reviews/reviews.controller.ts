@@ -14,6 +14,7 @@ import { UpdateReviewDto } from './dto/update-review.dto';
 import { ReviewService } from './reviews.service';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('reviews')
 export class ReviewController {
@@ -51,6 +52,7 @@ export class ReviewController {
 
   // delete a review
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.reviewService.delete(+id);

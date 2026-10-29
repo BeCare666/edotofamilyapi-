@@ -4,6 +4,7 @@ import { CountriesService } from './countries.service';
 import { CreateCountryDto } from './dto/create-countries.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('countries')
 export class CountriesController {
@@ -28,6 +29,7 @@ export class CountriesController {
     }
 
     @SuperAdminOnly()
+    @SensitiveAction() // audit 3.1 : code redemandé
     @Delete(':id')
     remove(@Param('id') id: string) {
         return this.countriesService.remove(Number(id));

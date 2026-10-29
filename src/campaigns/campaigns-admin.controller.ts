@@ -6,6 +6,7 @@ import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { CampaignsAdminService } from './campaigns-admin.service';
 import { CampaignRequestsService } from './campaign-requests.service';
 import { CampaignInputDto, CreateSponsorDto } from './dto/campaign-body.dto';
+import { SensitiveAction } from '../auth/step-up';
 
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
@@ -47,6 +48,7 @@ export class CampaignsAdminController {
   }
 
   // Déclarée avant campaigns/:id
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Get('campaigns/export')
   async exportAll(@Res() res: Response) {
     sendFile(res, await this.admin.exportAll());
@@ -78,6 +80,7 @@ export class CampaignsAdminController {
     return this.admin.detail(id);
   }
 
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Get('campaigns/:id/export')
   async exportOne(@Param('id', ParseIntPipe) id: number, @Res() res: Response) {
     sendFile(res, await this.admin.exportCampaign(id));
@@ -93,6 +96,7 @@ export class CampaignsAdminController {
     return this.admin.update(id, body);
   }
 
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete('campaigns/:id')
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.admin.remove(id);

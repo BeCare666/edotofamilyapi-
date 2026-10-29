@@ -26,6 +26,7 @@ import { Request } from 'express';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
 import { ApproveShopDto, IdBodyDto } from '../common/dto/id-body.dto';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('shops')
 export class ShopsController {
@@ -59,6 +60,7 @@ export class ShopsController {
   }
 
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.shopsService.remove(+id);
@@ -109,6 +111,7 @@ export class StaffsController {
   }
 
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.shopsService.remove(+id);

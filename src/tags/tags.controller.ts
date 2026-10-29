@@ -14,6 +14,7 @@ import { UpdateTagDto } from './dto/update-tag.dto';
 import { GetTagsDto, TagPaginator } from './dto/get-tags.dto';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
 import { Public } from '../auth/public.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('tags')
 export class TagsController {
@@ -44,6 +45,7 @@ export class TagsController {
   }
 
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.tagsService.remove(+id);

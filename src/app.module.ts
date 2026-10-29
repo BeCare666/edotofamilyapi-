@@ -37,6 +37,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ClientThrottlerGuard, MINUTE } from './common/client-throttler.guard';
 import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
+import { StepUpGuard } from './auth/step-up';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
   imports: [
@@ -86,6 +87,8 @@ import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
   providers: [
     { provide: APP_GUARD, useClass: ClientThrottlerGuard },
     { provide: APP_GUARD, useClass: GlobalJwtAuthGuard },
+    // Audit 3.1 : code de double authentification redemandé pour les actions sensibles (après la session)
+    { provide: APP_GUARD, useClass: StepUpGuard },
   ],
 })
 export class AppModule { }

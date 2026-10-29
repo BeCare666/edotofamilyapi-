@@ -11,6 +11,7 @@ import { CreateReportDto } from './dto/create-report.dto';
 import { UpdateReportDto } from './dto/update-report.dto';
 import { AbusiveReportService } from './reports.service';
 import { SuperAdminOnly } from '../auth/super-admin-only.decorator';
+import { SensitiveAction } from '../auth/step-up';
 
 @Controller('abusive_reports')
 export class AbusiveReportsController {
@@ -43,6 +44,7 @@ export class AbusiveReportsController {
 
   // delete a feedback
   @SuperAdminOnly()
+  @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
   delete(@Param('id') id: string) {
     return this.reportService.delete(+id);
