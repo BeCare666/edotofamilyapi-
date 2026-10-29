@@ -55,6 +55,9 @@ import { TotpChallenge, TotpService } from './totp.service';
 // Audit 1.5 : messages de connexion
 export const INVALID_CREDENTIALS = 'Identifiants invalides';
 export const ACCOUNT_DISABLED = "Votre compte est désactivé. Contactez l'équipe E.doto family.";
+// Audit 3.8 (29/10/2026) : e-mail confirmé obligatoire pour les rôles sensibles
+export const EMAIL_VERIFIED_ROLES = ['super_admin', 'doctor', 'health_center', 'sponsor'];
+export const EMAIL_NOT_VERIFIED = "Confirmez d'abord votre adresse e-mail : utilisez le lien reçu par e-mail ou demandez-en un nouveau.";
 
 // Anti-abus du renvoi : un e-mail au plus par adresse et par minute (mémoire du processus)
 const RESEND_COOLDOWN_MS = 60 * 1000;
@@ -341,8 +344,12 @@ export class AuthService {
     if (!passwordMatch) {
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
-    // Contrôles du compte d'abord (bloqué, en attente…), puis double authentification si elle s'applique
+    // Contrôles du compte d'abord (bloqué, en attente…), puis e-mail confirmé (rôles sensibles),
+    // puis double authentification si elle s'applique
     const session = await this.sessionFor(user);
+    if (EMAIL_VERIFIED_ROLES.includes(user.role) && Number(user.is_verified) !== 1) {
+      throw new ForbiddenException(EMAIL_NOT_VERIFIED);
+    }
     // Défi { totp_required, setup_required, challenge } à la place de { token, permissions } (admin et site le gèrent)
     return (this.totp.challengeFor(user) as AuthResponse & TotpChallenge) ?? session;
   }

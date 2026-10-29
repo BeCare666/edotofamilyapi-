@@ -9,7 +9,7 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
-import { bumpTokenVersion } from '../auth/session';
+import { bumpTokenVersion, signEmailVerification } from '../auth/session';
 import { INVITATION_TTL_DAYS, escapeHtml, newInvitationToken, parseNewPassword, parseSponsorSignup, sha256 } from './sponsor-rules';
 import { safeError } from '../common/request-log';
 
@@ -51,9 +51,10 @@ function welcomeEmail(organization: string, contact: string, link: string) {
     </div>
     <div style="padding: 32px 28px; color: #1f1b16; font-size: 15px; line-height: 1.6;">
       <p>Bonjour <strong>${escapeHtml(contact)}</strong>,</p>
-      <p>L'espace sponsor de <strong>${escapeHtml(organization)}</strong> est créé. Vous pouvez dès maintenant soumettre une demande de campagne :
+      <p>L'espace sponsor de <strong>${escapeHtml(organization)}</strong> est créé. Confirmez d'abord votre adresse e-mail (lien valable 5 minutes ;
+        sinon, demandez-en un nouveau depuis la page de connexion). Vous pourrez ensuite soumettre une demande de campagne :
         l'équipe E.doto family l'étudie, la valide puis crée la campagne, que vous suivrez en temps réel depuis votre espace.</p>
-      <p style="text-align: center;"><a href="${link}" style="display: inline-block; margin: 16px 0; padding: 14px 28px; background: #c2185b; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: 600;">Ouvrir mon espace sponsor</a></p>
+      <p style="text-align: center;"><a href="${link}" style="display: inline-block; margin: 16px 0; padding: 14px 28px; background: #c2185b; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: 600;">Confirmer mon adresse e-mail</a></p>
     </div>
   </div>`;
 }
@@ -197,16 +198,17 @@ export class SponsorAccountService {
     // E-mail de bienvenue : un échec d'envoi n'annule pas l'inscription (le compte est déjà utilisable)
     let emailSent = true;
     try {
-      const base = (process.env.FRONTEND_CALLBACK_URL || '').replace(/\/+$/, '');
+      // Audit 3.8 : e-mail vérifié obligatoire pour un sponsor ; le lien confirme puis mène à la connexion
+      const link = `${process.env.BASE_URL}/verify-email?token=${signEmailVerification(input.email)}`;
       await sendVerificationEmail({
         email: input.email,
         subject: 'Bienvenue dans votre espace sponsor E.doto family',
-        message: welcomeEmail(input.organization, input.contactName, `${base}/sponsor`),
+        message: welcomeEmail(input.organization, input.contactName, link),
       });
     } catch (e) {
       console.error('Erreur e-mail bienvenue sponsor :', safeError(e));
       emailSent = false;
     }
-    return { success: true, email: input.email, email_sent: emailSent, message: 'Votre espace sponsor est créé. Connectez-vous pour soumettre votre demande de campagne.' };
+    return { success: true, email: input.email, email_sent: emailSent, message: 'Votre espace sponsor est créé. Confirmez votre adresse e-mail (lien envoyé), puis connectez-vous pour soumettre votre demande de campagne.' };
   }
 }

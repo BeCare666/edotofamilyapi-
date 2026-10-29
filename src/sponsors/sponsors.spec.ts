@@ -102,7 +102,7 @@ describe('Invitation et activation du compte sponsor', () => {
 
   it('connexion : un compte sponsor reçoit un jeton « sponsor »', async () => {
     const hash = await bcrypt.hash('MotDePasse2026', 4);
-    const { db } = fakeDb(() => [{ id: 9, email: 'a@o.org', password: hash, role: 'sponsor', is_active: 1 }]);
+    const { db } = fakeDb(() => [{ id: 9, email: 'a@o.org', password: hash, role: 'sponsor', is_active: 1, is_verified: 1 }]);
     const res: any = await new AuthService(db).login('a@o.org', 'MotDePasse2026');
     expect(res.permissions).toEqual(['sponsor']);
   });

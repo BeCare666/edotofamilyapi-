@@ -147,7 +147,7 @@ describe('login() (audit 1.5)', () => {
   });
 
   it('super admin : jeton de 5 min (renouvelable jusqu’à 12 h) portant la version du compte', async () => {
-    const user = { id: 1, email: 'a@t.io', password: hash, role: 'super_admin', is_active: 1, token_version: 6 };
+    const user = { id: 1, email: 'a@t.io', password: hash, role: 'super_admin', is_active: 1, is_verified: 1, token_version: 6 };
     const res: any = await service(user).login('a@t.io', 'Bon-mot2passe');
     const d: any = jwt.verify(res.token, process.env.JWT_SECRET_KEY);
     expect(d.tv).toBe(6);

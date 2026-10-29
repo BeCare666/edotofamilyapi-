@@ -87,7 +87,7 @@ describe('Connexion avec double authentification', () => {
     return { db: { query, getPool: () => ({ query }) } as any, query };
   };
 
-  const admin = (over: any = {}) => ({ id: 3, email: 'a@edoto.com', role: 'super_admin', is_active: 1, token_version: 2, password: hash, ...over });
+  const admin = (over: any = {}) => ({ id: 3, email: 'a@edoto.com', role: 'super_admin', is_active: 1, is_verified: 1, token_version: 2, password: hash, ...over });
 
   it('par défaut (TOTP_ROLES vide, non activée) : connexion inchangée', async () => {
     delete process.env.TOTP_ROLES;
