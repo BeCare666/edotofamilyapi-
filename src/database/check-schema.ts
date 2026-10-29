@@ -41,6 +41,7 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'users', column: 'totp_enabled_at', migration: '019' },
   { table: 'totp_recovery_codes', migration: '019' },
   { table: 'admin_audit_log', migration: '020' },
+  { table: 'payment_intents', column: 'feexpay_reference', migration: '021' },
 ];
 
 async function main() {

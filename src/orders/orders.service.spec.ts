@@ -1,8 +1,12 @@
+// Audit 1.1 : la vérification FeexPay (appel réseau) est simulée ; elle est testée dans feexpay-verify.spec.ts
+jest.mock('../payment-intent/feexpay-verify', () => ({ verifyFeexPayForOrder: jest.fn().mockResolvedValue({ status: 'SUCCESSFUL' }) }));
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { OrdersService } from './orders.service';
 import { PaymentIntentService } from '../payment-intent/payment-intent.service';
 import { CampaignsService } from '../campaigns/campaigns.service';
 import { MASKED_OTP } from '../common/sanitize';
+import { verifyFeexPayForOrder } from '../payment-intent/feexpay-verify';
+const verifyMock = verifyFeexPayForOrder as jest.Mock;
 
 type Handler = (sql: string, params: any[]) => any;
 
@@ -278,18 +282,26 @@ describe('OrdersService.create — prix serveur (S10)', () => {
 
 describe('PaymentIntentService.completeFeexPayForUser (S4)', () => {
   const make = (order: any) => {
-    const { db } = fakeDb((sql) => (sql.includes('SELECT id, customer_id, payment_status FROM orders') ? (order ? [order] : []) : []));
+    const { db } = fakeDb((sql) => (sql.includes('SELECT id, customer_id, payment_status, total FROM orders') ? (order ? [order] : []) : []));
     const svc = new PaymentIntentService(db);
     const inner = jest.spyOn(svc, 'completeFeexPayPayment').mockResolvedValue({ success: true, processed: true, otp: '123456', orderId: 5 } as any);
     return { svc, inner };
   };
   const body = { transaction_id: 't', custom_id: 'ORD-5' };
 
-  it("propriétaire : traité, l'OTP n'est pas renvoyé", async () => {
-    const { svc } = make({ id: 5, customer_id: 10, payment_status: 'payment-pending' });
+  it("propriétaire, paiement confirmé par FeexPay : traité, l'OTP n'est pas renvoyé", async () => {
+    const { svc, inner } = make({ id: 5, customer_id: 10, payment_status: 'payment-pending', total: 5000 });
     const res: any = await svc.completeFeexPayForUser(body, customer);
     expect(res.processed).toBe(true);
     expect(res).not.toHaveProperty('otp');
+    expect(verifyMock).toHaveBeenCalledWith('t', expect.objectContaining({ total: 5000 }), expect.any(Function));
+    expect((inner.mock.calls[0] as any)[0].feexpay_verified_reference).toBe('t');
+  });
+  it('audit 1.1 : FeexPay ne confirme pas → refusé, rien traité (commande inchangée)', async () => {
+    const { svc, inner } = make({ id: 5, customer_id: 10, payment_status: 'payment-pending', total: 5000 });
+    verifyMock.mockRejectedValueOnce(Object.assign(new Error('Paiement non confirmé par FeexPay.'), { status: 402 }));
+    await expect(svc.completeFeexPayForUser(body, customer)).rejects.toThrow('non confirmé');
+    expect(inner).not.toHaveBeenCalled();
   });
   it('autre utilisateur : 403, rien traité', async () => {
     const { svc, inner } = make({ id: 5, customer_id: 10, payment_status: 'payment-pending' });

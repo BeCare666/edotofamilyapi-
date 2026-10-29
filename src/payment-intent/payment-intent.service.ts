@@ -9,6 +9,7 @@ import { v2 as cloudinary, UploadApiResponse } from 'cloudinary';
 import { Readable } from 'stream';
 import { sendVerificationEmail } from '../auth/mailer';
 import { randomInt } from 'crypto';
+import { verifyFeexPayForOrder } from './feexpay-verify';
 import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PICKUP_OTP_TTL_MS } from '../orders/pickup-otp-email';
 import { safeError } from '../common/request-log';
 import { INVOICE_STORAGE_TYPE } from './invoice-storage';
@@ -29,7 +30,7 @@ export class PaymentIntentService {
   // Entrée HTTP de POST /payments/feexpay/complete :
   // seul le client de la commande (ou l'admin) peut la déclencher, une seule fois,
   // et l'OTP n'est jamais renvoyé dans la réponse (il part uniquement par e-mail).
-  // ⚠️ La transaction n'est pas encore vérifiée auprès de FeexPay (endpoint à confirmer).
+  // Audit 1.1 (29/10/2026) : la transaction est vérifiée auprès de FeexPay (API v2) avant toute écriture.
   async completeFeexPayForUser(
     body: { transaction_id: string; custom_id: string; feexpay_response?: any },
     user: any,
@@ -38,7 +39,7 @@ export class PaymentIntentService {
       throw new BadRequestException('Invalid payload');
     }
     const [orderRows] = await this.pool.query<RowDataPacket[]>(
-      `SELECT id, customer_id, payment_status FROM orders WHERE tracking_number = ? LIMIT 1`,
+      `SELECT id, customer_id, payment_status, total FROM orders WHERE tracking_number = ? LIMIT 1`,
       [body.custom_id]
     );
     const order = orderRows[0];
@@ -54,14 +55,28 @@ export class PaymentIntentService {
       return { success: true, processed: true, orderId: order.id, alreadyProcessed: true };
     }
 
-    const { otp, ...result } = await this.completeFeexPayPayment(body) as any;
+    // FeexPay confirme, montant suffisant, transaction jamais utilisée : sinon 402 / 409 / 503, commande inchangée
+    const reference = this.feexpayReference(body);
+    await verifyFeexPayForOrder(reference, order, (ref) => this.feexpayReferenceUsed(ref));
+
+    const { otp, ...result } = await this.completeFeexPayPayment({ ...body, feexpay_verified_reference: reference }) as any;
     return result;
+  }
+
+  /** Référence FeexPay envoyée par le site (callback du SDK v2 : reference ; à défaut transaction_id) */
+  private feexpayReference(body: { transaction_id?: string; feexpay_response?: any }): string {
+    return String(body?.feexpay_response?.reference || body?.transaction_id || '').trim();
+  }
+
+  private async feexpayReferenceUsed(reference: string): Promise<boolean> {
+    const [rows] = await this.pool.query<RowDataPacket[]>(`SELECT id FROM payment_intents WHERE feexpay_reference = ? LIMIT 1`, [reference]);
+    return rows.length > 0;
   }
 
   // POST /payments/feexpay/complete
   // service.ts (extrait) - méthode completeFeexPayPayment améliorée
   async completeFeexPayPayment(
-    body: { transaction_id: string; custom_id: string; feexpay_response?: any; },
+    body: { transaction_id: string; custom_id: string; feexpay_response?: any; feexpay_verified_reference?: string },
     externalConn?: PoolConnection
   ) {
     const conn = externalConn ?? await this.pool.getConnection();
@@ -94,6 +109,13 @@ export class PaymentIntentService {
       const order = orderRows[0];
       if (!order) throw new Error("Order not found");
 
+      // Audit 1.1 : jamais de commande payée sans vérification FeexPay (relance automatique comprise)
+      let feexpayReference = body.feexpay_verified_reference;
+      if (!feexpayReference) {
+        feexpayReference = this.feexpayReference(body);
+        await verifyFeexPayForOrder(feexpayReference, order, (ref) => this.feexpayReferenceUsed(ref));
+      }
+
       const orderId = order.id;
       const amount = order.total;
       const currency = order.currency ?? "XOF";
@@ -102,8 +124,8 @@ export class PaymentIntentService {
       const tx_ref = `FPX-${orderId}-${Date.now()}`;
       const [insert] = await conn.query<ResultSetHeader>(
         `INSERT INTO payment_intents
-       (order_id, tracking_number, payment_gateway, status, total_amount, currency, payment_intent_info, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+       (order_id, tracking_number, payment_gateway, status, total_amount, currency, payment_intent_info, feexpay_reference, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
         [
           orderId,
           order.tracking_number,
@@ -111,7 +133,8 @@ export class PaymentIntentService {
           "payment-success",
           amount,
           currency,
-          JSON.stringify({ tx_ref, transaction_id, custom_id })
+          JSON.stringify({ tx_ref, transaction_id, custom_id }),
+          feexpayReference || null,
         ]
       );
       const paymentIntentId = insert.insertId;
