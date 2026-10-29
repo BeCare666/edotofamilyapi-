@@ -500,20 +500,33 @@ export class AuthService {
     };
   }
 
+  // Jeton passé à la main (création de commande) : vérifié ici, puis même lecture que GET /me
   async me(token: string): Promise<any> {
-    const extractToken = token.replace(/^Bearer\s+/i, '').trim();
+    const extractToken = String(token || '').replace(/^Bearer\s+/i, '').trim();
     if (!extractToken) {
       throw new UnauthorizedException('Token manquant');
     }
-
+    let decoded: any;
     try {
-      const decoded: any = jwt.verify(extractToken, process.env.JWT_SECRET_KEY);
+      decoded = jwt.verify(extractToken, process.env.JWT_SECRET_KEY);
+    } catch {
+      throw new UnauthorizedException('Token invalide');
+    }
+    return this.meById(Number(decoded.id));
+  }
+
+  /**
+   * Compte connecté (audit sécurité 2.9, M12) : GET /me lit req.user, déjà validé par le guard JWT global
+   * (signature, compte actif, version de session), au lieu de décoder le jeton une seconde fois.
+   */
+  async meById(userId: number): Promise<any> {
+    try {
 
       // Utilisateur, profil et boutiques ne dépendent que de l'id du jeton : requêtes en parallèle
       // (un aller-retour vers la base au lieu de trois à cinq à la suite).
       const [[rows], [profileRows], [shopsRows]] = await Promise.all([
-        this.DatabaseService.query<RowDataPacket[]>('SELECT * FROM users WHERE id = ?', [decoded.id]),
-        this.DatabaseService.query<RowDataPacket[]>('SELECT * FROM profiles WHERE customer_id = ?', [decoded.id]),
+        this.DatabaseService.query<RowDataPacket[]>('SELECT * FROM users WHERE id = ?', [userId]),
+        this.DatabaseService.query<RowDataPacket[]>('SELECT * FROM profiles WHERE customer_id = ?', [userId]),
         this.DatabaseService.query<RowDataPacket[]>(
           `SELECT
             s.*,
@@ -523,7 +536,7 @@ export class AuthService {
           LEFT JOIN media ci ON s.cover_image_id = ci.id
           LEFT JOIN media li ON s.logo_image_id = li.id
           WHERE s.owner_id = ?`,
-          [decoded.id]
+          [userId]
         ),
       ]);
       const user = rows[0];

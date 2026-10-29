@@ -89,14 +89,15 @@ export class AuthController {
     return this.authService.verifyForgetPasswordToken(verifyForgetPasswordDto);
   }
 
+  // Audit 2.9 (M12) : utilisateur fourni par le guard JWT global
   @Get('me')
   me(@Req() req) {
-    return this.authService.me(req?.headers?.authorization);
+    return this.authService.meById(Number(req.user?.id));
   }
 
   @Post('add-points')
   addWalletPoints(@Body() addPointsDto: any, @Req() req) {
-    return this.authService.me(req?.headers?.authorization);
+    return this.authService.meById(Number(req.user?.id));
   }
 
   @Public()
