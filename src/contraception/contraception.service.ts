@@ -3,6 +3,8 @@ import { DatabaseService } from '../database/database.services';
 import { cleanText } from '../teleconsultation/tc-rules';
 import { esc, frame, button, mail, siteUrl } from '../teleconsultation/tc-notify';
 import { iso, num } from '../teleconsultation/tc-db';
+import { HEALTH_FIELDS, openFields, sealHealth } from '../common/health-crypto';
+import { logHealthAccess } from '../common/health-access';
 import { TeleconsultationService } from '../teleconsultation/teleconsultation.service';
 import { CONTRACEPTION_DEFAULTS } from './contraception-defaults';
 import {
@@ -201,7 +203,7 @@ export class ContraceptionService {
     if (num(open) >= MAX_OPEN_REQUESTS) throw new BadRequestException(`Vous avez déjà ${MAX_OPEN_REQUESTS} demandes en cours.`);
     const [res]: any = await this.pool.query(
       `INSERT INTO contraception_requests (user_id, method_id, requires_doctor, status, youth_note) VALUES (?, ?, ?, 'pending', ?)`,
-      [userId, methodId, Number(m.requires_doctor) === 1 ? 1 : 0, note],
+      [userId, methodId, Number(m.requires_doctor) === 1 ? 1 : 0, sealHealth(note)],
     );
     return { success: true, id: Number(res.insertId), message: 'Demande envoyée. Vous serez prévenu(e) dès qu’elle est acceptée.' };
   }
@@ -228,7 +230,7 @@ export class ContraceptionService {
        WHERE ${where} ${extra}`,
       params,
     );
-    return rows;
+    return rows.map((r: any) => openFields(r, HEALTH_FIELDS.contraception_requests));
   }
 
   private presentRequest(r: any) {
@@ -312,7 +314,7 @@ export class ContraceptionService {
       id: Number(x.id),
       author_role: x.author_role,
       author_label: x.author_role === 'youth' ? 'Vous' : 'Équipe E.doto family',
-      content: x.content,
+      content: openFields(x, HEALTH_FIELDS.contraception_followups).content,
       created_at: x.created_at,
     };
   }
@@ -322,7 +324,7 @@ export class ContraceptionService {
     const [[r]]: any = await this.pool.query(`SELECT id, status FROM contraception_requests WHERE id = ? AND user_id = ?`, [id, userId]);
     if (!r) throw new NotFoundException('Demande introuvable.');
     if (r.status !== 'followup') throw new BadRequestException('Le suivi commence une fois la méthode adoptée.');
-    await this.pool.query(`INSERT INTO contraception_followups (request_id, author_role, author_id, content) VALUES (?, 'youth', ?, ?)`, [id, userId, content]);
+    await this.pool.query(`INSERT INTO contraception_followups (request_id, author_role, author_id, content) VALUES (?, 'youth', ?, ?)`, [id, userId, sealHealth(content)]);
     return { success: true, message: 'Rapport de suivi enregistré.' };
   }
 
@@ -355,9 +357,10 @@ export class ContraceptionService {
     };
   }
 
-  async adminRequest(id: number) {
+  async adminRequest(id: number, adminId: number, ip: string | null = null) {
     const [r] = await this.requestRows('r.id = ?', [id]);
     if (!r) throw new NotFoundException('Demande introuvable.');
+    await logHealthAccess(this.pool, { actorUserId: adminId, actorRole: 'super_admin', patientUserId: Number(r.user_id), resource: 'contraception_request', resourceId: id, ip });
     const [follow]: any = await this.pool.query(
       `SELECT id, request_id, author_role, content, ${iso('created_at')} FROM contraception_followups WHERE request_id = ? ORDER BY created_at DESC`,
       [id],
@@ -382,7 +385,7 @@ export class ContraceptionService {
     if (Number(r.requires_doctor) === 1) {
       await this.pool.query(
         `UPDATE contraception_requests SET status = 'accepted', accepted_at = UTC_TIMESTAMP(), accepted_by = ?, admin_note = ? WHERE id = ? AND status = 'pending'`,
-        [adminId, note, id],
+        [adminId, sealHealth(note), id],
       );
       await this.notifyYouth(
         r,
@@ -400,7 +403,7 @@ export class ContraceptionService {
     const [upd]: any = await this.pool.query(
       `UPDATE contraception_requests SET status = 'center', accepted_at = UTC_TIMESTAMP(), accepted_by = ?, admin_note = ?,
          concluded_at = UTC_TIMESTAMP(), conclusion = 'adopt' WHERE id = ? AND status = 'pending'`,
-      [adminId, note, id],
+      [adminId, sealHealth(note), id],
     );
     if (!upd?.affectedRows) throw new BadRequestException('Cette demande a déjà été traitée.');
     const referral = await this.tc.createReferral({
@@ -427,7 +430,7 @@ export class ContraceptionService {
     if (!r) throw new NotFoundException('Demande introuvable.');
     const [res]: any = await this.pool.query(
       `UPDATE contraception_requests SET status = 'refused', refused_at = UTC_TIMESTAMP(), refuse_reason = ?, accepted_by = ? WHERE id = ? AND status = 'pending'`,
-      [reason, adminId, id],
+      [sealHealth(reason), adminId, id],
     );
     if (!res?.affectedRows) throw new BadRequestException('Cette demande a déjà été traitée.');
     await this.notifyYouth(r, 'Votre demande de contraception', `Votre demande pour <strong>${esc(r.method_name)}</strong> n'a pas pu être acceptée.`, reason, 'Voir mon dashboard');
@@ -438,7 +441,7 @@ export class ContraceptionService {
     const content = cleanText(body?.content, 2000, 'Le rapport', true) as string;
     const [[r]]: any = await this.pool.query(`SELECT id FROM contraception_requests WHERE id = ?`, [id]);
     if (!r) throw new NotFoundException('Demande introuvable.');
-    await this.pool.query(`INSERT INTO contraception_followups (request_id, author_role, author_id, content) VALUES (?, 'admin', ?, ?)`, [id, adminId, content]);
+    await this.pool.query(`INSERT INTO contraception_followups (request_id, author_role, author_id, content) VALUES (?, 'admin', ?, ?)`, [id, adminId, sealHealth(content)]);
     return { success: true, message: 'Rapport de suivi ajouté.' };
   }
 

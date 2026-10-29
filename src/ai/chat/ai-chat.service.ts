@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import Anthropic from '@anthropic-ai/sdk';
 import { createHash } from 'crypto';
+import { sealHealth } from '../../common/health-crypto';
 import { DatabaseService } from '../../database/database.services';
 import { CampaignsService } from '../../campaigns/campaigns.service';
 import {
@@ -537,10 +538,11 @@ export class AiChatService {
         [
           createHash('sha256').update(dto.sessionId).digest('hex'),
           dto.lang,
-          question,
-          state.answer.slice(0, 4000) || null,
+          // Audit sécurité 2.5 : question, réponse et motif de blocage chiffrés en base
+          sealHealth(question),
+          sealHealth(state.answer.slice(0, 4000) || null),
           state.status,
-          state.guardReason,
+          sealHealth(state.guardReason),
           JSON.stringify([...state.sources.keys()]),
           this.modelName,
           state.inputTokens,

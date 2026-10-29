@@ -5,6 +5,7 @@ import { CUSTOMER, Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { allowAttempt } from '../sponsors/sponsor-rules';
 import { ContraceptionService } from './contraception.service';
 import { Public } from '../auth/public.decorator';
+import { realClientIp } from '../common/client-ip';
 import { ContraceptionAcceptDto, ContraceptionFollowupDto, ContraceptionMethodActiveDto, ContraceptionMethodDto, ContraceptionRefuseDto, ContraceptionRequestDto } from './dto/contraception-body.dto';
 
 // Public : catalogue des contraceptifs et fiche détaillée
@@ -94,8 +95,8 @@ export class ContraceptionAdminController {
   }
 
   @Get('requests/:id')
-  request(@Param('id', ParseIntPipe) id: number) {
-    return this.svc.adminRequest(id);
+  request(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.svc.adminRequest(id, Number(req.user.id), realClientIp(req));
   }
 
   @Post('requests/:id/accept')

@@ -11,6 +11,8 @@ import * as bcrypt from 'bcrypt';
 import { randomBytes } from 'crypto';
 import { DatabaseService } from '../database/database.services';
 import { ageOn, checkPassword, cleanPhone } from '../common/field-rules';
+import { HEALTH_FIELDS, openFields, openHealth, sealHealth } from '../common/health-crypto';
+import { logHealthAccess } from '../common/health-access';
 import {
   APPOINTMENT_STATUS_LABEL,
   BOOKING_WINDOW_DAYS,
@@ -442,7 +444,7 @@ export class TeleconsultationService {
        WHERE f.patient_user_id = ? ORDER BY f.created_at DESC`,
       [userId],
     );
-    return rows.map((f: any) => this.presentReferralForPatient(f));
+    return rows.map((f: any) => this.presentReferralForPatient(openFields(f, ['patient_summary'])));
   }
 
   private referralStatus(f: any) {
@@ -609,9 +611,10 @@ export class TeleconsultationService {
     return { d, a };
   }
 
-  async doctorAppointment(userId: number, id: number) {
+  async doctorAppointment(userId: number, id: number, ip: string | null = null) {
     const { a } = await this.ownAppointment(userId, id);
-    const [[[u]], [[report]], [history], [centers]]: any = await Promise.all([
+    await logHealthAccess(this.pool, { actorUserId: userId, actorRole: 'doctor', patientUserId: Number(a.patient_user_id), resource: 'tc_appointment', resourceId: id, ip });
+    const [[[u]], [[sealedReport]], [history], [centers]]: any = await Promise.all([
       this.pool.query(`SELECT sex, DATE_FORMAT(birth_date, '%Y-%m-%d') AS birth_date FROM users WHERE id = ?`, [a.patient_user_id]),
       this.pool.query(`SELECT * FROM tc_reports WHERE appointment_id = ?`, [id]),
       this.pool.query(
@@ -623,6 +626,7 @@ export class TeleconsultationService {
       ),
       this.pool.query(`SELECT id, name, organization, city FROM tc_centers WHERE is_active = 1 ORDER BY city, name`),
     ]);
+    const report = openFields(sealedReport, HEALTH_FIELDS.tc_reports);
     const referral = report?.id
       ? (await this.pool.query(`SELECT short_code, token, status, ${iso('expires_at')} FROM tc_referrals WHERE report_id = ?`, [report.id]))[0][0]
       : null;
@@ -644,7 +648,7 @@ export class TeleconsultationService {
       // Adoption d'un contraceptif : le médecin conclut l'adoption dans le compte rendu (étape 4)
       contraception: await this.contraceptionOfAppointment(id),
       conclusions: CONCLUSION_LABEL,
-      history: history.map((h: any) => ({ ...h, request_label: REQUEST_TYPES[h.request_type] ?? h.request_type })),
+      history: history.map((h: any) => ({ ...openFields(h, ['assessment', 'plan']), request_label: REQUEST_TYPES[h.request_type] ?? h.request_type })),
       centers: centers.map((c: any) => ({ id: Number(c.id), name: c.name, city: c.city, organization: ORGANIZATION_LABEL[c.organization] ?? c.organization })),
       options: { request_types: REQUEST_TYPES, urgency: URGENCY_LABEL },
     };
@@ -672,7 +676,7 @@ export class TeleconsultationService {
        FROM contraception_requests r JOIN contraceptive_methods m ON m.id = r.method_id WHERE r.appointment_id = ? LIMIT 1`,
       [appointmentId],
     );
-    return r ?? null;
+    return r ? openFields(r, ['youth_note']) : null;
   }
 
   async doctorNoShow(userId: number, id: number) {
@@ -740,7 +744,8 @@ export class TeleconsultationService {
     }
 
     const cols = Object.keys(f);
-    const vals = cols.map((k) => (f as any)[k]);
+    const sealed: readonly string[] = HEALTH_FIELDS.tc_reports;
+    const vals = cols.map((k) => (sealed.includes(k) ? sealHealth((f as any)[k]) : (f as any)[k]));
     let reportId: number;
     if (existing) {
       await this.pool.query(`UPDATE tc_reports SET ${cols.map((k) => `${k} = ?`).join(', ')} WHERE id = ?`, [...vals, existing.id]);
@@ -766,7 +771,7 @@ export class TeleconsultationService {
       const adopted = conclusion === 'adopt';
       await this.pool.query(
         `UPDATE contraception_requests SET concluded_at = UTC_TIMESTAMP(), conclusion = ?, conclusion_note = ?, status = ?, referral_id = ? WHERE id = ?`,
-        [conclusion, f.patient_summary, adopted ? 'center' : 'not_adopted', adopted && referral ? referral.id : null, creq.id],
+        [conclusion, sealHealth(f.patient_summary), adopted ? 'center' : 'not_adopted', adopted && referral ? referral.id : null, creq.id],
       );
     }
     return {
@@ -1036,7 +1041,7 @@ export class TeleconsultationService {
   }
 
   /** Dossier ouvert par le code QR (jeton) ou par le code court : seulement pour le centre recommandé */
-  async centerDossier(userId: number, key: { token?: string; code?: string }) {
+  async centerDossier(userId: number, key: { token?: string; code?: string }, ip: string | null = null) {
     const c = await this.centerFor(userId);
     let f: any = null;
     if (key.token && /^[a-f0-9]{48}$/.test(key.token)) {
@@ -1050,10 +1055,12 @@ export class TeleconsultationService {
     if ((f.status === 'issued' || f.status === 'viewed') && Number(f.is_expired) === 1) {
       throw new GoneException('Ce code a expiré. Le jeune peut reprendre une téléconsultation pour une nouvelle orientation.');
     }
+    await logHealthAccess(this.pool, { actorUserId: userId, actorRole: 'health_center', patientUserId: Number(f.patient_user_id), resource: 'tc_referral', resourceId: Number(f.id), ip });
     if (!f.viewed_at) {
       await this.pool.query(`UPDATE tc_referrals SET viewed_at = UTC_TIMESTAMP(), viewed_by = ?, status = IF(status = 'issued', 'viewed', status) WHERE id = ?`, [userId, f.id]);
     }
-    const [[r]]: any = f.report_id ? await this.pool.query(`SELECT * FROM tc_reports WHERE id = ?`, [f.report_id]) : [[null]];
+    const [[sealedReport]]: any = f.report_id ? await this.pool.query(`SELECT * FROM tc_reports WHERE id = ?`, [f.report_id]) : [[null]];
+    const r = openFields(sealedReport, HEALTH_FIELDS.tc_reports);
     const [[a]]: any = f.appointment_id
       ? await this.pool.query(
           `SELECT a.reference, a.mode, a.patient_name, a.patient_phone, a.patient_email, ${iso('a.starts_at')}, a.patient_user_id, d.name AS doctor_name, d.title AS doctor_title
@@ -1088,7 +1095,7 @@ export class TeleconsultationService {
         expires_at: fresh.expires_at,
         viewed_at: fresh.viewed_at,
         completed_at: fresh.completed_at,
-        completed_note: fresh.completed_note,
+        completed_note: openHealth(fresh.completed_note),
         outcome: fresh.outcome ?? null,
       },
       patient: {
@@ -1100,7 +1107,7 @@ export class TeleconsultationService {
       },
       consultation: a ? { reference: a.reference, mode_label: MODE_LABEL[a.mode as Mode], date: a.starts_at, doctor: a.doctor_name, doctor_title: a.doctor_title } : null,
       contraception: cr
-        ? { method: cr.method_name, requires_doctor: Number(cr.requires_doctor) === 1, youth_note: cr.youth_note, conclusion_label: cr.conclusion ? CONCLUSION_LABEL[cr.conclusion] : null }
+        ? { method: cr.method_name, requires_doctor: Number(cr.requires_doctor) === 1, youth_note: openHealth(cr.youth_note), conclusion_label: cr.conclusion ? CONCLUSION_LABEL[cr.conclusion] : null }
         : null,
       report: r ? {
         request_label: REQUEST_TYPES[r.request_type] ?? r.request_type,
@@ -1131,13 +1138,13 @@ export class TeleconsultationService {
     const [res]: any = await this.pool.query(
       `UPDATE tc_referrals SET status = 'completed', completed_at = UTC_TIMESTAMP(), completed_by = ?, completed_note = ?, outcome = ?
        WHERE id = ? AND center_id = ? AND status IN ('issued','viewed')`,
-      [userId, note, f?.contraception_request_id ? outcome : null, id, c.id],
+      [userId, sealHealth(note), f?.contraception_request_id ? outcome : null, id, c.id],
     );
     if (!res?.affectedRows) throw new BadRequestException('Orientation introuvable ou déjà terminée.');
     if (f?.contraception_request_id) {
       await this.pool.query(
         `UPDATE contraception_requests SET outcome = ?, outcome_at = UTC_TIMESTAMP(), outcome_note = ?, status = ? WHERE id = ? AND status = 'center'`,
-        [outcome, note, outcome === 'done' ? 'followup' : 'not_done', f.contraception_request_id],
+        [outcome, sealHealth(note), outcome === 'done' ? 'followup' : 'not_done', f.contraception_request_id],
       );
     }
     return { success: true, message: 'Prise en charge enregistrée.' };

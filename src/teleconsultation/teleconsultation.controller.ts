@@ -8,6 +8,7 @@ import { allowAttempt } from '../sponsors/sponsor-rules';
 import { TeleconsultationService } from './teleconsultation.service';
 import { TcAdminService } from './tc-admin.service';
 import { Public } from '../auth/public.decorator';
+import { realClientIp } from '../common/client-ip';
 import { TcActiveDto, TcBookDto, TcCenterDto, TcDoctorDto, TcInvitationAcceptDto, TcReasonDto, TcReferralCompleteDto, TcReportDto, TcScheduleDto, TcTimeOffDto } from './dto/tc-body.dto';
 
 // Public : calendrier des créneaux libres, page du code QR (sans donnée de santé), image du code QR,
@@ -103,7 +104,7 @@ export class TcDoctorController {
 
   @Get('appointments/:id')
   appointment(@Req() req: any, @Param('id', ParseIntPipe) id: number) {
-    return this.tc.doctorAppointment(Number(req.user.id), id);
+    return this.tc.doctorAppointment(Number(req.user.id), id, realClientIp(req));
   }
 
   @Post('appointments/:id/start')
@@ -179,13 +180,13 @@ export class TcCenterController {
   @Get('dossier/token/:token')
   byToken(@Req() req: any, @Param('token') token: string) {
     this.guard(req);
-    return this.tc.centerDossier(Number(req.user.id), { token });
+    return this.tc.centerDossier(Number(req.user.id), { token }, realClientIp(req));
   }
 
   @Get('dossier/code/:code')
   byCode(@Req() req: any, @Param('code') code: string) {
     this.guard(req);
-    return this.tc.centerDossier(Number(req.user.id), { code });
+    return this.tc.centerDossier(Number(req.user.id), { code }, realClientIp(req));
   }
 
   @Post('referrals/:id/complete')
