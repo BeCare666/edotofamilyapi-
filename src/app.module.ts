@@ -33,11 +33,12 @@ import { TeleconsultationModule } from './teleconsultation/teleconsultation.modu
 import { ContraceptionModule } from './contraception/contraception.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ClientThrottlerGuard, MINUTE } from './common/client-throttler.guard';
 import { GlobalJwtAuthGuard } from './auth/global-jwt-auth.guard';
 import { StepUpGuard } from './auth/step-up';
+import { AdminAuditInterceptor } from './common/admin-audit';
 //import { DatabaseService } from './database/database.services'; 
 @Module({
   imports: [
@@ -89,6 +90,8 @@ import { StepUpGuard } from './auth/step-up';
     { provide: APP_GUARD, useClass: GlobalJwtAuthGuard },
     // Audit 3.1 : code de double authentification redemandé pour les actions sensibles (après la session)
     { provide: APP_GUARD, useClass: StepUpGuard },
+    // Audit 3.3 : journal des actions faites depuis l'admin (qui, quoi, quand, IP)
+    { provide: APP_INTERCEPTOR, useClass: AdminAuditInterceptor },
   ],
 })
 export class AppModule { }

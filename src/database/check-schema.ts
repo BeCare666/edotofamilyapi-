@@ -40,6 +40,7 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'health_access_log', migration: '018' },
   { table: 'users', column: 'totp_enabled_at', migration: '019' },
   { table: 'totp_recovery_codes', migration: '019' },
+  { table: 'admin_audit_log', migration: '020' },
 ];
 
 async function main() {

@@ -104,7 +104,8 @@ export class DatabaseSetupService implements OnModuleInit {
       'ai_chat_logs.sql',
       // Après ai_chat_logs.sql : élargit aussi ses colonnes
       '018_health_data.sql',
-      '019_totp.sql'
+      '019_totp.sql',
+      '020_admin_audit_log.sql'
     ];
 
     // Bilan final (07/10/2026) : une migration en échec ne doit plus passer inaperçue
