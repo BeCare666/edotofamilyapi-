@@ -1,6 +1,7 @@
 import * as SibApiV3Sdk from 'sib-api-v3-sdk';
 import { brevoErrorReason, sendVerificationEmail } from '../auth/mailer';
 import { INVITATION_TTL_DAYS, MODE_LABEL, Mode, beninLabel, formatShortCode, jitsiUrl } from './tc-rules';
+import { maskPhone } from '../common/request-log';
 
 // Téléconsultation : e-mails (Brevo, même envoi que le reste du site) et SMS (Brevo, décision du 19/10/2026).
 // Le SMS demande des crédits SMS sur le compte Brevo ; l'expéditeur se règle avec BREVO_SMS_SENDER
@@ -38,7 +39,7 @@ export async function sendSms(phone: string | null | undefined, content: string)
     await api.sendTransacSms(sms);
   } catch (error) {
     const reason = brevoErrorReason(error);
-    console.error(`[sms] Envoi refusé vers ${recipient} : ${reason}`);
+    console.error(`[sms] Envoi refusé vers ${maskPhone(recipient)} : ${reason}`);
     throw new Error(reason);
   }
 }

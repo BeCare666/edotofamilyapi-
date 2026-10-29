@@ -10,6 +10,8 @@ import { Readable } from 'stream';
 import { sendVerificationEmail } from '../auth/mailer';
 import { randomInt } from 'crypto';
 import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PICKUP_OTP_TTL_MS } from '../orders/pickup-otp-email';
+import { safeError } from '../common/request-log';
+import { INVOICE_STORAGE_TYPE } from './invoice-storage';
 @Injectable()
 export class PaymentIntentService {
   private pool: Pool;
@@ -391,7 +393,8 @@ export class PaymentIntentService {
   private async uploadPdfToCloudinary(buffer: Buffer, publicId: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const uploadStream = cloudinary.uploader.upload_stream(
-        { resource_type: 'raw', public_id: publicId },
+        // Audit sécurité 2.8 : accès restreint, lisible seulement par un lien signé de l'API
+        { resource_type: 'raw', public_id: publicId, type: INVOICE_STORAGE_TYPE },
         (error, result) => {
           if (error) return reject(error);
           resolve(result?.secure_url || '');
@@ -468,7 +471,7 @@ export class PaymentIntentService {
         this.logger.debug(`Regénération facture pour commande ${order.tracking_number}`);
         await this.generateInvoices(order.id, conn);
       } catch (err) {
-        this.logger.error(`Erreur génération facture commande ${order.tracking_number}`, err);
+        this.logger.error(`Erreur génération facture commande ${order.tracking_number}`, safeError(err));
       }
     }
   }

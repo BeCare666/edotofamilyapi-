@@ -11,6 +11,7 @@ import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
 import { bumpTokenVersion } from '../auth/session';
 import { INVITATION_TTL_DAYS, escapeHtml, newInvitationToken, parseNewPassword, parseSponsorSignup, sha256 } from './sponsor-rules';
+import { safeError } from '../common/request-log';
 
 const ROLE_LABEL: Record<string, string> = {
   customer: 'client',
@@ -108,7 +109,7 @@ export class SponsorAccountService {
         message: invitationEmail(sponsor.name, `${base}/sponsor/activation?token=${token}`),
       });
     } catch (e) {
-      console.error('Erreur e-mail invitation sponsor :', e);
+      console.error('Erreur e-mail invitation sponsor :', safeError(e));
       throw new InternalServerErrorException("L'e-mail d'invitation n'a pas pu être envoyé. Réessayez.");
     }
     return { success: true, message: `Invitation envoyée à ${sponsor.email} (lien valable ${INVITATION_TTL_DAYS} jours).` };
@@ -203,7 +204,7 @@ export class SponsorAccountService {
         message: welcomeEmail(input.organization, input.contactName, `${base}/sponsor`),
       });
     } catch (e) {
-      console.error('Erreur e-mail bienvenue sponsor :', e);
+      console.error('Erreur e-mail bienvenue sponsor :', safeError(e));
       emailSent = false;
     }
     return { success: true, email: input.email, email_sent: emailSent, message: 'Votre espace sponsor est créé. Connectez-vous pour soumettre votre demande de campagne.' };

@@ -16,6 +16,7 @@ import {
 } from './campaign-rules';
 import { campaignExtraColumns, decorateCampaign, isoDates } from './campaign-sql';
 import { SponsorProposalsService, assertProposalCanLink, markProposalCreated } from '../sponsors/sponsor-proposals.service';
+import { safeError } from '../common/request-log';
 
 const NOT_SET = 'Non renseignée';
 
@@ -232,7 +233,7 @@ export class CampaignsAdminService {
           message: this.campaigns.buildSponsorEmail({ name: s.name, campaignTitle: title, amount: s.amount, accessCode: s.accessCode }),
         });
       } catch (e) {
-        console.error('Erreur email sponsor:', e);
+        console.error('Erreur email sponsor:', safeError(e));
       }
     }
   }

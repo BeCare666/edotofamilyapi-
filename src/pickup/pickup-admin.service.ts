@@ -3,6 +3,7 @@ import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
 import { sendVerificationLink } from '../auth/auth.service';
 import { buildPickupApprovedEmail, PICKUP_APPROVED_SUBJECT } from '../auth/verification-emails';
+import { safeError } from '../common/request-log';
 
 export type PickupPointStatus = 'pending' | 'active' | 'blocked';
 
@@ -124,7 +125,7 @@ export class PickupAdminService {
         message: buildPickupApprovedEmail(point.name, `${process.env.FRONTEND_CALLBACK_URL}/login`),
       });
     } catch (error) {
-      console.error("Erreur e-mail de validation point de retrait :", error);
+      console.error("Erreur e-mail de validation point de retrait :", safeError(error));
       return {
         success: true,
         email_sent: false,
@@ -149,7 +150,7 @@ export class PickupAdminService {
     try {
       await sendVerificationLink(point);
     } catch (error) {
-      console.error("Erreur renvoi e-mail de confirmation :", error);
+      console.error("Erreur renvoi e-mail de confirmation :", safeError(error));
       throw new InternalServerErrorException("Impossible d'envoyer l'e-mail.");
     }
     return { success: true, message: `Lien de confirmation renvoyé à ${point.email}.` };

@@ -49,6 +49,7 @@ import {
   CUSTOMER_VERIFICATION_SUBJECT,
   PICKUP_VERIFICATION_SUBJECT,
 } from './verification-emails';
+import { safeError } from '../common/request-log';
 // Audit 1.5 : messages de connexion
 export const INVALID_CREDENTIALS = 'Identifiants invalides';
 export const ACCOUNT_DISABLED = "Votre compte est désactivé. Contactez l'équipe E.doto family.";
@@ -102,7 +103,7 @@ export class AuthService {
     try {
       await sendVerificationLink(user as any);
     } catch (error) {
-      console.error("Erreur lors du renvoi de l'e-mail :", error);
+      console.error("Erreur lors du renvoi de l'e-mail :", safeError(error));
       lastResendAt.delete(normalized);
       throw new InternalServerErrorException("Impossible d'envoyer l'e-mail de vérification.");
     }
@@ -161,7 +162,7 @@ export class AuthService {
         message: buildCustomerVerificationEmail(verificationLink),
       });
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'e-mail :", error);
+      console.error("Erreur lors de l'envoi de l'e-mail :", safeError(error));
       throw new InternalServerErrorException(
         "Votre compte est créé, mais l'e-mail de confirmation n'a pas pu être envoyé. Cliquez sur « Renvoyer l'e-mail de confirmation ».",
       );
@@ -215,7 +216,7 @@ export class AuthService {
       });
 
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'e-mail :", error);
+      console.error("Erreur lors de l'envoi de l'e-mail :", safeError(error));
       throw new InternalServerErrorException("Impossible d'envoyer l'e-mail de vérification.");
     }
 

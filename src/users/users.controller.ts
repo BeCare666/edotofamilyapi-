@@ -63,7 +63,6 @@ export class UsersController {
     // Fermé tant que SELLER_SIGNUP_OPEN n'est pas activé (décision du 25/09/2026)
     assertSellerSignupOpen();
     const userId: number = req.user.userId;
-    console.log("mon user userId", userId)
     if (!userId) throw new UnauthorizedException();
 
     const result = await this.usersService.updateUserRole(userId);
@@ -134,7 +133,6 @@ export class UsersController {
   @Roles(SUPER_ADMIN)
   @Post(':id/ban')
   banUser(@Param('id') id: number) {
-    console.log(id);
     // return this.usersService.getUsers(updateUserInput.id);
   }
 

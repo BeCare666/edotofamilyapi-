@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DatabaseService } from 'src/database/database.services';
+import { safeError } from '../common/request-log';
 
 @Injectable()
 export class AnalyticsCronService {
@@ -235,7 +236,7 @@ export class AnalyticsCronService {
 
             this.logger.debug('Cron: analytics mis à jour avec succès');
         } catch (error) {
-            this.logger.error('Erreur lors de la mise à jour des analytics', error);
+            this.logger.error('Erreur lors de la mise à jour des analytics', safeError(error));
         }
     }
 }

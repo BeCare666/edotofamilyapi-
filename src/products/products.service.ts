@@ -11,6 +11,7 @@ import { paginate } from 'src/common/pagination/paginate';
 import { safeHtml } from '../common/safe-html';
 import { Product } from './entities/product.entity';
 import { ProductPaginator } from './interfaces/product-paginator.interface';
+import { safeError } from '../common/request-log';
 @Injectable()
 export class ProductsService {
   constructor(private readonly DatabaseService: DatabaseService) { }
@@ -71,8 +72,6 @@ export class ProductsService {
       digital_file,
       countries_id
     } = createProductDto;
-    console.log('Type de countries_id:', typeof createProductDto.countries_id);
-    console.log('Valeur de createProductDto:', createProductDto);
 
     // Attention, je récupère aussi les tags et categories à part sans modifier la signature ni le DTO.  
     const tags = (createProductDto as any).tags ?? [];
@@ -227,7 +226,6 @@ export class ProductsService {
     // --- INSERT CATEGORIES ---
     // --- INSERT CATEGORIES, SOUS_CATEGORIES, SUB_CATEGORIES ---
     // --- INSERT CATEGORIES, SOUS_CATEGORIES, SUB_CATEGORIES ---
-    console.log("📦 CATEGORIES REÇUES:", categories, "type:", typeof categories, "isArray:", Array.isArray(categories));
 
     if (Array.isArray(categories) && categories.length > 0) {
       const flatValues: any[] = [];
@@ -263,7 +261,6 @@ export class ProductsService {
           `INSERT INTO product_categories (product_id, categories_id, sous_categories_id, sub_categories_id) VALUES ${placeholders}`,
           flattened
         );
-        console.log("✅ Product categories insérées avec succès :", flatValues);
       } else {
         console.log("⚠️ Aucune catégorie valide à insérer pour ce produit.");
       }
@@ -492,7 +489,7 @@ export class ProductsService {
 
       return product;
     } catch (err) {
-      console.error('Error in getProductBySlug:', err);
+      console.error('Error in getProductBySlug:', safeError(err));
       throw err;
     }
   }

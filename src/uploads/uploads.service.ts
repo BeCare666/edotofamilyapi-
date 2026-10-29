@@ -21,15 +21,6 @@ export class UploadsService {
     size: number;
     original_name: string;
   }) {
-    // 🔹 Affiche le fichier reçu avant l'insertion
-    console.log('📤 Fichier reçu pour upload :', {
-      user_id,
-      url,
-      key,
-      mime_type,
-      size,
-      original_name,
-    });
     const [result]: [OkPacket, any] = await this.db.query<OkPacket>(
       `INSERT INTO media (user_id, url, key, mime_type, size, original_name, created_at, updated_at)
        VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,

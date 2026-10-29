@@ -25,6 +25,7 @@ import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from './mailer';
 import * as jwt from 'jsonwebtoken';
 import { RowDataPacket } from 'mysql2';
+import { safeError } from '../common/request-log';
 @Injectable()
 export class AuthService {
   constructor(private readonly DatabaseService: DatabaseService) { }
@@ -82,7 +83,7 @@ export class AuthService {
       });
 
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'e-mail :", error);
+      console.error("Erreur lors de l'envoi de l'e-mail :", safeError(error));
       throw new InternalServerErrorException("Impossible d'envoyer l'e-mail de vérification.");
     }
 

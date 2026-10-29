@@ -3,6 +3,7 @@ import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
 import { toIsoDate } from '../campaigns/campaign-rules';
 import { PROPOSAL_LABELS, PROPOSAL_STATUSES, ProposalStatus, escapeHtml, parseProposal } from './sponsor-rules';
+import { safeError } from '../common/request-log';
 
 // Demandes de campagne (15/10/2026) : le sponsor soumet → l'admin valide ou refuse (motif)
 // → l'admin crée la campagne à partir de la demande validée (statut « Campagne créée »).
@@ -201,7 +202,7 @@ export class SponsorProposalsService {
       });
       return true;
     } catch (e) {
-      console.error('Erreur e-mail décision demande de campagne :', e);
+      console.error('Erreur e-mail décision demande de campagne :', safeError(e));
       return false;
     }
   }

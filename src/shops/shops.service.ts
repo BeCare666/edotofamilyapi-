@@ -11,6 +11,7 @@ import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
 import { boolParam, parseLegacySearch, sortDir } from '../common/legacy-search';
 import { safeHtml } from '../common/safe-html';
+import { safeError } from '../common/request-log';
 
 @Injectable()
 export class ShopsService {
@@ -96,26 +97,8 @@ export class ShopsService {
 
     // Vérifier et transformer location
     const locationJson = location ? JSON.stringify(location) : null;
-    console.log('Final location JSON:', locationJson);
 
     // Insert shop
-    console.log('Inserting shop with:', {
-      owner_id,
-      name,
-      finalSlug,
-      description,
-      is_active,
-      contact,
-      website,
-      zip,
-      city,
-      state,
-      country,
-      street_address,
-      locationJson,
-      cover_image_id,
-      logo_image_id,
-    });
 
     const [shop]: [OkPacket, any] = await pool.query<OkPacket>(
       `INSERT INTO shops
@@ -483,7 +466,7 @@ export class ShopsService {
       `,
       });
     } catch (error) {
-      console.error("Erreur lors de l'envoi des e-mails :", error);
+      console.error("Erreur lors de l'envoi des e-mails :", safeError(error));
       throw new InternalServerErrorException("Impossible d'envoyer les e-mails de notification.");
     }
 
@@ -556,7 +539,7 @@ export class ShopsService {
       `,
       });
     } catch (error) {
-      console.error("Erreur lors de l'envoi de l'e-mail de désactivation :", error);
+      console.error("Erreur lors de l'envoi de l'e-mail de désactivation :", safeError(error));
       throw new InternalServerErrorException("Impossible d'envoyer l'e-mail de notification.");
     }
 

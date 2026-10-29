@@ -1,4 +1,5 @@
 import * as SibApiV3Sdk from 'sib-api-v3-sdk';
+import { maskEmail } from '../common/request-log';
 
 /**
  * Lit le vrai motif renvoyé par Brevo (ex. « unrecognised IP address », « Key not found »,
@@ -32,7 +33,7 @@ export async function sendVerificationEmail({ email, subject, message }) {
     await tranEmailApi.sendTransacEmail(sendSmtpEmail);
   } catch (error) {
     const reason = brevoErrorReason(error);
-    console.error(`[mailer] Envoi refusé vers ${email} : ${reason}`);
+    console.error(`[mailer] Envoi refusé vers ${maskEmail(email)} : ${reason}`);
     throw new Error(reason);
   }
 }

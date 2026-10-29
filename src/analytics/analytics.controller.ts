@@ -11,7 +11,6 @@ export class AnalyticsController {
   @Get()
   async findAll(@Req() req: any) {
     const userId = req.user?.id;
-    console.log('req de user', req.user)
     if (!userId) return { error: req.user }
     //if (!userId) return { error: 'Utilisateur non identifié' };        
 

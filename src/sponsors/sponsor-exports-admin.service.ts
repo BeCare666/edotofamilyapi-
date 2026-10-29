@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
+import { safeError } from '../common/request-log';
 
 const UTC_FMT = '%Y-%m-%d %H:%i:%s';
 const iso = (u: string | null) => (u ? `${u.replace(' ', 'T')}Z` : null);
@@ -72,7 +73,7 @@ export class SponsorExportsAdminService {
         message: decisionEmail(req.name, req.title, approved, approved ? null : reason, `${base}/sponsor`),
       });
     } catch (e) {
-      console.error('Erreur e-mail décision export :', e);
+      console.error('Erreur e-mail décision export :', safeError(e));
       emailSent = false;
     }
     return { success: true, email_sent: emailSent, message: approved ? 'Export autorisé.' : 'Demande refusée.' };

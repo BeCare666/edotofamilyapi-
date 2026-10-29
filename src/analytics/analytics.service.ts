@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
+import { safeError } from '../common/request-log';
 
 @Injectable()
 export class AnalyticsService {
@@ -8,56 +9,46 @@ export class AnalyticsService {
   async findAllByUser(userId: number) {
     const pool = this.db.getPool();
 
-    console.log('🟡 userId reçu :', userId, typeof userId);
 
     // Récupère le rôle de l'utilisateur
-    console.log('🟡 Requête SELECT role FROM users WHERE id = ?', userId);
 
     const [userRows]: any = await pool.query(
       `SELECT role FROM users WHERE id = ? LIMIT 1`,
       [userId]
     );
 
-    console.log('🟡 Résultat userRows :', userRows);
 
     const user = userRows[0];
 
-    console.log('🟡 user extrait :', user);
 
     if (!user) {
       console.error('❌ Utilisateur introuvable pour ID:', userId);
       return { error: 'Utilisateur introuvable' };
     }
 
-    console.log('🟢 role utilisateur :', user.role);
 
     // Super admin → récupère toutes les analytics
     if (user.role === 'super_admin') {
-      console.log('🟢 Role super_admin → appel findAll()');
       return this.findAll(); // sans shopId
     }
 
     // Store owner → récupère l'id de sa boutique
     if (user.role === 'store_owner') {
-      console.log('🟡 Role store_owner → recherche shop pour owner_id:', userId);
 
       const [shopRows]: any = await pool.query(
         `SELECT id FROM shops WHERE owner_id = ? LIMIT 1`,
         [userId]
       );
 
-      console.log('🟡 Résultat shopRows :', shopRows);
 
       const shop = shopRows[0];
 
-      console.log('🟡 shop extrait :', shop);
 
       if (!shop) {
         console.error('❌ Boutique introuvable pour user:', userId);
         return { error: 'Boutique introuvable pour cet utilisateur' };
       }
 
-      console.log('🟢 Shop trouvé ID:', shop.id);
 
       return this.findAll(shop.id);
     }
@@ -70,19 +61,15 @@ export class AnalyticsService {
   async findAll(shopId?: number | null) {
     const pool = this.db.getPool();
 
-    console.log('🟡 findAll appelé avec shopId :', shopId);
 
     const query = `SELECT * FROM analytics WHERE ${shopId ? 'shop_id = ?' : 'shop_id IS NULL'} LIMIT 1`;
 
-    console.log('🟡 Query exécutée :', query);
-    console.log('🟡 Params :', shopId ? [shopId] : []);
 
     const [rows]: any = await pool.query(
       query,
       shopId ? [shopId] : []
     );
 
-    console.log('🟡 Résultat rows :', rows);
 
     if (!rows[0]) {
       console.warn('⚠️ Aucun résultat dans analytics');
@@ -96,7 +83,7 @@ export class AnalyticsService {
         try {
           return JSON.parse(value);
         } catch (e) {
-          console.error('❌ JSON parse error pour value:', value, e);
+          console.error('❌ JSON parse error pour value:', value, safeError(e));
           return fallback;
         }
       }
@@ -112,7 +99,6 @@ export class AnalyticsService {
       yearlyTotalOrderByStatus: safeParse(rows[0].yearlyTotalOrderByStatus, {}),
     };
 
-    console.log('🟢 Résultat final retourné :', result);
 
     return result;
   }
@@ -159,14 +145,12 @@ export class AnalyticsService {
   // 🔹 Helper pour récupérer le shop d’un store_owner
   async getShopByOwnerId(ownerId: number) {
     const pool = this.db.getPool();
-    console.log(`🔍 Recherche du shop pour ownerId=${ownerId}`);
 
     const [rows]: any = await pool.query(
       `SELECT id, name FROM shops WHERE owner_id = ? LIMIT 1`,
       [ownerId],
     );
 
-    console.log('📦 Résultat SQL shops:', rows);
     return rows[0] || null;
   }
 

@@ -93,8 +93,19 @@ describe('Traiter une commande', () => {
 describe('Facture client', () => {
   it('facture générée au paiement : lien renvoyé ; absente : message clair', async () => {
     const ok = orders((sql) => (sql.includes('FROM invoices') ? [{ pdf_url: 'https://res.cloudinary.com/x/invoice_client_T1.pdf', created_at: '2026-10-01' }] : []));
-    expect(await ok.svc.getClientInvoice(5)).toEqual({ url: 'https://res.cloudinary.com/x/invoice_client_T1.pdf', created_at: '2026-10-01' });
+    expect(await ok.svc.getClientInvoice(5)).toEqual({ url: 'https://res.cloudinary.com/x/invoice_client_T1.pdf', expires_at: null, created_at: '2026-10-01' });
     expect(ok.calls[0].sql).toContain("type = 'client'");
+    // Audit 2.8 : facture en accès restreint → lien signé de courte durée, jamais l'adresse du fichier
+    const restricted = orders((sql) =>
+      sql.includes('FROM invoices') ? [{ pdf_url: 'https://res.cloudinary.com/x/raw/authenticated/s--a--/v1/invoice_client_T1', created_at: '2026-10-01' }] : [],
+    );
+    const saved = { ...process.env };
+    Object.assign(process.env, { CLOUDINARY_CLOUD_NAME: 'x', CLOUDINARY_API_KEY: '1', CLOUDINARY_API_SECRET: 's' });
+    const signed: any = await restricted.svc.getClientInvoice(5);
+    process.env = saved;
+    expect(signed.url).toContain('/raw/download?');
+    expect(signed.url).toContain('signature=');
+    expect(signed.expires_at).toEqual(expect.any(String));
     const none = orders(() => []);
     await expect(none.svc.getClientInvoice(5)).rejects.toThrow('Aucune facture');
   });

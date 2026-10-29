@@ -14,6 +14,7 @@ import * as bcrypt from 'bcrypt';
 import { pickupCityOf } from '../campaigns/pickup-city';
 import { bumpTokenVersion, signSession } from '../auth/session';
 import { normCity } from '../common/geo-city';
+import { safeError } from '../common/request-log';
 @Injectable()
 export class UsersService {
   constructor(private readonly DatabaseService: DatabaseService) { }
@@ -339,7 +340,6 @@ async getUserFacets(role?: string) {
 
       let avatar_id: number | null | undefined = undefined;
 
-      console.log('Avatar reçu dans DTO:', profile.avatar);
 
       if ('avatar' in profile && profile.avatar) {
         // On cast localement avatar pour dire à TypeScript qu'il peut contenir ces champs là.
@@ -358,7 +358,6 @@ async getUserFacets(role?: string) {
         const avatarUrl = typeof rawUrl === 'string' ? rawUrl : '';
 
         if (avatarUrl) {
-          console.log('Recherche du media existant avec url:', avatarUrl);
 
           // Table avatars : c'est elle que référence profiles.avatar_id (clé étrangère, vérifié le 16/10/2026)
           const [existingMedia]: [RowDataPacket[], any] = await this.DatabaseService.query<RowDataPacket[]>(
@@ -366,7 +365,6 @@ async getUserFacets(role?: string) {
             [avatarUrl]
           );
 
-          console.log('Résultat de existingMedia:', existingMedia);
 
           if (existingMedia.length > 0) {
             console.log('Media déjà existant, id:', existingMedia[0].id);
@@ -621,7 +619,7 @@ async getUserFacets(role?: string) {
       // Audit 1.5 : changement de rôle → l'ancien jeton « customer » ne vaut plus
       await bumpTokenVersion(this.DatabaseService, 'id = ?', [userId]);
     } catch (error) {
-      console.error("Erreur lors de la mise à jour du rôle :", error);
+      console.error("Erreur lors de la mise à jour du rôle :", safeError(error));
       throw new InternalServerErrorException("Impossible de mettre à jour le rôle de l'utilisateur.");
     }
 
@@ -631,7 +629,7 @@ async getUserFacets(role?: string) {
       // Version incrémentée juste au-dessus
       token = signSession({ ...user, token_version: (Number(user.token_version) || 0) + 1 }, 'store_owner');
     } catch (error) {
-      console.error("Erreur lors de la génération du token :", error);
+      console.error("Erreur lors de la génération du token :", safeError(error));
       throw new InternalServerErrorException("Impossible de générer un nouveau token.");
     }
 

@@ -6,6 +6,7 @@ import * as dotenv from 'dotenv';
 import { applySecurity } from './common/cors';
 import { StrictBodyPipe } from './common/strict-body';
 import { checkHealthKey } from './common/health-crypto';
+import { requestLogger } from './common/request-log';
 
 if (process.env.NODE_ENV !== 'production') {
   dotenv.config();
@@ -38,11 +39,8 @@ async function bootstrap() {
   // comportement d'avant (forbidUnknownValues: false) pour les autres. Voir src/common/strict-body.ts.
   app.useGlobalPipes(new StrictBodyPipe());
 
-  // Logger simple pour Render (optionnel)   
-  app.use((req, res, next) => {
-    console.log(`📥 ${req.method} ${req.url}`);
-    next();
-  });
+  // Audit sécurité 2.7 : une ligne par requête (méthode, adresse masquée, statut, durée), sans jeton
+  app.use(requestLogger());
 
   // Swagger config (peut être désactivée en prod si souhaité)
   //

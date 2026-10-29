@@ -36,6 +36,8 @@ import { DeliveryService } from '../delivery/delivery.service';
 import { parseCustomDelivery } from '../delivery/delivery-rules';
 import { ORDER_COMMISSION_SET_SQL } from '../commissions/commission-rules';
 import { ORDER_WITHDRAWN_SQL, assertCanChangeProcessing, stageCountsSql, stageSql } from './order-stage';
+import { safeError } from '../common/request-log';
+import { signedInvoiceUrl } from '../payment-intent/invoice-storage';
 
 // Le retrait est effectué quand le point de retrait a validé l'OTP (verifyOtp) :
 // otp_used = 1, order_status = 'order-completed', delivered_at renseigné.
@@ -920,12 +922,10 @@ export class OrdersService {
     );
   }
   async getOrderByIdOrTrackingNumber(idOrTracking: string | number): Promise<Order | null> {
-    console.log('DEBUG >>> Fonction appelée avec idOrTracking =', idOrTracking);
     const pool = this.databaseService.getPool();
 
     // Sécuriser l'entrée
     if (!idOrTracking || idOrTracking === 'NaN') {
-      console.log('DEBUG >>> idOrTracking invalide');
       return null;
     }
 
@@ -950,7 +950,7 @@ export class OrdersService {
         order.pickup_point = pickupRows[0] || null;
 
       } catch (e) {
-        console.error("Erreur lors du chargement du pickup point:", e);
+        console.error("Erreur lors du chargement du pickup point:", safeError(e));
         order.pickup_point = null;
       }
     } else {
@@ -967,7 +967,7 @@ export class OrdersService {
         order.pickupRowsCustomer = pickupRowsCustomer[0] || null;
 
       } catch (e) {
-        console.error("Erreur lors du chargement du pickup point:", e);
+        console.error("Erreur lors du chargement du pickup point:", safeError(e));
         order.customer_id = null;
       }
     } else {
@@ -1199,7 +1199,9 @@ export class OrdersService {
         "Aucune facture n'a été générée pour cette commande (elle est créée au paiement). Le reçu FeexPay est envoyé par e-mail au client.",
       );
     }
-    return { url: rows[0].pdf_url, created_at: rows[0].created_at };
+    // Audit sécurité 2.8 : lien signé de courte durée, jamais l'adresse du fichier
+    const link = signedInvoiceUrl(rows[0].pdf_url);
+    return { url: link.url, expires_at: link.expires_at, created_at: rows[0].created_at };
   }
 
   async remove(id: number) {

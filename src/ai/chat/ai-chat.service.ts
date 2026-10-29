@@ -190,7 +190,8 @@ export class AiChatService {
 
     const verdict = this.isStandardRefusal(answer) ? { ok: true, violations: [] } : await this.check(question, answer, signal, state);
     if (!verdict.ok) {
-      this.logger.warn(`Réponse bloquée : ${verdict.violations.join(' | ')} — texte : ${answer.slice(0, 300)}`);
+      // Audit sécurité 2.7 : motif seulement ; le texte est gardé chiffré dans ai_chat_logs
+      this.logger.warn(`Réponse bloquée : ${verdict.violations.length} contrôle(s) en échec`);
       state.status = 'blocked';
       state.guardReason = verdict.violations.join(' | ').slice(0, 1000);
       state.answer = `[BLOQUÉE] ${answer}`;
