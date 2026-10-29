@@ -1,9 +1,10 @@
-import { Controller, Get, Post, Body, Req, Query, Res, UseGuards, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, Query, Res, UseGuards, HttpException, HttpStatus, Optional } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { THROTTLE_LOGIN, THROTTLE_SENSITIVE, MINUTE } from '../common/client-throttler.guard';
 import { allowAttempt } from '../sponsors/sponsor-rules';
 import { JwtAuthGuard } from './jwt-auth.guard';
 import { AuthService } from './auth.service';
+import { TotpService } from './totp.service';
 import { Response } from 'express';
 import {
   ChangePasswordDto,
@@ -16,6 +17,9 @@ import {
   ResetPasswordDto,
   SocialLoginDto,
   VerifyForgetPasswordDto,
+  TotpChallengeDto,
+  TotpCodeDto,
+  TotpLoginDto,
   VerifyOtpDto,
 } from './dto/create-auth.dto';
 import * as jwt from 'jsonwebtoken';
@@ -23,7 +27,10 @@ import { Public } from './public.decorator';
 import { readEmailVerification } from './session';
 @Controller()
 export class AuthController {
-  constructor(private readonly authService: AuthService) { }
+  constructor(
+    private readonly authService: AuthService,
+    @Optional() private readonly totpService?: TotpService,
+  ) { }
 
   @Public()
   @Throttle(THROTTLE_SENSITIVE)
@@ -87,6 +94,63 @@ export class AuthController {
     @Body() verifyForgetPasswordDto: VerifyForgetPasswordDto,
   ) {
     return this.authService.verifyForgetPasswordToken(verifyForgetPasswordDto);
+  }
+
+  // ---------------- Double authentification (audit 3.1, 29/10/2026)
+  // Connexion, étape 2 : 5 essais par minute par IP et par compte (le défi identifie le compte)
+  @Public()
+  @Throttle(THROTTLE_LOGIN)
+  @Post('token/totp')
+  loginTotp(@Body() body: TotpLoginDto) {
+    this.limitTotp(body?.challenge);
+    return this.authService.loginWithTotp(String(body?.challenge || ''), String(body?.code || ''));
+  }
+
+  @Public()
+  @Throttle(THROTTLE_LOGIN)
+  @Post('token/totp/setup')
+  loginTotpSetup(@Body() body: TotpChallengeDto) {
+    return this.authService.totpSetupFromChallenge(String(body?.challenge || ''));
+  }
+
+  @Public()
+  @Throttle(THROTTLE_LOGIN)
+  @Post('token/totp/activate')
+  loginTotpActivate(@Body() body: TotpLoginDto) {
+    this.limitTotp(body?.challenge);
+    return this.authService.totpActivateFromChallenge(String(body?.challenge || ''), String(body?.code || ''));
+  }
+
+  // Compte connecté : état, activation, désactivation (si le rôle ne l'exige pas)
+  @Get('me/totp')
+  totpStatus(@Req() req) {
+    return this.totpService.status(Number(req.user?.id));
+  }
+
+  @Post('me/totp/setup')
+  async totpSetup(@Req() req) {
+    return this.totpService.startSetup(await this.totpService.userById(Number(req.user?.id)));
+  }
+
+  @Throttle(THROTTLE_LOGIN)
+  @Post('me/totp/activate')
+  async totpActivate(@Req() req, @Body() body: TotpCodeDto) {
+    const codes = await this.totpService.activate(await this.totpService.userById(Number(req.user?.id)), body?.code);
+    return { success: true, recovery_codes: codes, message: 'Double authentification activée. Gardez vos codes de secours en lieu sûr.' };
+  }
+
+  @Throttle(THROTTLE_LOGIN)
+  @Post('me/totp/disable')
+  async totpDisable(@Req() req, @Body() body: TotpCodeDto) {
+    await this.totpService.disable(await this.totpService.userById(Number(req.user?.id)), body?.code);
+    return { success: true, message: 'Double authentification désactivée.' };
+  }
+
+  private limitTotp(challenge: unknown) {
+    const key = String(challenge || '').split('.')[1] || 'vide';
+    if (!allowAttempt(`totp:${key}`, 5, MINUTE)) {
+      throw new HttpException('Trop de codes saisis. Réessayez dans une minute.', HttpStatus.TOO_MANY_REQUESTS);
+    }
   }
 
   // Audit 2.9 (M12) : utilisateur fourni par le guard JWT global

@@ -5,6 +5,7 @@ import { DatabaseModule } from '../database/database.module';
 import { PassportModule } from '@nestjs/passport'; // <== Ajout de cet import manquant
 import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
+import { TotpService } from './totp.service';
 
 @Module({
   imports: [
@@ -17,7 +18,7 @@ import { JwtStrategy } from './jwt.strategy';
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
-  exports: [AuthService, JwtStrategy, PassportModule], // Exporter PassportModule pour le guard
+  providers: [AuthService, TotpService, JwtStrategy],
+  exports: [AuthService, TotpService, JwtStrategy, PassportModule], // Exporter PassportModule pour le guard
 })
 export class AuthModule { }

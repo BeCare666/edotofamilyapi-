@@ -17,6 +17,8 @@ export class JwtStrategy extends PassportStrategy(Strategy, 'jwt') {
     async validate(payload: any) {
         const id = Number(payload?.id);
         if (!id || typeof payload?.tv !== 'number') throw new UnauthorizedException('Session expirée.');
+        // Audit 3.1 : un jeton à usage particulier (défi de double authentification, lien…) n'est jamais une session
+        if (payload?.purpose) throw new UnauthorizedException('Session expirée.');
 
         let row = cachedSessionRow(id);
         if (row === undefined) {

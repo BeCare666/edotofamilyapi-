@@ -113,3 +113,20 @@ export class OtpLoginDto {
   name?: string;
   email?: string;
 }
+
+// Double authentification (audit sécurité 3.1, 29/10/2026)
+@StrictDto()
+export class TotpChallengeDto {
+  @IsOptional() @IsScalar() challenge: string;
+}
+
+@StrictDto()
+export class TotpLoginDto {
+  @IsOptional() @IsScalar() challenge: string;
+  @IsOptional() @IsScalar() code: string;
+}
+
+@StrictDto()
+export class TotpCodeDto {
+  @IsOptional() @IsScalar() code: string;
+}

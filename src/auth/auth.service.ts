@@ -6,6 +6,7 @@ import {
   Injectable,
   UnauthorizedException,
   InternalServerErrorException,
+  Optional,
 } from '@nestjs/common';
 import { checkPassword, cleanBirthDate, cleanEmail, cleanName, cleanOrgName, cleanSex } from '../common/field-rules';
 import * as bcrypt from 'bcrypt';
@@ -50,6 +51,7 @@ import {
   PICKUP_VERIFICATION_SUBJECT,
 } from './verification-emails';
 import { safeError } from '../common/request-log';
+import { TotpChallenge, TotpService } from './totp.service';
 // Audit 1.5 : messages de connexion
 export const INVALID_CREDENTIALS = 'Identifiants invalides';
 export const ACCOUNT_DISABLED = "Votre compte est désactivé. Contactez l'équipe E.doto family.";
@@ -74,7 +76,15 @@ export async function sendVerificationLink(user: { email: string; name?: string;
 
 @Injectable()
 export class AuthService {
-  constructor(private readonly DatabaseService: DatabaseService) { }
+  constructor(
+    private readonly DatabaseService: DatabaseService,
+    @Optional() private readonly totpService?: TotpService,
+  ) { }
+
+  // Audit 3.1 : double authentification (créée à la demande dans les tests qui ne passent que la base)
+  private get totp(): TotpService {
+    return this.totpService ?? new TotpService(this.DatabaseService);
+  }
 
   // Renvoi du lien de confirmation. Réponse identique que le compte existe ou non
   // (ne pas révéler quelles adresses sont inscrites).
@@ -331,6 +341,35 @@ export class AuthService {
     if (!passwordMatch) {
       throw new UnauthorizedException(INVALID_CREDENTIALS);
     }
+    // Contrôles du compte d'abord (bloqué, en attente…), puis double authentification si elle s'applique
+    const session = await this.sessionFor(user);
+    // Défi { totp_required, setup_required, challenge } à la place de { token, permissions } (admin et site le gèrent)
+    return (this.totp.challengeFor(user) as AuthResponse & TotpChallenge) ?? session;
+  }
+
+  // ---------------- Double authentification (audit 3.1, 29/10/2026)
+  /** Connexion, étape 2 : code de l'application ou code de secours */
+  async loginWithTotp(challenge: string, code: string): Promise<AuthResponse> {
+    const user = await this.totp.userFromChallenge(challenge);
+    if (!this.totp.isEnabled(user)) throw new BadRequestException('Activez d’abord la double authentification.');
+    await this.totp.checkCode(user, code);
+    return this.sessionFor(user);
+  }
+
+  /** Activation obligatoire pendant la connexion : clé et code QR */
+  async totpSetupFromChallenge(challenge: string) {
+    return this.totp.startSetup(await this.totp.userFromChallenge(challenge));
+  }
+
+  /** Activation obligatoire pendant la connexion : premier code → session et codes de secours */
+  async totpActivateFromChallenge(challenge: string, code: string) {
+    const user = await this.totp.userFromChallenge(challenge);
+    const recovery_codes = await this.totp.activate(user, code);
+    return { ...(await this.sessionFor(user)), recovery_codes };
+  }
+
+  /** Session selon le rôle (contrôles du compte compris), sans nouvelle vérification du mot de passe */
+  private async sessionFor(user: any): Promise<AuthResponse> {
     if (user.role === "customer") {
       if (isBlocked(user.is_active)) {
         throw new ForbiddenException(ACCOUNT_DISABLED);

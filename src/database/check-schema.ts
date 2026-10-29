@@ -38,6 +38,8 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'password_resets', column: 'attempts', migration: '016' },
   { table: 'users', column: 'token_version', migration: '017' },
   { table: 'health_access_log', migration: '018' },
+  { table: 'users', column: 'totp_enabled_at', migration: '019' },
+  { table: 'totp_recovery_codes', migration: '019' },
 ];
 
 async function main() {

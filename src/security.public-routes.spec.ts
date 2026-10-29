@@ -28,7 +28,10 @@ import { IS_PUBLIC_KEY, Public } from './auth/public.decorator';
 // par le site sans jeton (register-pick-up-point, resend-verification-email, delivery/quote, logout).
 // GET /users garde son propre contrôle (rôles publics seulement sans jeton super admin).
 const PUBLIC_ROUTES = [
-  'POST /register', 'POST /register-pick-up-point', 'POST /token', 'POST /forget-password',
+  'POST /register', 'POST /register-pick-up-point', 'POST /token',
+  // Double authentification (3.1, 29/10/2026) : défi signé à la place de la session
+  'POST /token/totp', 'POST /token/totp/setup', 'POST /token/totp/activate',
+  'POST /forget-password',
   'POST /verify-forget-password-token', 'POST /reset-password', 'POST /resend-verification-email',
   'GET /verify-email', 'POST /logout',
   'POST /ai/chat',
