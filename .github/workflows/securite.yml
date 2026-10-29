@@ -1,0 +1,66 @@
+# Contrôles automatiques à chaque push (audit sécurité 3.4, 29/10/2026)
+# secrets : gitleaks sur les commits poussés ; dépendances : échec si alerte élevée ou critique ;
+# code : Semgrep (injection SQL, XSS…), rapport sans blocage pour commencer ; tests : typage et jest
+# (dont l'inventaire des routes publiques, src/security.public-routes.spec.ts).
+name: Sécurité
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  secrets:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependances:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # yarn 1 : le code de sortie additionne les gravités trouvées (8 = élevée, 16 = critique), --level ne le change pas
+      - name: yarn audit (élevée ou critique = échec)
+        run: |
+          set +e
+          yarn audit --groups dependencies --level high
+          code=$?
+          set -e
+          if [ $((code & 24)) -ne 0 ]; then echo "Alerte élevée ou critique dans les dépendances."; exit 1; fi
+
+  code:
+    runs-on: ubuntu-latest
+    container: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep
+        continue-on-error: true
+        run: semgrep scan --config p/typescript --config p/nodejs --config p/sql-injection --config p/secrets --metrics=off --error
+
+  tests:
+    runs-on: ubuntu-latest
+    env:
+      JWT_SECRET_KEY: cle-de-test-ci
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: yarn
+      - run: yarn install --frozen-lockfile
+      - name: Typage
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Tests
+        run: npx jest --ci
