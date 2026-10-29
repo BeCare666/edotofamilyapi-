@@ -7,6 +7,7 @@ import { applySecurity } from './common/cors';
 import { StrictBodyPipe } from './common/strict-body';
 import { checkHealthKey } from './common/health-crypto';
 import { requestLogger } from './common/request-log';
+import { maintenanceGate } from './common/maintenance';
 
 if (process.env.NODE_ENV !== 'production') {
   dotenv.config();
@@ -41,6 +42,8 @@ async function bootstrap() {
 
   // Audit sécurité 2.7 : une ligne par requête (méthode, adresse masquée, statut, durée), sans jeton
   app.use(requestLogger());
+  // Audit 3.7 : MAINTENANCE_MODE=on coupe toutes les routes (503) pendant un incident
+  app.use(maintenanceGate());
 
   // Swagger config (peut être désactivée en prod si souhaité)
   //
