@@ -204,10 +204,11 @@ describe("Matrice d'accès HTTP", () => {
       const res = await request(http).get('/api/users').set(auth(T.admin)).expect(200);
       expect(res.body.data[0]).not.toHaveProperty('password');
     });
-    it('DELETE /users/:id anonyme → 401, autre compte → 403, soi-même → 200', async () => {
+    it('DELETE /users/:id réservé à l’administration : anonyme → 401, soi-même ou autre compte → 403, admin → 200', async () => {
       await request(http).delete('/api/users/10').expect(401);
       await request(http).delete('/api/users/11').set(auth(T.customer)).expect(403);
-      await request(http).delete('/api/users/10').set(auth(T.customer)).expect(200);
+      await request(http).delete('/api/users/10').set(auth(T.customer)).expect(403);
+      await request(http).delete('/api/users/10').set(auth(T.admin)).expect(200);
     });
     it('GET /users/:id propre compte sans hash', async () => {
       const res = await request(http).get('/api/users/10').set(auth(T.customer)).expect(200);

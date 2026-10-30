@@ -116,11 +116,12 @@ export class UsersController {
     return stripPasswords(await this.usersService.update(+id, updateUserDto));
   }
 
-  @UseGuards(JwtAuthGuard)
+  // Réservé à l'administration (30/10/2026) : un compte supprime le sien par POST /me/delete-account (my-data.ts)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(SUPER_ADMIN)
   @SensitiveAction() // audit 3.1 : code redemandé
   @Delete(':id')
-  removeUser(@Param('id') id: string, @Req() req: any) {
-    assertSelfOrAdmin(req, +id);
+  removeUser(@Param('id') id: string) {
     return this.usersService.remove(+id);
   }
 
