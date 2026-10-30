@@ -96,6 +96,11 @@ export class InactivityService {
     const conn = await this.pool.getConnection();
     try {
       await conn.beginTransaction();
+      const [[before]]: any = await conn.query(`SELECT email FROM users WHERE id = ? AND anonymized_at IS NULL`, [userId]);
+      if (!before) {
+        await conn.commit();
+        return;
+      }
       await conn.query(
         `UPDATE users SET name = 'Compte supprimé', email = CONCAT('supprime-', id, '@compte-supprime.invalid'),
            password = '!', birth_date = NULL, sex = NULL, pickup_city = NULL, pickup_city_src = NULL,
@@ -107,8 +112,21 @@ export class InactivityService {
       await conn.query(`UPDATE profiles SET bio = NULL, socials = NULL, contact = NULL, notifications = NULL, avatar_id = NULL WHERE customer_id = ?`, [userId]);
       await conn.query(`DELETE FROM addresses WHERE customer_id = ?`, [userId]);
       await conn.query(`DELETE FROM totp_recovery_codes WHERE user_id = ?`, [userId]);
-      // Preuve du consentement gardée (date, version), sans l'adresse IP (migration 023)
+      // Preuves du consentement et journal des droits gardés (date, version), sans l'adresse IP (migration 023)
       await conn.query(`UPDATE user_consents SET ip = NULL WHERE user_id = ?`, [userId]);
+      await conn.query(`UPDATE data_rights_log SET ip = NULL WHERE user_id = ?`, [userId]);
+      // Copies de l'identité (30/10/2026, A6) : demandes de kits (rattachées par l'e-mail) et rendez-vous ;
+      // les nombres (kits remis, consultations) restent justes, le dossier de santé reste lié au seul numéro de compte
+      await conn.query(
+        `UPDATE campaign_registrations SET full_name = 'Compte supprimé', email = CONCAT('supprime-', ?, '@compte-supprime.invalid'),
+           request_lat = NULL, request_lng = NULL
+         WHERE LOWER(email) = LOWER(?)`,
+        [userId, before.email],
+      );
+      await conn.query(
+        `UPDATE tc_appointments SET patient_name = 'Compte supprimé', patient_email = NULL, patient_phone = NULL WHERE patient_user_id = ?`,
+        [userId],
+      );
       await conn.commit();
     } catch (err) {
       await conn.rollback().catch(() => undefined);

@@ -33,8 +33,11 @@ describe('Conservation : comptes inactifs', () => {
     err.mockRestore();
   });
 
-  const service = (notify: any[], purge: any[]) => {
-    const conn = { beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(async () => undefined), release: jest.fn(), query: jest.fn(async () => [{}]) };
+  const service = (notify: any[], purge: any[], current: any[] = [{ email: 'b@x.io' }]) => {
+    const conn = {
+      beginTransaction: jest.fn(), commit: jest.fn(), rollback: jest.fn(async () => undefined), release: jest.fn(),
+      query: jest.fn(async (sql: string) => (String(sql).startsWith('SELECT email FROM users') ? [current] : [{}])),
+    };
     const query = jest.fn(async (sql: string) => {
       if (sql.includes('inactivity_notice_at IS NULL') && sql.startsWith('SELECT')) return [notify];
       if (sql.includes('inactivity_notice_at IS NOT NULL') && sql.startsWith('SELECT')) return [purge];
@@ -67,13 +70,26 @@ describe('Conservation : comptes inactifs', () => {
     const { svc, conn } = service([], [{ id: 2 }]);
     const r = await svc.run('on');
     expect(r.anonymized).toBe(1);
-    const sqls = conn.query.mock.calls.map(([sql]: any) => String(sql));
-    expect(sqls[0]).toContain("name = 'Compte supprimé'");
-    expect(sqls[0]).toContain('birth_date = NULL');
-    expect(sqls[0]).toContain('token_version = token_version + 1');
+    const calls = conn.query.mock.calls as any[];
+    const sqls = calls.map(([sql]) => String(sql));
+    expect(sqls[1]).toContain("name = 'Compte supprimé'");
+    expect(sqls[1]).toContain('birth_date = NULL');
+    expect(sqls[1]).toContain('token_version = token_version + 1');
     expect(sqls.some((q) => q.startsWith('UPDATE profiles SET bio = NULL'))).toBe(true);
     expect(sqls.some((q) => q.startsWith('DELETE FROM addresses'))).toBe(true);
+    expect(sqls.some((q) => q.startsWith('UPDATE data_rights_log SET ip = NULL'))).toBe(true);
+    // Copies de l'identité (A6) : demandes de kits retrouvées par l'ancien e-mail, rendez-vous par le numéro de compte
+    const kits = calls.find(([sql]) => String(sql).startsWith('UPDATE campaign_registrations'));
+    expect(kits?.[1]).toEqual([2, 'b@x.io']);
+    expect(sqls.some((q) => q.startsWith('UPDATE tc_appointments SET patient_name'))).toBe(true);
     expect(sqls.some((q) => /orders|payment_intents|invoices/.test(q))).toBe(false);
+    expect(conn.commit).toHaveBeenCalled();
+  });
+
+  it('compte déjà effacé : rien n’est refait', async () => {
+    const { svc, conn } = service([], [], []);
+    await svc.anonymize(2);
+    expect(conn.query.mock.calls.length).toBe(1);
     expect(conn.commit).toHaveBeenCalled();
   });
 });
