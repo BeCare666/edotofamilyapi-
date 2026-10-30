@@ -28,6 +28,7 @@ import { CampaignsModule } from './campaigns/campaigns.module';
 import { PickupModule } from './pickup/pickup.module';
 import { DeliveryModule } from './delivery/delivery.module';
 import { CommissionsModule } from './commissions/commissions.module';
+import { TransactionsModule } from './transactions/transactions';
 import { SponsorsModule } from './sponsors/sponsors.module';
 import { TeleconsultationModule } from './teleconsultation/teleconsultation.module';
 import { ContraceptionModule } from './contraception/contraception.module';
@@ -76,6 +77,7 @@ import { AdminAuditInterceptor } from './common/admin-audit';
     PickupModule,
     DeliveryModule,
     CommissionsModule,
+    TransactionsModule,
     SponsorsModule,
     TeleconsultationModule,
     ContraceptionModule,
