@@ -4,13 +4,15 @@ import { RolesGuard } from '../auth/roles.guard';
 import { ActivePickupGuard } from '../auth/active-pickup.guard';
 import { Roles, SUPER_PICKUPPOINT } from '../auth/roles.decorator';
 import { PickupDashboardService } from './pickup-dashboard.service';
+import { DatabaseService } from '../database/database.services';
+import { pointMoney } from '../commissions/payouts';
 
 // Dashboard du point de retrait : l'identifiant du point vient toujours du jeton, jamais de la requête
 @UseGuards(JwtAuthGuard, RolesGuard, ActivePickupGuard)
 @Roles(SUPER_PICKUPPOINT)
 @Controller('pickup/dashboard')
 export class PickupDashboardController {
-  constructor(private readonly dashboard: PickupDashboardService) { }
+  constructor(private readonly dashboard: PickupDashboardService, private readonly db: DatabaseService) { }
 
   // ?period=day|month|year&date=AAAA-MM-JJ | AAAA-MM | AAAA
   @Get('summary')
@@ -34,6 +36,12 @@ export class PickupDashboardController {
   @Get('kits')
   kits(@Req() req: any, @Query() query: any) {
     return this.dashboard.kits(Number(req.user.id), query);
+  }
+
+  // Argent (B7) : commissions gagnées, versements reçus, reste à verser
+  @Get('payouts')
+  payouts(@Req() req: any) {
+    return pointMoney(this.db.getPool(), Number(req.user.id));
   }
 
   @Get('notifications')

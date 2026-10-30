@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { DatabaseService } from '../database/database.services';
 import { CommissionType, parseCommissionValue, parseScope } from './commission-rules';
+import { parsePayout, pointMoney } from './payouts';
 
 const COLUMN: Record<CommissionType, 'order_rate_percent' | 'kit_amount'> = {
   orders: 'order_rate_percent',
@@ -42,6 +43,14 @@ export class CommissionsService {
        ORDER BY u.name ASC`,
       search ? [search, search, search] : [],
     );
+    // Versements (B7, migration 024) : absents avant la migration, tout reste alors « à verser »
+    const paidBy = new Map<number, number>();
+    try {
+      const [paid]: any = await pool.query(`SELECT pickup_point_id, SUM(amount) AS paid FROM pickup_payouts GROUP BY pickup_point_id`);
+      for (const p of paid || []) paidBy.set(Number(p.pickup_point_id), Number(p.paid) || 0);
+    } catch (err: any) {
+      if (!/pickup_payouts/.test(String(err?.message))) throw err;
+    }
     return {
       settings,
       points: rows.map((r: any) => {
@@ -61,6 +70,8 @@ export class CommissionsService {
           orders_commission: Number(r.orders_commission) || 0,
           kits_withdrawn: Number(r.kits_withdrawn) || 0,
           kits_commission: Number(r.kits_commission) || 0,
+          paid_total: paidBy.get(Number(r.id)) ?? 0,
+          balance: Math.max(0, (Number(r.orders_commission) || 0) + (Number(r.kits_commission) || 0) - (paidBy.get(Number(r.id)) ?? 0)),
         };
       }),
     };
@@ -109,6 +120,50 @@ export class CommissionsService {
       message: scope === 'all'
         ? `${label} appliqué à tous les points de retrait.`
         : `${label} appliqué à ${ids.length} point${ids.length > 1 ? 's' : ''} de retrait.`,
+    };
+  }
+
+  // Versements d'un point de retrait (B7) : gagné, versé, reste à verser et liste
+  async payouts(pointId: number) {
+    const id = Number(pointId);
+    if (!Number.isInteger(id) || id <= 0) throw new BadRequestException('Point de retrait invalide.');
+    return pointMoney(this.db.getPool(), id);
+  }
+
+  // Noter un versement fait à un point : jamais plus que le reste à verser. La ligne du point est verrouillée
+  // pendant le contrôle, deux versements simultanés ne peuvent pas dépasser le reste.
+  async addPayout(body: any, adminId: number) {
+    const p = parsePayout(body);
+    const conn = await this.db.getPool().getConnection();
+    try {
+      await conn.beginTransaction();
+      const [found]: any = await conn.query(
+        `SELECT id, name FROM users WHERE id = ? AND role = 'super_pickuppoint' AND pickup_approved = 1 FOR UPDATE`,
+        [p.pointId],
+      );
+      if (!found?.length) throw new BadRequestException('Point de retrait inconnu.');
+      const before = await pointMoney(conn, p.pointId);
+      if (p.amount > before.balance) {
+        throw new BadRequestException(
+          `Le versement dépasse le reste à verser (${before.balance.toLocaleString('fr-FR')} FCFA).`,
+        );
+      }
+      await conn.query(
+        `INSERT INTO pickup_payouts (pickup_point_id, amount, method, reference, note, paid_at, created_by, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, UTC_TIMESTAMP())`,
+        [p.pointId, p.amount, p.method, p.reference, p.note, p.paidAt, adminId || null],
+      );
+      await conn.commit();
+    } catch (e) {
+      await conn.rollback();
+      throw e;
+    } finally {
+      conn.release();
+    }
+    return {
+      success: true,
+      message: `Versement de ${p.amount.toLocaleString('fr-FR')} FCFA noté.`,
+      ...(await pointMoney(this.db.getPool(), p.pointId)),
     };
   }
 }

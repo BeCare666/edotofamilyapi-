@@ -108,7 +108,8 @@ export class DatabaseSetupService implements OnModuleInit {
       '020_admin_audit_log.sql',
       '021_feexpay_reference.sql',
       '022_inactivity.sql',
-      '023_data_rights.sql'
+      '023_data_rights.sql',
+      '024_pickup_payouts.sql'
     ];
 
     // Bilan final (07/10/2026) : une migration en échec ne doit plus passer inaperçue
