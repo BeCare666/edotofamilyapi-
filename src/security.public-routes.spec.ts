@@ -47,7 +47,7 @@ const PUBLIC_ROUTES = [
   'GET /contraception/methods', 'GET /contraception/methods/:slug',
   'GET /countries', 'GET /countries/:id',
   'GET /shippings', 'GET /shippings/:id', 'GET /taxes', 'GET /taxes/:id',
-  'GET /settings', 'GET /site-appearance',
+  'GET /settings', 'GET /site-appearance', 'GET /site-info',
   'GET /reviews', 'GET /reviews/:id', 'GET /questions', 'GET /questions/:id',
   'GET /shops', 'GET /shops/:slug', 'GET /new-shops',
   'GET /pickup', 'GET /pickup/:id', 'GET /delivery/quote',

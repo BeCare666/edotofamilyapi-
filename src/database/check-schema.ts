@@ -48,6 +48,7 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'pickup_payouts', migration: '024' },
   { table: 'pickup_withdrawal_requests', migration: '025' },
   { table: 'order_refunds', migration: '025' },
+  { table: 'site_info', migration: '026' },
 ];
 
 async function main() {
