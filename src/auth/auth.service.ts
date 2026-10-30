@@ -53,6 +53,7 @@ import {
 import { safeError } from '../common/request-log';
 import { TotpChallenge, TotpService } from './totp.service';
 import { touchActivity } from '../users/inactivity';
+import { recordConsent, requireConsent } from '../users/consent';
 import {
   codeMatches,
   consumeChallenge,
@@ -135,7 +136,9 @@ export class AuthService {
     return generic;
   }
 
-  async register(createUserInput: RegisterDto): Promise<AuthResponse> {
+  async register(createUserInput: RegisterDto, ip: string | null = null): Promise<AuthResponse> {
+    // Consentement à la collecte et au transfert (APDP, point b, 30/10/2026) : obligatoire, preuve enregistrée
+    requireConsent(createUserInput);
     // Contrôle de chaque champ (16/10/2026) : nom, e-mail, mot de passe, date de naissance, sexe
     const name = cleanName(createUserInput?.name, 'Le nom complet');
     const email = cleanEmail(createUserInput?.email);
@@ -161,7 +164,7 @@ export class AuthService {
 
     // Décision B2 (a) du 24/09/2026 : le compte est enregistré AVANT l'envoi de l'e-mail
     // (plus d'e-mail envoyé pour un compte qui n'a pas pu être créé).
-    await this.DatabaseService.query(
+    const [created]: any = await this.DatabaseService.query(
       `INSERT INTO users 
     (name, email, password, is_verified, email_verified, email_verified_at, is_active, shop_id, birth_date, sex, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
@@ -178,6 +181,7 @@ export class AuthService {
         sex
       ]
     );
+    await recordConsent(this.DatabaseService, Number(created?.insertId), ip);
 
     // Si l'envoi échoue, le compte existe : l'utilisateur redemande le lien (« Renvoyer l'e-mail »).
     try {
@@ -198,7 +202,9 @@ export class AuthService {
     };
   }
 
-  async registerPickUpPoint(createUserInput: RegisterDto): Promise<AuthResponse> {
+  async registerPickUpPoint(createUserInput: RegisterDto, ip: string | null = null): Promise<AuthResponse> {
+    // Consentement à la collecte et au transfert (APDP, point b, 30/10/2026)
+    requireConsent(createUserInput);
     const { pickup_lat, pickup_lng, pickup_address } = createUserInput;
     // Contrôle de chaque champ (16/10/2026)
     const name = cleanOrgName(createUserInput?.name, "Le nom de l'établissement");
@@ -246,7 +252,7 @@ export class AuthService {
     }
 
     // Insertion en base avec le rôle super_pickuppoint
-    await this.DatabaseService.query(
+    const [created]: any = await this.DatabaseService.query(
       `INSERT INTO users 
     (name, email, password, role, is_verified, email_verified, email_verified_at, is_active, shop_id, pickup_lat, pickup_lng, pickup_address, pickup_approved, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
@@ -266,6 +272,7 @@ export class AuthService {
         0, // en attente de validation par l'admin
       ]
     );
+    await recordConsent(this.DatabaseService, Number(created?.insertId), ip);
 
     return {
       message: "Inscription enregistrée. Confirmez votre e-mail : votre compte sera activé après validation par l'équipe E.doto family.",

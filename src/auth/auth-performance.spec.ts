@@ -72,7 +72,7 @@ describe('B1 — /me', () => {
 });
 
 // Inscription valide depuis le 16/10/2026 : nom, mot de passe conforme, date de naissance, sexe
-const VALID = { name: 'Awa Houndé', password: 'Edoto2026', birth_date: '2005-02-28', sex: 'female' };
+const VALID = { name: 'Awa Houndé', password: 'Edoto2026', birth_date: '2005-02-28', sex: 'female', consent: true };
 
 describe('B2 — inscription', () => {
   it('champs contrôlés : mot de passe faible, nom avec chiffres, date de naissance ou sexe absents → refus sans écriture', async () => {

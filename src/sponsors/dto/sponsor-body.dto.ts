@@ -12,6 +12,8 @@ export class SponsorSignupDto {
   @IsOptional() @IsScalar() phone: string;
   @IsOptional() @IsScalar() email: string;
   @IsOptional() @IsScalar() password: string;
+  // Consentement à la collecte et au transfert (APDP, point b, 30/10/2026) : true obligatoire
+  @IsOptional() @IsScalar() consent: boolean;
 }
 
 // Site sponsor/activation.js

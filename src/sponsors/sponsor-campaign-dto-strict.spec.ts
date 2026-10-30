@@ -21,7 +21,7 @@ describe('DTO sponsors et campagnes (lot 8)', () => {
 
   it('corps envoyés par le site et l\'admin gardés, sans journal', async () => {
     const cases: [any, any][] = [
-      [SponsorSignupDto, { organization: 'ONG', contact_name: 'Awa D', phone: '+22901', email: 'a@b.c', password: 'Secret123!' }],
+      [SponsorSignupDto, { organization: 'ONG', contact_name: 'Awa D', phone: '+22901', email: 'a@b.c', password: 'Secret123!', consent: true }],
       [SponsorInvitationAcceptDto, { token: 't', password: 'Secret123!' }],
       [SponsorProfileDto, { contact_name: 'Awa D', phone: '+22901' }],
       [SponsorProposalDto, { title: 'T', description: '', cities: ['Cotonou'], date_start: '2026-11-01', date_end: '2026-12-01', objective_kits: 10, budget: 0 }],

@@ -13,6 +13,7 @@ import { Throttle } from '@nestjs/throttler';
 import { THROTTLE_SENSITIVE } from '../common/client-throttler.guard';
 import { clientIp } from '../ai/chat/ai-chat.rate-limit';
 import { Public } from '../auth/public.decorator';
+import { realClientIp } from '../common/client-ip';
 import { AdminDecisionDto, SponsorInvitationAcceptDto, SponsorProfileDto, SponsorProposalDto, SponsorSignupDto } from './dto/sponsor-body.dto';
 import { SensitiveAction } from '../auth/step-up';
 
@@ -48,7 +49,7 @@ export class SponsorSignupController {
     if (!allowAttempt(`signup:${clientIp(req)}`, 5, 60 * 60 * 1000)) {
       throw new HttpException('Trop de tentatives. Réessayez dans une heure.', HttpStatus.TOO_MANY_REQUESTS);
     }
-    return this.accounts.signup(body);
+    return this.accounts.signup(body, realClientIp(req));
   }
 }
 

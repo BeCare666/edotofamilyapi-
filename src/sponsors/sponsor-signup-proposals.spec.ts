@@ -32,7 +32,7 @@ beforeEach(() => {
 
 const addDays = (n: number) => new Date(Date.parse(`${todayBenin()}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
 // 16/10/2026 : mot de passe avec majuscule, minuscule et chiffre ; téléphone enregistré sans espaces
-const SIGNUP = { organization: 'Fondation Test', contact_name: 'Awa Test', phone: '+229 01 97 00 00 00', email: 'Contact@Fondation.test', password: 'Motdepasse1' };
+const SIGNUP = { organization: 'Fondation Test', contact_name: 'Awa Test', phone: '+229 01 97 00 00 00', email: 'Contact@Fondation.test', password: 'Motdepasse1', consent: true };
 const PROPOSAL = { title: 'Kits Cotonou', description: 'Distribution', cities: ['Cotonou', ' cotonou ', 'Porto-Novo'], date_start: addDays(5), date_end: addDays(35), objective_kits: 200, budget: 1500000 };
 
 describe('Règles : inscription et demande de campagne', () => {

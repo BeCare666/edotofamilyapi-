@@ -72,7 +72,7 @@ describe('DTO d\'authentification (lot 1)', () => {
   it('inscription : tous les champs lus par AuthService gardés, permission retirée', async () => {
     const sent = {
       name: 'A', email: 'a@b.c', password: 'Secret123!', pickup_lat: 6.3, pickup_lng: '2.4',
-      pickup_address: 'Cotonou', birth_date: '2008-01-02', sex: 'female', permission: 'super_admin',
+      pickup_address: 'Cotonou', birth_date: '2008-01-02', sex: 'female', consent: true, permission: 'super_admin',
     };
     const { permission, ...kept } = sent;
     await expect(pipe.transform(sent, body(RegisterDto))).resolves.toEqual(kept);

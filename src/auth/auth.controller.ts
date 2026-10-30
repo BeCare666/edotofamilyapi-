@@ -26,6 +26,7 @@ import {
 import * as jwt from 'jsonwebtoken';
 import { Public } from './public.decorator';
 import { readEmailVerification } from './session';
+import { realClientIp } from '../common/client-ip';
 @Controller()
 export class AuthController {
   constructor(
@@ -36,13 +37,13 @@ export class AuthController {
   @Public()
   @Throttle(THROTTLE_SENSITIVE)
   @Post('register')
-  createAccount(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  createAccount(@Body() registerDto: RegisterDto, @Req() req: any) {
+    return this.authService.register(registerDto, realClientIp(req));
   }
   @Public()
   @Post('register-pick-up-point')
-  createAccountpickUpPoint(@Body() registerDto: RegisterDto) {
-    return this.authService.registerPickUpPoint(registerDto);
+  createAccountpickUpPoint(@Body() registerDto: RegisterDto, @Req() req: any) {
+    return this.authService.registerPickUpPoint(registerDto, realClientIp(req));
   }
   // Audit 1.2 : 5 essais par minute par IP (Throttle) et par adresse e-mail
   @Public()

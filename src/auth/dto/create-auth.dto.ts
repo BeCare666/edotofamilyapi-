@@ -24,6 +24,8 @@ export class RegisterDto {
   // Inscription des utilisateurs (16/10/2026) : date de naissance (AAAA-MM-JJ) et sexe (female | male)
   @IsOptional() @IsScalar() birth_date?: string;
   @IsOptional() @IsScalar() sex?: string;
+  // Consentement à la collecte et au transfert (APDP, point b, 30/10/2026) : true obligatoire
+  @IsOptional() @IsScalar() consent?: boolean;
   // Jamais lu : le rôle est fixé par le serveur (retiré par la liste blanche s'il est envoyé)
   permission?: Permission;
 }

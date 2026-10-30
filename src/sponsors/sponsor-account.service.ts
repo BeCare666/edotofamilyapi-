@@ -12,6 +12,7 @@ import { sendVerificationEmail } from '../auth/mailer';
 import { bumpTokenVersion, signEmailVerification } from '../auth/session';
 import { INVITATION_TTL_DAYS, escapeHtml, newInvitationToken, parseNewPassword, parseSponsorSignup, sha256 } from './sponsor-rules';
 import { safeError } from '../common/request-log';
+import { recordConsent, requireConsent } from '../users/consent';
 
 const ROLE_LABEL: Record<string, string> = {
   customer: 'client',
@@ -155,7 +156,9 @@ export class SponsorAccountService {
   // des demandes de campagne ; chaque demande est validée par l'admin. Une adresse déjà connue (compte ou
   // fiche sponsor créée par l'admin) est refusée : la fiche existante passe par l'invitation de l'admin,
   // pour que personne ne puisse s'attribuer les campagnes d'un sponsor existant avec son adresse.
-  async signup(body: any) {
+  async signup(body: any, ip: string | null = null) {
+    // Consentement à la collecte et au transfert (APDP, point b, 30/10/2026) : obligatoire, preuve enregistrée
+    requireConsent(body);
     const input = parseSponsorSignup(body);
     const pool: any = this.db.getPool();
     const [[user]]: any = await pool.query(`SELECT id, role FROM users WHERE email = ? LIMIT 1`, [input.email]);
@@ -175,6 +178,7 @@ export class SponsorAccountService {
 
     const hash = await bcrypt.hash(input.password, 10);
     const conn = await pool.getConnection();
+    let userId = 0;
     try {
       await conn.beginTransaction();
       const [u]: any = await conn.query(
@@ -187,6 +191,7 @@ export class SponsorAccountService {
         [input.organization, input.email, Number(u.insertId), input.contactName, input.phone],
       );
       await conn.commit();
+      userId = Number(u.insertId);
     } catch (e: any) {
       await conn.rollback();
       if (e?.code === 'ER_DUP_ENTRY') throw new ConflictException('Cette adresse e-mail est déjà utilisée.');
@@ -194,6 +199,8 @@ export class SponsorAccountService {
     } finally {
       conn.release();
     }
+
+    await recordConsent(pool, userId, ip);
 
     // E-mail de bienvenue : un échec d'envoi n'annule pas l'inscription (le compte est déjà utilisable)
     let emailSent = true;

@@ -31,7 +31,7 @@ beforeEach(() => mailer.mockReset().mockResolvedValue(undefined));
 // ------------------------------------------------------------------ inscription / connexion
 describe('Inscription point de retrait', () => {
   // 16/10/2026 : mot de passe conforme aux règles communes (minuscule, majuscule, chiffre)
-  const dto = { name: 'Pharmacie X', email: 'p@x.io', password: 'Secret2026', pickup_lat: 6.37, pickup_lng: 2.39, pickup_address: 'Akpakpa' };
+  const dto = { name: 'Pharmacie X', email: 'p@x.io', password: 'Secret2026', pickup_lat: 6.37, pickup_lng: 2.39, pickup_address: 'Akpakpa', consent: true };
 
   it('crée le compte en attente (pickup_approved = 0) avec les coordonnées', async () => {
     const { db, calls } = fakeDb((sql) => (sql.startsWith('SELECT id FROM users') ? [] : {}));

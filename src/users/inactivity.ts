@@ -107,6 +107,8 @@ export class InactivityService {
       await conn.query(`UPDATE profiles SET bio = NULL, socials = NULL, contact = NULL, notifications = NULL, avatar_id = NULL WHERE customer_id = ?`, [userId]);
       await conn.query(`DELETE FROM addresses WHERE customer_id = ?`, [userId]);
       await conn.query(`DELETE FROM totp_recovery_codes WHERE user_id = ?`, [userId]);
+      // Preuve du consentement gardée (date, version), sans l'adresse IP (migration 023)
+      await conn.query(`UPDATE user_consents SET ip = NULL WHERE user_id = ?`, [userId]);
       await conn.commit();
     } catch (err) {
       await conn.rollback().catch(() => undefined);
