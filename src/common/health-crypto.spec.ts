@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { checkHealthKey, healthEncryptionEnabled, isSealed, openFields, openHealth, sealHealth } from './health-crypto';
+import { checkHealthKey, healthEncryptionEnabled, isSealed, openFields, openHealth, rekeyHealth, sealHealth, sealedKeyId } from './health-crypto';
 import { ContraceptionService } from '../contraception/contraception.service';
 import { TeleconsultationService } from '../teleconsultation/teleconsultation.service';
 import { AiChatRetentionCron } from '../ai/chat/ai-chat-retention.cron';
@@ -64,6 +64,23 @@ describe('Chiffrement AES-256-GCM des données de santé', () => {
     expect(fresh.startsWith('hd1.k2.')).toBe(true);
     expect(openHealth(old)).toBe('ancienne');
     expect(openHealth(fresh)).toBe('nouvelle');
+  });
+
+  it('rechiffrement (30/10/2026) : valeur k1 rechiffrée en k2, valeur k2 ou en clair laissée telle quelle', () => {
+    process.env.HEALTH_DATA_KEY = k1;
+    const old = sealHealth('ancienne') as string;
+    process.env.HEALTH_DATA_KEY = k2;
+    process.env.HEALTH_DATA_KEY_ID = 'k2';
+    process.env.HEALTH_DATA_OLD_KEYS = `k1:${k1}`;
+    const moved = rekeyHealth(old) as string;
+    expect(sealedKeyId(old)).toBe('k1');
+    expect(sealedKeyId(moved)).toBe('k2');
+    expect(openHealth(moved)).toBe('ancienne');
+    expect(rekeyHealth(moved)).toBeNull();
+    expect(rekeyHealth('en clair')).toBeNull();
+    expect(sealedKeyId('en clair')).toBeNull();
+    delete process.env.HEALTH_DATA_OLD_KEYS;
+    expect(() => rekeyHealth(old)).toThrow();
   });
 
   it('clé absente ou incorrecte, valeur altérée : erreur (jamais un champ vide)', () => {

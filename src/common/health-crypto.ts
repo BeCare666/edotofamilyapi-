@@ -8,6 +8,8 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
  * Valeur stockée : hd1.<id de clé>.<iv>.<tag>.<texte chiffré> (base64url).
  * Sans clé, rien n'est chiffré (déploiement possible avant la clé) ; les anciennes valeurs en clair restent lisibles.
  * Valeur chiffrée sans la bonne clé : erreur, jamais un champ vide qui serait ensuite réenregistré.
+ * Rotation (30/10/2026) : nouvelle clé dans HEALTH_DATA_KEY + HEALTH_DATA_KEY_ID, ancienne dans HEALTH_DATA_OLD_KEYS,
+ * puis npm run health:encrypt -- --rekey --apply rechiffre les anciennes valeurs (rekeyHealth).
  */
 const PREFIX = 'hd1';
 const KEY_ID_RE = /^[A-Za-z0-9_-]{1,16}$/;
@@ -91,6 +93,20 @@ export function openHealth<T>(value: T): T | string {
   } catch {
     throw new Error(`Donnée de santé illisible avec la clé « ${id} » (clé incorrecte ou valeur altérée).`);
   }
+}
+
+/** Identifiant de la clé d'une valeur chiffrée (null : valeur en clair) */
+export function sealedKeyId(value: unknown): string | null {
+  return isSealed(value) ? (value as string).split('.')[1] : null;
+}
+
+/** Rotation : valeur chiffrée avec une ancienne clé → rechiffrée avec la clé actuelle ; sinon null (rien à faire) */
+export function rekeyHealth(value: unknown): string | null {
+  const ring = keyRing();
+  if (!ring.current) throw new Error('HEALTH_DATA_KEY absente : rien ne peut être rechiffré.');
+  const id = sealedKeyId(value);
+  if (id === null || id === ring.current.id) return null;
+  return sealHealth(openHealth(value) as string) as string;
 }
 
 /** Déchiffre les champs indiqués d'une ligne (copie ; null ou undefined : rendu tel quel) */

@@ -444,6 +444,7 @@ export class PaymentIntentService {
            co.unit_price,
            co.subtotal,
            s.name as shop_name,
+           co.shop_id,
            s.contact as shop_contact,
            p.name as product_name
     FROM order_children co
@@ -499,64 +500,10 @@ export class PaymentIntentService {
     }
   }
 
-  async retryPendingPayments() {
-    this.logger.debug("Cron: retry des paiements pending/failed…");
+  // retryPendingPayments supprimée (30/10/2026) : aucune planification ni aucun appel, elle lisait des colonnes
+  // inexistantes (custom_id, raw_response) et écrivait un statut hors ENUM ('processed'). Les paiements non aboutis
+  // apparaissent dans l'admin, Transactions (B6), pour vérification dans FeexPay.
 
-    const [pending] = await this.pool.query<RowDataPacket[]>(
-      `SELECT * 
-     FROM pending_payments 
-     WHERE status IN ('processing','failed')`
-    );
-
-    for (const p of pending) {
-      const conn = await this.pool.getConnection();
-      await conn.beginTransaction();
-
-      try {
-        this.logger.debug(
-          `Retry pending payment ${p.id} (${p.transaction_id})`
-        );
-
-        // 1. Rejouer la logique interne
-        const result = await this.completeFeexPayPayment(
-          {
-            transaction_id: p.transaction_id,
-            custom_id: p.custom_id,
-            feexpay_response: JSON.parse(p.raw_response || "{}")
-          },
-          conn // ✔ CORRECT
-        );
-
-        // 2. Marquer le retry comme OK
-        await conn.query(
-          `UPDATE pending_payments 
-         SET status = 'processed', retried_at = NOW() 
-         WHERE id = ?`,
-          [p.id]
-        );
-
-        await conn.commit();
-        this.logger.debug(
-          `Pending payment ${p.id} traité avec succès.`
-        );
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-
-        this.logger.error(`Retry échoué pour pending ${p.id}: ${msg}`);
-
-        await conn.query(
-          `UPDATE pending_payments 
-         SET status = 'failed', last_error = ?, retry_count = retry_count + 1 
-         WHERE id = ?`,
-          [msg, p.id]
-        );
-
-        await conn.rollback();
-      } finally {
-        conn.release();
-      }
-    }
-  }
 
 
 }

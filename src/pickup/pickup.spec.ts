@@ -153,7 +153,7 @@ describe('Points bloqués : visibles mais non sélectionnables', () => {
     return {};
   };
   const customer = { id: 10, permissions: ['customer'] };
-  const orders = (h: Handler) => new OrdersService({} as any, {} as any, fakeDb(h).db);
+  const orders = (h: Handler) => new OrdersService({} as any, fakeDb(h).db);
 
   it('commande : choisir un point bloqué → 400', async () => {
     await expect(orders(orderHandler({ id: 3, is_active: 0, pickup_approved: 1 })).updateForUser(5, { pickup_point_id: 3 }, customer))
@@ -205,7 +205,7 @@ describe('OTP de retrait : expiration et régénération', () => {
       if (sql.startsWith('UPDATE orders') || sql.trim().startsWith('UPDATE')) return { affectedRows: updateAffected };
       return [];
     });
-    return { svc: new OrdersService({} as any, {} as any, db), calls };
+    return { svc: new OrdersService({} as any, db), calls };
   };
 
   it('code expiré, pas retiré : nouveau code, e-mail envoyé, expiration +48 h', async () => {
@@ -273,7 +273,7 @@ describe('OTP de retrait : expiration et régénération', () => {
       if (sql.includes('otp_used = 1')) return { affectedRows: 1 };
       return [{ ...base }];
     });
-    const svc = new OrdersService({} as any, {} as any, db);
+    const svc = new OrdersService({} as any, db);
     await expect(svc.verifyOtp({ order_id: 5, otp_code: '111111' }, { id: 20, permissions: ['super_pickuppoint'] }))
       .resolves.toEqual(expect.objectContaining({ success: true }));
   });

@@ -27,7 +27,7 @@ const handler: Handler = (sql) => {
 describe('G2 — liste des commandes côté admin', () => {
   it('admin : nom du point de retrait et du client ajoutés, code en clair (2 requêtes groupées)', async () => {
     const { db, calls } = fakeDb(handler);
-    const svc = new OrdersService({} as any, {} as any, db);
+    const svc = new OrdersService({} as any, db);
     const res: any = await svc.getOrders({ page: 1, limit: 20 } as any, { id: 1, permissions: ['super_admin'] });
     expect(res.data[0]).toEqual(expect.objectContaining({ pickup_point_name: 'Point A', customer_display: { name: 'Awa', email: 'awa@t.io' }, otp_code: '123456' }));
     expect(res.data[1].pickup_point_name).toBeNull();
@@ -36,7 +36,7 @@ describe('G2 — liste des commandes côté admin', () => {
 
   it('point de retrait : pas d’enrichissement, code masqué', async () => {
     const { db, calls } = fakeDb(handler);
-    const svc = new OrdersService({} as any, {} as any, db);
+    const svc = new OrdersService({} as any, db);
     const res: any = await svc.getOrders({ page: 1, limit: 20 } as any, { id: 20, permissions: ['super_pickuppoint'] });
     expect(calls.some((c) => c.sql.startsWith('SELECT id, name, email FROM users WHERE id IN'))).toBe(false);
     expect(res.data[0]).not.toHaveProperty('customer_display');
@@ -47,7 +47,7 @@ describe('G2 — liste des commandes côté admin', () => {
 describe('Filtres réels de la liste des commandes', () => {
   it('statut, paiement, retrait, campagne, période (UTC+1) et montant, dans le périmètre du client', async () => {
     const { db, calls } = fakeDb(handler);
-    const svc = new OrdersService({} as any, {} as any, db);
+    const svc = new OrdersService({} as any, db);
     await svc.getOrders({
       order_status: 'order-pending,order-completed,piratage', payment_status: 'payment-success', delivery_type: 'CUSTOM',
       kind: 'campaign', date_from: '2026-10-01', date_to: '2026-10-05', min_total: '1000', max_total: '9000',
@@ -64,14 +64,14 @@ describe('Filtres réels de la liste des commandes', () => {
 
   it('admin : « none » = commandes sans point de retrait ; un client ne peut pas filtrer un autre point', async () => {
     const { db, calls } = fakeDb(handler);
-    const svc = new OrdersService({} as any, {} as any, db);
+    const svc = new OrdersService({} as any, db);
     await svc.getOrders({ pickup_point_id: 'none' } as any, { id: 1, permissions: ['super_admin'] });
     expect(calls.find((c) => c.sql.startsWith('SELECT * FROM orders'))!.sql).toContain('pickup_point_id IS NULL');
   });
 
   it('compteurs : mêmes conditions de périmètre que la liste', async () => {
     const { db, calls } = fakeDb(() => [{ v: 'order-pending', n: 2, campaign: 1, shop: 1, total: 2, min: 100, max: 900 }]);
-    const svc = new OrdersService({} as any, {} as any, db);
+    const svc = new OrdersService({} as any, db);
     const res: any = await svc.getOrderFacets({}, { id: 20, permissions: ['super_pickuppoint'] });
     for (const c of calls) {
       expect(c.sql).toContain('pickup_point_id = ?');

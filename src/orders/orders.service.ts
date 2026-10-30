@@ -1,6 +1,5 @@
 import { Injectable, ForbiddenException, NotFoundException, BadRequestException, InternalServerErrorException } from '@nestjs/common';
 import { AuthService } from 'src/auth/auth.service';
-import { FeexpayService } from 'src/payment/feexpay.service';
 import { DatabaseService } from '../database/database.services';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
@@ -53,7 +52,6 @@ function isOtpExpired(order: { otp_expires_at?: any }) {
 export class OrdersService {
   constructor(
     private readonly authService: AuthService,
-    private readonly feexpayService: FeexpayService,
     private readonly databaseService: DatabaseService,
     private readonly deliveryService?: DeliveryService,
   ) { }
@@ -1214,11 +1212,29 @@ export class OrdersService {
   // =========================
   // ORDER STATUS CRUD
   // =========================
+  // Colonnes réelles de order_status (30/10/2026) : avant, l'écriture visait une colonne description inexistante
+  // et oubliait slug, serial et translated_languages, obligatoires ; la création échouait toujours.
   async createOrderStatus(createOrderStatusDto: any) {
     const pool = this.databaseService.getPool();
+    const name = typeof createOrderStatusDto?.name === 'string' ? createOrderStatusDto.name.trim() : '';
+    if (!name || name.length > 100) throw new BadRequestException('Nom du statut obligatoire (100 caractères au plus).');
+    const slug = name.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    if (!slug) throw new BadRequestException('Nom du statut invalide.');
+    const [[taken]]: any = await pool.query(`SELECT id FROM order_status WHERE slug = ? LIMIT 1`, [slug]);
+    if (taken) throw new BadRequestException('Un statut porte déjà ce nom.');
+    let serial = Number(createOrderStatusDto?.serial);
+    if (!Number.isInteger(serial) || serial < 0) {
+      const [[last]]: any = await pool.query(`SELECT COALESCE(MAX(serial), 0) AS serial FROM order_status`);
+      serial = Number(last?.serial || 0) + 1;
+    }
+    const color = typeof createOrderStatusDto?.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(createOrderStatusDto.color)
+      ? createOrderStatusDto.color : '#000000';
+    const language = typeof createOrderStatusDto?.language === 'string' && /^[a-z]{2}$/.test(createOrderStatusDto.language)
+      ? createOrderStatusDto.language : 'fr';
     const [result]: any = await pool.query(
-      `INSERT INTO order_status (name, description, created_at, updated_at) VALUES (?, ?, NOW(), NOW())`,
-      [createOrderStatusDto.name, createOrderStatusDto.description],
+      `INSERT INTO order_status (name, slug, serial, language, color, translated_languages, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+      [name, slug, serial, language, color, JSON.stringify([language])],
     );
     const [rows]: any = await pool.query(
       `SELECT * FROM order_status WHERE id = ?`,

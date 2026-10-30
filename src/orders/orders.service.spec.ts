@@ -38,7 +38,7 @@ const ORDER_ROW = { id: 5, customer_id: 10, pickup_point_id: 20, otp_code: '1234
 function makeOrders(handler: Handler) {
   const { calls, db } = fakeDb(handler);
   const authService = { me: jest.fn().mockResolvedValue({ id: 10, email: 'c@t.io' }) };
-  const svc = new OrdersService(authService as any, {} as any, db);
+  const svc = new OrdersService(authService as any, db);
   return { svc, calls };
 }
 

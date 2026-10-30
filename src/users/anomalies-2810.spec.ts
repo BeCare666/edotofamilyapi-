@@ -57,7 +57,7 @@ describe('PUT et DELETE /order-status/:id : table order_status, jamais une comma
   const { OrdersService } = require('src/orders/orders.service');
   const make = (affectedRows = 1) => {
     const query = jest.fn(async (sql: string) => (sql.startsWith('SELECT') ? [[{ id: 4, name: 'X' }], []] : [{ affectedRows }, []]));
-    return { service: new OrdersService({} as any, {} as any, { getPool: () => ({ query }) } as any), query };
+    return { service: new OrdersService({} as any, { getPool: () => ({ query }) } as any), query };
   };
 
   it('modification : UPDATE order_status, colonnes réelles seulement', async () => {

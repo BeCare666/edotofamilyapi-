@@ -1,11 +1,12 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from 'src/auth/auth.module';
-import { FeexpayService } from './feexpay.service';
 import { PaystackService } from './paystack.service';
 
 @Module({
   imports: [AuthModule],
-  providers: [PaystackService, FeexpayService],
-  exports: [PaystackService, FeexpayService],
+  // FeexpayService supprimé (30/10/2026) : jamais appelé, il visait api.feexpay.com/v1 qui n'existe pas.
+  // Le paiement FeexPay passe par src/payment-intent (vérification feexpay-verify.ts).
+  providers: [PaystackService],
+  exports: [PaystackService],
 })
 export class PaymentModule { }
