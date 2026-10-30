@@ -52,6 +52,7 @@ import {
 } from './verification-emails';
 import { safeError } from '../common/request-log';
 import { TotpChallenge, TotpService } from './totp.service';
+import { touchActivity } from '../users/inactivity';
 import {
   codeMatches,
   consumeChallenge,
@@ -366,6 +367,7 @@ export class AuthService {
     if (totpChallenge) return totpChallenge as AuthResponse & TotpChallenge;
     // Jeunes et points de retrait : code par e-mail depuis un appareil inconnu (29/10/2026)
     if (newDeviceRoles().includes(user.role) && !isTrustedDevice(device, user as any)) return this.startDeviceCheck(user);
+    await touchActivity(this.DatabaseService, Number(user.id));
     return session;
   }
 
@@ -395,6 +397,7 @@ export class AuthService {
     if (!codeMatches(c, code)) throw new UnauthorizedException('Code incorrect.');
     if (!consumeChallenge(c.jti)) throw new UnauthorizedException('Ce code a déjà servi : connectez-vous de nouveau.');
     const session = await this.sessionFor(user);
+    await touchActivity(this.DatabaseService, Number(user.id));
     return { ...session, device_token: signTrustedDevice(user) };
   }
 
@@ -418,7 +421,9 @@ export class AuthService {
     );
     if (!user) throw new UnauthorizedException('Session expirée.');
     try {
-      return { token: signSession(user, user.role, sessionStart(payload)), permissions: [user.role] };
+      const token = signSession(user, user.role, sessionStart(payload));
+      await touchActivity(this.DatabaseService, Number(user.id));
+      return { token, permissions: [user.role] };
     } catch {
       throw new UnauthorizedException('Session expirée : reconnectez-vous.');
     }
@@ -430,6 +435,7 @@ export class AuthService {
     const user = await this.totp.userFromChallenge(challenge);
     if (!this.totp.isEnabled(user)) throw new BadRequestException('Activez d’abord la double authentification.');
     await this.totp.checkCode(user, code);
+    await touchActivity(this.DatabaseService, Number(user.id));
     return this.sessionFor(user);
   }
 
@@ -442,6 +448,7 @@ export class AuthService {
   async totpActivateFromChallenge(challenge: string, code: string) {
     const user = await this.totp.userFromChallenge(challenge);
     const recovery_codes = await this.totp.activate(user, code);
+    await touchActivity(this.DatabaseService, Number(user.id));
     return { ...(await this.sessionFor(user)), recovery_codes };
   }
 

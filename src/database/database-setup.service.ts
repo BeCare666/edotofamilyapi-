@@ -106,7 +106,8 @@ export class DatabaseSetupService implements OnModuleInit {
       '018_health_data.sql',
       '019_totp.sql',
       '020_admin_audit_log.sql',
-      '021_feexpay_reference.sql'
+      '021_feexpay_reference.sql',
+      '022_inactivity.sql'
     ];
 
     // Bilan final (07/10/2026) : une migration en échec ne doit plus passer inaperçue

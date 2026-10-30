@@ -1,3 +1,4 @@
+import { InactivityCron, InactivityService } from './inactivity';
 import { Module } from '@nestjs/common';
 import { UsersService } from './users.service';
 import {
@@ -21,7 +22,7 @@ import { DatabaseModule } from '../database/database.module'; // ✅ ici
     AllCustomerController,
     ProfilePhotoController,
   ],
-  providers: [UsersService],
+  providers: [UsersService, InactivityService, InactivityCron],
   exports: [UsersService],
 })
 export class UsersModule { }

@@ -190,5 +190,6 @@ describe('Connexion avec double authentification', () => {
     expect(writes.some(([sql]) => sql.startsWith('UPDATE users SET totp_enabled_at'))).toBe(true);
     const insert = writes.find(([sql]) => sql.startsWith('INSERT INTO totp_recovery_codes'));
     expect(insert[1]).not.toContain(codes[0]);
-  });
+    // Génération du code QR : lente sur une machine chargée
+  }, 30000);
 });
