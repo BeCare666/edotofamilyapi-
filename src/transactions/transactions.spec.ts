@@ -19,7 +19,8 @@ describe('Transactions : filtres', () => {
   });
 
   it('type, dates mal écrites ou inversées : refusés', () => {
-    expect(() => parseTxQuery({ kind: 'refund' })).toThrow(BadRequestException);
+    expect(() => parseTxQuery({ kind: 'gift' })).toThrow(BadRequestException);
+    expect(parseTxQuery({ kind: 'refund' }).kind).toBe('refund');
     expect(() => parseTxQuery({ from: '30/10/2026' })).toThrow(BadRequestException);
     expect(() => parseTxQuery({ from: '2026-10-30', to: '2026-10-01' })).toThrow(BadRequestException);
   });
@@ -47,7 +48,7 @@ describe('Transactions : journal', () => {
     const res = await new TransactionsService(db).list({});
     expect(res.data[0]).toMatchObject({ kind: 'payment', amount: 1500, method_label: 'FeexPay' });
     expect(res.data[1]).toMatchObject({ kind: 'payout', amount: 400, method_label: 'Mobile Money' });
-    expect(res.totals).toEqual({ received: 1500, received_count: 1, paid_out: 400, paid_out_count: 1, attempts_count: 2 });
+    expect(res.totals).toEqual({ received: 1500, received_count: 1, paid_out: 400, paid_out_count: 1, attempts_count: 2, refunded: 0, refunded_count: 0 });
     const list = calls[0].sql;
     expect(list).toContain('FROM payment_intents');
     expect(list).toContain("WHERE pp.status <> 'completed'");

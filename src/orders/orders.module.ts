@@ -8,6 +8,7 @@ import {
   OrderStatusController,
 } from './orders.controller';
 import { OrdersService } from './orders.service';
+import { RefundsController, RefundsService } from './refunds';
 import { DatabaseModule } from 'src/database/database.module';
 import { DeliveryModule } from 'src/delivery/delivery.module';
 @Module({
@@ -17,8 +18,9 @@ import { DeliveryModule } from 'src/delivery/delivery.module';
     OrderStatusController,
     OrderExportController,
     DownloadInvoiceController,
+    RefundsController,
   ],
-  providers: [OrdersService],
+  providers: [OrdersService, RefundsService],
   exports: [OrdersService],
 })
 export class OrdersModule { }

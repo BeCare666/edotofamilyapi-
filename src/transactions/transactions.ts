@@ -10,11 +10,12 @@ import { PAYOUT_METHODS } from '../commissions/payouts';
  * Transactions (B6, 30/10/2026) : journal de l'argent réel, en lecture seule, pour le super admin.
  * - payment : paiement reçu et vérifié (payment_intents, FeexPay) ;
  * - attempt : paiement arrivé mais pas abouti (pending_payments en cours ou en échec) : à vérifier ;
- * - payout  : versement à un point de retrait (pickup_payouts, B7, migration 024).
+ * - payout  : versement à un point de retrait (pickup_payouts, B7, migration 024) ;
+ * - refund  : remboursement d'une commande (order_refunds, B7, migration 025).
  * Remplace la page du modèle d'origine, qui relisait la liste des commandes (taxe, remise : inexistants ici).
  */
-export type TxKind = 'payment' | 'attempt' | 'payout';
-const KINDS: TxKind[] = ['payment', 'attempt', 'payout'];
+export type TxKind = 'payment' | 'attempt' | 'payout' | 'refund';
+const KINDS: TxKind[] = ['payment', 'attempt', 'payout', 'refund'];
 
 const PAYMENTS_SQL = `SELECT 'payment' AS kind, pi.id, pi.created_at AS at, pi.total_amount AS amount,
     CAST(pi.tracking_number AS CHAR) AS order_ref, CAST(pi.feexpay_reference AS CHAR) AS reference,
@@ -34,6 +35,12 @@ const PAYOUTS_SQL = `SELECT 'payout' AS kind, p.id, p.paid_at AS at, p.amount,
     CAST(u.name AS CHAR) AS party, CAST('paid' AS CHAR) AS status, CAST(p.method AS CHAR) AS method,
     CAST(p.note AS CHAR) AS detail
   FROM pickup_payouts p LEFT JOIN users u ON u.id = p.pickup_point_id`;
+
+const REFUNDS_SQL = `SELECT 'refund' AS kind, rf.id, rf.refunded_at AS at, rf.amount,
+    CAST(o.tracking_number AS CHAR) AS order_ref, CAST(rf.reference AS CHAR) AS reference,
+    CAST(o.customer_name AS CHAR) AS party, CAST('refunded' AS CHAR) AS status, CAST(rf.method AS CHAR) AS method,
+    CAST(rf.reason AS CHAR) AS detail
+  FROM order_refunds rf LEFT JOIN orders o ON o.id = rf.order_id`;
 
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -86,18 +93,24 @@ export class TransactionsService {
 
   async list(query: any) {
     const f = parseTxQuery(query);
-    try {
-      return await this.run(f, true);
-    } catch (err: any) {
-      // Avant la migration 024 : journal sans les versements
-      if (!/pickup_payouts/.test(String(err?.message))) throw err;
-      return this.run(f, false);
+    // Tables récentes absentes (avant les migrations 024, 025) : journal sans elles
+    let withPayouts = true;
+    let withRefunds = true;
+    for (;;) {
+      try {
+        return await this.run(f, withPayouts, withRefunds);
+      } catch (err: any) {
+        const msg = String(err?.message);
+        if (withRefunds && /order_refunds/.test(msg)) withRefunds = false;
+        else if (withPayouts && /pickup_payouts/.test(msg)) withPayouts = false;
+        else throw err;
+      }
     }
   }
 
-  private async run(f: ReturnType<typeof parseTxQuery>, withPayouts: boolean) {
+  private async run(f: ReturnType<typeof parseTxQuery>, withPayouts: boolean, withRefunds = true) {
     const pool = this.db.getPool();
-    const union = [PAYMENTS_SQL, ATTEMPTS_SQL, ...(withPayouts ? [PAYOUTS_SQL] : [])].join('\nUNION ALL\n');
+    const union = [PAYMENTS_SQL, ATTEMPTS_SQL, ...(withPayouts ? [PAYOUTS_SQL] : []), ...(withRefunds ? [REFUNDS_SQL] : [])].join('\nUNION ALL\n');
     const { where, params } = txWhere(f);
     const listWhere = f.kind ? [...where, 't.kind = ?'] : where;
     const listParams = f.kind ? [...params, f.kind] : params;
@@ -122,6 +135,8 @@ export class TransactionsService {
         paid_out: Number(by('payout').amount) || 0,
         paid_out_count: Number(by('payout').n) || 0,
         attempts_count: Number(by('attempt').n) || 0,
+        refunded: Number(by('refund').amount) || 0,
+        refunded_count: Number(by('refund').n) || 0,
       },
       payouts_available: withPayouts,
       page: f.page,

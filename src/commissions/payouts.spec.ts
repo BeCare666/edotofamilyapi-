@@ -38,12 +38,13 @@ describe('Versements : règles', () => {
     expect(money(0, 0, 50).balance).toBe(0);
   });
 
-  it('avant la migration 024 : versé = 0, rien ne casse', async () => {
+  it('avant les migrations 024 et 025 : versé = 0, aucune demande, rien ne casse', async () => {
     const { db } = fakeDb((sql) => {
       if (sql.includes('FROM pickup_payouts')) throw new Error("Table 'pickup_payouts' doesn't exist");
+      if (sql.includes('FROM pickup_withdrawal_requests')) throw new Error("Table 'pickup_withdrawal_requests' doesn't exist");
       return [{ earned_orders: 300, earned_kits: 200 }];
     });
-    expect(await pointMoney(db.getPool(), 8)).toEqual({ earned: 500, paid: 0, balance: 500, payouts: [] });
+    expect(await pointMoney(db.getPool(), 8)).toEqual({ earned: 500, paid: 0, balance: 500, pending: 0, available: 500, payouts: [], requests: [] });
   });
 });
 

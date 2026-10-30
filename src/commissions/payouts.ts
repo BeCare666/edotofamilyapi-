@@ -93,5 +93,41 @@ export async function pointMoney(pool: any, pointId: number) {
   } catch (err: any) {
     if (!/pickup_payouts/.test(String(err?.message))) throw err;
   }
-  return { ...money(e?.earned_orders, e?.earned_kits, paid), payouts };
+  // Demandes de retrait (migration 025) : le montant en attente n'est plus disponible pour une nouvelle demande
+  let requests: any[] = [];
+  try {
+    const [rows]: any = await pool.query(
+      `SELECT id, amount, method, account, note, status, admin_note,
+              DATE_FORMAT(created_at, '%Y-%m-%dT%H:%i:%sZ') AS created_at, DATE_FORMAT(decided_at, '%Y-%m-%dT%H:%i:%sZ') AS decided_at
+       FROM pickup_withdrawal_requests WHERE pickup_point_id = ? ORDER BY id DESC LIMIT 50`,
+      [pointId],
+    );
+    requests = (rows || []).map(requestRow);
+  } catch (err: any) {
+    if (!/pickup_withdrawal_requests/.test(String(err?.message))) throw err;
+  }
+  const m = money(e?.earned_orders, e?.earned_kits, paid);
+  const pending = requests.filter((r) => r.status === 'pending').reduce((s, r) => s + r.amount, 0);
+  return { ...m, pending, available: Math.max(0, m.balance - pending), payouts, requests };
 }
+
+export const REQUEST_STATUS_LABELS: Record<string, string> = {
+  pending: 'En attente',
+  paid: 'Payée',
+  rejected: 'Refusée',
+  cancelled: 'Annulée',
+};
+
+export const requestRow = (r: any) => ({
+  id: Number(r.id),
+  amount: Number(r.amount),
+  method: r.method,
+  method_label: PAYOUT_METHODS[r.method] ?? r.method,
+  account: r.account ?? null,
+  note: r.note ?? null,
+  status: r.status,
+  status_label: REQUEST_STATUS_LABELS[r.status] ?? r.status,
+  admin_note: r.admin_note ?? null,
+  created_at: r.created_at ?? null,
+  decided_at: r.decided_at ?? null,
+});
