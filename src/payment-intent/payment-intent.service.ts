@@ -10,9 +10,10 @@ import { Readable } from 'stream';
 import { sendVerificationEmail } from '../auth/mailer';
 import { randomInt } from 'crypto';
 import { verifyFeexPayForOrder } from './feexpay-verify';
-import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PICKUP_OTP_TTL_MS } from '../orders/pickup-otp-email';
+import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT } from '../orders/pickup-otp-email';
 import { safeError } from '../common/request-log';
 import { INVOICE_STORAGE_TYPE } from './invoice-storage';
+import { setting } from '../platform-settings/platform-settings.store';
 @Injectable()
 export class PaymentIntentService {
   private pool: Pool;
@@ -141,7 +142,7 @@ export class PaymentIntentService {
 
       // 4) OTP
       const otp = randomInt(100000, 1000000).toString();
-      const expiresAt = new Date(Date.now() + PICKUP_OTP_TTL_MS);
+      const expiresAt = new Date(Date.now() + setting('order.pickup_otp_ttl_hours') * 3600000);
       await conn.query(
         `UPDATE orders SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, updated_at=NOW() WHERE id=?`,
         [otp, expiresAt, orderId]

@@ -1,5 +1,6 @@
-import { RATE_LIMIT_MAX, RATE_LIMIT_WINDOW_MS } from './ai-chat.constants';
+import { RATE_LIMIT_WINDOW_MS } from './ai-chat.constants';
 import { realClientIp } from '../../common/client-ip';
+import { setting } from '../../platform-settings/platform-settings.store';
 
 // Limiteur en mémoire par IP (fenêtre glissante). Suffisant pour une instance unique ;
 // à remplacer par un stockage partagé si l'API tourne sur plusieurs instances.
@@ -7,7 +8,7 @@ const hits = new Map<string, number[]>();
 
 export function consumeRateLimit(key: string, now = Date.now()): boolean {
   const recent = (hits.get(key) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
-  if (recent.length >= RATE_LIMIT_MAX) {
+  if (recent.length >= setting('ai.rate_limit_max')) {
     hits.set(key, recent);
     return false;
   }

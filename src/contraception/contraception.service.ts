@@ -9,7 +9,6 @@ import { TeleconsultationService } from '../teleconsultation/teleconsultation.se
 import { CONTRACEPTION_DEFAULTS } from './contraception-defaults';
 import {
   CONCLUSION_LABEL,
-  MAX_OPEN_REQUESTS,
   OPEN_STATUSES,
   REQUEST_STATUSES,
   RequestStatus,
@@ -19,6 +18,7 @@ import {
   parseList,
   slugify,
 } from './contraception-rules';
+import { setting } from '../platform-settings/platform-settings.store';
 
 // Adoption des contraceptifs (21/10/2026) : fiches (modifiables par le super admin) et demandes en 7 étapes.
 // Étapes 3 à 6 : téléconsultation (rendez-vous, compte rendu, orientation vers un centre, prise en charge).
@@ -200,7 +200,7 @@ export class ContraceptionService {
       ...OPEN_STATUSES,
     ]);
     if (num(same)) throw new ConflictException('Vous avez déjà une demande en cours pour ce contraceptif : suivez-la dans votre dashboard.');
-    if (num(open) >= MAX_OPEN_REQUESTS) throw new BadRequestException(`Vous avez déjà ${MAX_OPEN_REQUESTS} demandes en cours.`);
+    if (num(open) >= setting('contraception.max_open_requests')) throw new BadRequestException(`Vous avez déjà ${setting('contraception.max_open_requests')} demandes en cours.`);
     const [res]: any = await this.pool.query(
       `INSERT INTO contraception_requests (user_id, method_id, requires_doctor, status, youth_note) VALUES (?, ?, ?, 'pending', ?)`,
       [userId, methodId, Number(m.requires_doctor) === 1 ? 1 : 0, sealHealth(note)],

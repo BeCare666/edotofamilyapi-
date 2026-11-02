@@ -1,5 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
-import { ageOn, beninToday, MAX_AGE, MIN_AGE } from '../common/field-rules';
+import { ageOn, beninToday, maxAge, minAge } from '../common/field-rules';
 
 // Ciblage d'une campagne (16/10/2026) : sexe (les deux, féminin seulement, masculin seulement)
 // et tranche d'âge. Une personne hors cible ne peut ni demander ni retirer un kit.
@@ -11,8 +11,8 @@ export type Target = { target_sex: TargetSex; target_age_min: number | null; tar
 const ageValue = (v: unknown, label: string): number | null => {
   if (v === null || v === undefined || v === '') return null;
   const n = Number(v);
-  if (!Number.isInteger(n) || n < MIN_AGE || n > MAX_AGE) {
-    throw new BadRequestException(`${label} doit être un nombre entier entre ${MIN_AGE} et ${MAX_AGE}.`);
+  if (!Number.isInteger(n) || n < minAge() || n > maxAge()) {
+    throw new BadRequestException(`${label} doit être un nombre entier entre ${minAge()} et ${maxAge()}.`);
   }
   return n;
 };

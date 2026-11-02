@@ -1,3 +1,4 @@
+import { setting } from '../platform-settings/platform-settings.store';
 // Gabarit de l'e-mail contenant le code de retrait (extrait tel quel de payment-intent.service)
 export function buildPickupOtpEmail(trackingNumber: string, otp: string): string {
   return `
@@ -23,7 +24,7 @@ export function buildPickupOtpEmail(trackingNumber: string, otp: string): string
     </div>
 
     <p style="color: #6B7280; font-size: 14px; line-height: 1.6;">
-      Ce code est valable pendant <strong>48 heures</strong> et ne peut être utilisé qu'une seule fois.<br/>
+      Ce code est valable pendant <strong>${setting('order.pickup_otp_ttl_hours')} heures</strong> et ne peut être utilisé qu'une seule fois.<br/>
       Présentez-le au livreur ou au point de retrait lors de la récupération.
     </p>
   </div>

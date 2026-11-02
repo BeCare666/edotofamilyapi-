@@ -1,5 +1,6 @@
 import { createHash } from 'crypto';
 import { realClientIp } from '../common/client-ip';
+import { settingOn } from '../platform-settings/platform-settings.store';
 
 // Une seule demande de kit par personne et par campagne (demande du 06/10/2026), même en changeant
 // de compte. Chaque demande enregistre des « marques » : compte, e-mail, appareil (identifiant tiré
@@ -32,7 +33,7 @@ const FINGERPRINT_RE = /^[a-f0-9]{64}$/;
 
 export const guardHash = (kind: GuardKind, value: string) => createHash('sha256').update(`${kind}:${value}`).digest('hex');
 
-const enabled = (name: string) => String(process.env[name] ?? '').toLowerCase() !== 'off';
+// IP et empreinte : réglables par le super admin (02/11/2026, Paramètres → Avancés) ; les variables ci-dessus servent de valeur par défaut
 
 // Adresse du client : CF-Connecting-IP posé par Cloudflare, sinon la connexion (voir common/client-ip.ts)
 export function clientIpFrom(req: any): string | null {
@@ -47,10 +48,10 @@ export function buildGuardKeys(input: GuardInput): GuardKey[] {
   if (typeof input.deviceId === 'string' && DEVICE_ID_RE.test(input.deviceId)) {
     keys.push({ kind: 'device', hash: guardHash('device', input.deviceId) });
   }
-  if (enabled('CAMPAIGN_GUARD_FINGERPRINT') && typeof input.fingerprint === 'string' && FINGERPRINT_RE.test(input.fingerprint)) {
+  if (settingOn('campaign.guard_fingerprint') && typeof input.fingerprint === 'string' && FINGERPRINT_RE.test(input.fingerprint)) {
     keys.push({ kind: 'fingerprint', hash: guardHash('fingerprint', input.fingerprint) });
   }
-  if (enabled('CAMPAIGN_GUARD_IP') && input.ip) {
+  if (settingOn('campaign.guard_ip') && input.ip) {
     keys.push({ kind: 'ip', hash: guardHash('ip', input.ip) });
   }
   return keys;

@@ -15,14 +15,11 @@ import { HEALTH_FIELDS, openFields, openHealth, sealHealth } from '../common/hea
 import { logHealthAccess } from '../common/health-access';
 import {
   APPOINTMENT_STATUS_LABEL,
-  BOOKING_WINDOW_DAYS,
-  DEFAULT_SLOT_MINUTES,
   INVITATION_TTL_DAYS,
   MODE_LABEL,
   Mode,
   ORGANIZATION_LABEL,
   REFERRAL_STATUS_LABEL,
-  REFERRAL_TTL_DAYS,
   REQUEST_TYPES,
   URGENCY_LABEL,
   addDays,
@@ -65,8 +62,9 @@ import {
 import { iso, num, utcSql } from './tc-db';
 import { bumpTokenVersion } from '../auth/session';
 import { CONCLUSIONS, CONCLUSION_LABEL } from '../contraception/contraception-rules';
+import { setting } from '../platform-settings/platform-settings.store';
 
-const MAX_UPCOMING_PER_PATIENT = 2; // rendez-vous à venir par jeune (évite les réservations en série)
+// Rendez-vous à venir par jeune : paramètre « tc.max_upcoming_per_patient » (2 par défaut, réglable par le super admin)
 
 @Injectable()
 export class TeleconsultationService {
@@ -151,7 +149,7 @@ export class TeleconsultationService {
         busy: busy
           .filter((b: any) => Number(b.doctor_id) === Number(d.id))
           .map((b: any) => ({ starts_at: new Date(b.starts_at), ends_at: new Date(b.ends_at) })),
-        slotMinutes: Number(d.slot_minutes) || DEFAULT_SLOT_MINUTES,
+        slotMinutes: Number(d.slot_minutes) || setting('tc.default_slot_minutes'),
         fromDay,
         toDay,
         mode,
@@ -160,9 +158,9 @@ export class TeleconsultationService {
     // Médecin E.doto family : seulement aux heures où aucun autre médecin n'est libre (20/10/2026)
     const others = per
       .filter((p) => Number(p.doctor.is_house) !== 1)
-      .flatMap((p) => p.slots.map((start) => ({ start, minutes: Number(p.doctor.slot_minutes) || DEFAULT_SLOT_MINUTES })));
+      .flatMap((p) => p.slots.map((start) => ({ start, minutes: Number(p.doctor.slot_minutes) || setting('tc.default_slot_minutes') })));
     for (const p of per) {
-      if (Number(p.doctor.is_house) === 1) p.slots = houseGaps(p.slots, Number(p.doctor.slot_minutes) || DEFAULT_SLOT_MINUTES, others);
+      if (Number(p.doctor.is_house) === 1) p.slots = houseGaps(p.slots, Number(p.doctor.slot_minutes) || setting('tc.default_slot_minutes'), others);
     }
     return per;
   }
@@ -174,7 +172,7 @@ export class TeleconsultationService {
   async availability(q: any) {
     const mode = q?.mode ? parseMode(q.mode) : null;
     const today = beninDayOf(new Date());
-    const last = addDays(today, BOOKING_WINDOW_DAYS - 1);
+    const last = addDays(today, setting('tc.booking_window_days') - 1);
     const fromDay = isDay(q?.from) && q.from > today ? q.from : today;
     const toDay = isDay(q?.to) && q.to < last ? q.to : last;
     const per = await this.slotsByDoctor(fromDay, toDay < fromDay ? fromDay : toDay, mode);
@@ -201,7 +199,7 @@ export class TeleconsultationService {
           name: d.name,
           title: d.title,
           bio: d.bio,
-          minutes: Number(d.slot_minutes) || DEFAULT_SLOT_MINUTES,
+          minutes: Number(d.slot_minutes) || setting('tc.default_slot_minutes'),
           is_house: Number(d.is_house) === 1,
         }))
         .sort((a, b) => Number(a.is_house) - Number(b.is_house) || a.name.localeCompare(b.name)),
@@ -254,8 +252,8 @@ export class TeleconsultationService {
       `SELECT COUNT(*) AS n FROM tc_appointments WHERE patient_user_id = ? AND status = 'booked' AND ends_at > UTC_TIMESTAMP()`,
       [userId],
     );
-    if (num(upcoming) >= MAX_UPCOMING_PER_PATIENT) {
-      throw new BadRequestException(`Vous avez déjà ${MAX_UPCOMING_PER_PATIENT} rendez-vous à venir. Annulez-en un pour en prendre un autre.`);
+    if (num(upcoming) >= setting('tc.max_upcoming_per_patient')) {
+      throw new BadRequestException(`Vous avez déjà ${setting('tc.max_upcoming_per_patient')} rendez-vous à venir. Annulez-en un pour en prendre un autre.`);
     }
 
     // Médecin choisi par le jeune (facultatif), sinon le moins chargé des médecins libres à cette heure
@@ -278,7 +276,7 @@ export class TeleconsultationService {
     free.sort((a, b) => (load.get(Number(a.id)) ?? 0) - (load.get(Number(b.id)) ?? 0) || Number(a.id) - Number(b.id));
 
     for (const doctor of free) {
-      const minutes = Number(doctor.slot_minutes) || DEFAULT_SLOT_MINUTES;
+      const minutes = Number(doctor.slot_minutes) || setting('tc.default_slot_minutes');
       const end = new Date(start.getTime() + minutes * 60000);
       const reference = newReference();
       const room = mode === 'video' ? newJitsiRoom(reference) : null;
@@ -817,7 +815,7 @@ export class TeleconsultationService {
     contraceptionRequestId?: number | null;
     intro?: string | null;
   }) {
-    const expires = new Date(Date.now() + REFERRAL_TTL_DAYS * 86400000);
+    const expires = new Date(Date.now() + setting('tc.referral_ttl_days') * 86400000);
     let token = '';
     let code = '';
     let refId = 0;

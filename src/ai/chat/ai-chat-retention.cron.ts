@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { DatabaseService } from '../../database/database.services';
+import { setting } from '../../platform-settings/platform-settings.store';
 
 // Conservation du journal du chat IA (audit sécurité 2.5, 29/10/2026) : 90 jours, puis suppression.
 // Chaque nuit à 3 h (heure du serveur), par paquets pour ne pas bloquer la base.
@@ -20,12 +21,12 @@ export class AiChatRetentionCron {
       for (let i = 0; i < 50; i++) {
         const [res]: any = await pool.query(
           `DELETE FROM ai_chat_logs WHERE created_at < DATE_SUB(UTC_TIMESTAMP(), INTERVAL ? DAY) LIMIT 1000`,
-          [AI_LOG_RETENTION_DAYS],
+          [setting('ai.log_retention_days')],
         );
         total += Number(res?.affectedRows || 0);
         if (!res?.affectedRows || res.affectedRows < 1000) break;
       }
-      if (total) this.logger.log(`Journal du chat IA : ${total} échange(s) de plus de ${AI_LOG_RETENTION_DAYS} jours supprimé(s).`);
+      if (total) this.logger.log(`Journal du chat IA : ${total} échange(s) de plus de ${setting('ai.log_retention_days')} jours supprimé(s).`);
     } catch (err: any) {
       this.logger.error(`Purge du journal du chat IA impossible : ${err?.message}`);
     }

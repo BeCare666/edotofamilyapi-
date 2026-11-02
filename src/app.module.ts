@@ -34,6 +34,7 @@ import { TeleconsultationModule } from './teleconsultation/teleconsultation.modu
 import { ContraceptionModule } from './contraception/contraception.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
+import { PlatformSettingsModule } from './platform-settings/platform-settings';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { ClientThrottlerGuard, MINUTE } from './common/client-throttler.guard';
@@ -82,7 +83,8 @@ import { AdminAuditInterceptor } from './common/admin-audit';
     TeleconsultationModule,
     ContraceptionModule,
     AdminNotificationsModule,
-    SiteAppearanceModule
+    SiteAppearanceModule,
+    PlatformSettingsModule
     //DatabaseService
   ],
   controllers: [],

@@ -1,5 +1,6 @@
 import { BadRequestException } from '@nestjs/common';
 import { createHash, randomBytes, randomInt } from 'crypto';
+import { setting } from '../platform-settings/platform-settings.store';
 
 // Téléconsultation (19/10/2026) : règles pures (créneaux, codes, libellés), sans base de données.
 // Heures saisies et affichées à l'heure du Bénin (UTC+1, sans heure d'été) ; base en UTC.
@@ -179,7 +180,7 @@ export function freeSlots(opts: {
 }): Date[] {
   const { rules, timeOff, busy, slotMinutes, fromDay, toDay, mode } = opts;
   const now = opts.now ?? new Date();
-  const earliest = now.getTime() + MIN_LEAD_MINUTES * 60000;
+  const earliest = now.getTime() + setting('tc.min_lead_hours') * 60 * 60000;
   const today = beninDayOf(now);
   const todayClosed = earliest > beninToUtc(today, toMinutes(SAME_DAY_CUTOFF)).getTime();
   const out: Date[] = [];

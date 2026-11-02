@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { setting } from '../platform-settings/platform-settings.store';
 
 // Règles de saisie communes (16/10/2026). Les mêmes règles sont appliquées dans le navigateur
 // (site : lib/fieldRules.js, admin : utils/field-rules.ts) ; l'API reste la référence, car un
@@ -96,6 +97,9 @@ export function ageOn(birthDate: string, day: string = beninToday()): number {
 
 export const MIN_AGE = 10;
 export const MAX_AGE = 100;
+// Âges en vigueur (02/11/2026) : réglables par le super admin (Paramètres → Avancés), MIN_AGE / MAX_AGE par défaut
+export const minAge = () => setting('signup.min_age');
+export const maxAge = () => setting('signup.max_age');
 // Date de naissance : vraie date, ni future, âge entre 10 et 100 ans
 export function cleanBirthDate(v: unknown): string {
   const s = str(v).trim();
@@ -105,7 +109,7 @@ export function cleanBirthDate(v: unknown): string {
   if (Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s) fail('Date de naissance non valide.');
   if (s > beninToday()) fail('La date de naissance ne peut pas être dans le futur.');
   const age = ageOn(s);
-  if (age < MIN_AGE) fail(`Il faut avoir au moins ${MIN_AGE} ans.`);
-  if (age > MAX_AGE) fail('Date de naissance non valide.');
+  if (age < minAge()) fail(`Il faut avoir au moins ${minAge()} ans.`);
+  if (age > maxAge()) fail('Date de naissance non valide.');
   return s;
 }

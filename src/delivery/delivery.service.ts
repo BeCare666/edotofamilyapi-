@@ -14,7 +14,6 @@ import {
   DeliverySettings,
   generateCourierCredentials,
   isDeliveryConfigured,
-  MAX_FAILED_ATTEMPTS,
   normalizePhone,
   parseCoordinates,
   parseDeviceId,
@@ -23,6 +22,7 @@ import {
   sha256,
   whatsappUrl,
 } from './delivery-rules';
+import { setting } from '../platform-settings/platform-settings.store';
 
 // Itinéraire OSRM (même serveur que la carte du site client).
 // Sans OSRM_CAR_URL : serveur de démonstration FOSSGIS, réservé au DÉVELOPPEMENT
@@ -287,10 +287,10 @@ export class DeliveryService {
     await pool.query(`UPDATE custom_deliveries SET failed_attempts = failed_attempts + 1 WHERE id = ?`, [id]);
     await pool.query(
       `UPDATE custom_deliveries SET link_blocked = 1 WHERE id = ? AND failed_attempts >= ?`,
-      [id, MAX_FAILED_ATTEMPTS],
+      [id, setting('delivery.max_failed_attempts')],
     );
     const [rows]: any = await pool.query(`SELECT failed_attempts FROM custom_deliveries WHERE id = ?`, [id]);
-    return Math.max(0, MAX_FAILED_ATTEMPTS - Number(rows?.[0]?.failed_attempts || 0));
+    return Math.max(0, setting('delivery.max_failed_attempts') - Number(rows?.[0]?.failed_attempts || 0));
   }
 
   private failureMessage(prefix: string, remaining: number) {

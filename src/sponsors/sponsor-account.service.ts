@@ -10,9 +10,10 @@ import { randomBytes } from 'crypto';
 import { DatabaseService } from '../database/database.services';
 import { sendVerificationEmail } from '../auth/mailer';
 import { bumpTokenVersion, signEmailVerification } from '../auth/session';
-import { INVITATION_TTL_DAYS, escapeHtml, newInvitationToken, parseNewPassword, parseSponsorSignup, sha256 } from './sponsor-rules';
+import { escapeHtml, newInvitationToken, parseNewPassword, parseSponsorSignup, sha256 } from './sponsor-rules';
 import { safeError } from '../common/request-log';
 import { recordConsent, requireConsent } from '../users/consent';
+import { setting } from '../platform-settings/platform-settings.store';
 
 const ROLE_LABEL: Record<string, string> = {
   customer: 'client',
@@ -38,7 +39,7 @@ function invitationEmail(name: string, link: string) {
       <a href="${link}" style="display: inline-block; margin: 24px 0; padding: 14px 28px; background: #c2185b; color: #ffffff; border-radius: 12px; text-decoration: none; font-weight: 600;">
         Activer mon espace sponsor
       </a>
-      <p style="font-size: 13px; color: #9a8e80;">Ce lien est valable ${INVITATION_TTL_DAYS} jours.</p>
+      <p style="font-size: 13px; color: #9a8e80;">Ce lien est valable ${setting('sponsor.invitation_ttl_days')} jours.</p>
     </div>
   </div>`;
 }
@@ -95,7 +96,7 @@ export class SponsorAccountService {
     }
 
     const { token, tokenHash } = newInvitationToken();
-    const expires = new Date(Date.now() + INVITATION_TTL_DAYS * 24 * 60 * 60 * 1000);
+    const expires = new Date(Date.now() + setting('sponsor.invitation_ttl_days') * 24 * 60 * 60 * 1000);
     await pool.query(
       `INSERT INTO sponsor_invitations (sponsor_id, token_hash, expires_at) VALUES (?, ?, ?)
        ON DUPLICATE KEY UPDATE token_hash = VALUES(token_hash), expires_at = VALUES(expires_at), created_at = NOW()`,
@@ -114,7 +115,7 @@ export class SponsorAccountService {
       console.error('Erreur e-mail invitation sponsor :', safeError(e));
       throw new InternalServerErrorException("L'e-mail d'invitation n'a pas pu être envoyé. Réessayez.");
     }
-    return { success: true, message: `Invitation envoyée à ${sponsor.email} (lien valable ${INVITATION_TTL_DAYS} jours).` };
+    return { success: true, message: `Invitation envoyée à ${sponsor.email} (lien valable ${setting('sponsor.invitation_ttl_days')} jours).` };
   }
 
   private async findInvitation(token: any) {

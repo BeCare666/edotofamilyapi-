@@ -1,4 +1,5 @@
 import { BadRequestException, Body, Controller, Delete, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { FILE_CEILING_BYTES, setting } from '../platform-settings/platform-settings.store';
 import { cleanBirthDate, cleanName, cleanOrgName, cleanPhone, cleanSex } from '../common/field-rules';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
@@ -54,11 +55,15 @@ export class ProfilePhotoController {
 
   @UseGuards(JwtAuthGuard)
   @Post('photo')
-  @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage(), limits: { fileSize: PHOTO_MAX_BYTES, files: 1 } }))
+  @UseInterceptors(FileInterceptor('photo', { storage: memoryStorage(), limits: { fileSize: FILE_CEILING_BYTES, files: 1 } }))
   async upload(@UploadedFile() file: Express.Multer.File, @Req() req: any) {
     const userId = Number(req.user?.id);
     if (!userId) throw new BadRequestException('Compte introuvable.');
     if (!file) throw new BadRequestException('Choisissez une photo.');
+    // Taille réglable par le super admin (02/11/2026) ; plafond technique de 10 Mo au démarrage
+    if (file.size > setting('files.photo_max_mb') * 1024 * 1024) {
+      throw new BadRequestException(`Photo trop lourde : ${setting('files.photo_max_mb')} Mo au maximum.`);
+    }
     if (!PHOTO_TYPES.includes(file.mimetype) || !isRealImage(file.buffer)) {
       throw new BadRequestException('Format non accepté : choisissez une photo JPEG, PNG ou WebP.');
     }

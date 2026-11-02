@@ -30,13 +30,14 @@ import {
 } from './order-access';
 import { randomInt } from 'crypto';
 import { sendVerificationEmail } from '../auth/mailer';
-import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PICKUP_OTP_TTL_MS } from './pickup-otp-email';
+import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT } from './pickup-otp-email';
 import { DeliveryService } from '../delivery/delivery.service';
 import { parseCustomDelivery } from '../delivery/delivery-rules';
 import { ORDER_COMMISSION_SET_SQL } from '../commissions/commission-rules';
 import { ORDER_WITHDRAWN_SQL, assertCanChangeProcessing, stageCountsSql, stageSql } from './order-stage';
 import { safeError } from '../common/request-log';
 import { signedInvoiceUrl } from '../payment-intent/invoice-storage';
+import { setting } from '../platform-settings/platform-settings.store';
 
 // Le retrait est effectué quand le point de retrait a validé l'OTP (verifyOtp) :
 // otp_used = 1, order_status = 'order-completed', delivered_at renseigné.
@@ -383,7 +384,7 @@ export class OrdersService {
     }
 
     const otp = randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + PICKUP_OTP_TTL_MS);
+    const expiresAt = new Date(Date.now() + setting('order.pickup_otp_ttl_hours') * 3600000);
 
     // Conditions revérifiées dans le WHERE : si le point de retrait valide entre-temps,
     // ou si un autre appel a déjà régénéré le code, rien n'est modifié.

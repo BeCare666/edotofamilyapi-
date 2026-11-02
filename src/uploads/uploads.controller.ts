@@ -1,4 +1,5 @@
 import { Controller, Post, UploadedFiles, UseInterceptors, BadRequestException, UseGuards } from '@nestjs/common';
+import { FILE_CEILING_BYTES, FILES_CEILING, setting } from '../platform-settings/platform-settings.store';
 import { JwtAuthGuard } from '../auth/jwt-auth.guard';
 import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN, STORE_OWNER, STAFF } from '../auth/roles.decorator';
@@ -51,18 +52,23 @@ export class UploadsController {
   @Roles(SUPER_ADMIN, STORE_OWNER, STAFF)
   @Post()
   @UseInterceptors(
-    FilesInterceptor('attachment', ATTACHMENT_MAX_FILES, {
+    FilesInterceptor('attachment', FILES_CEILING, {
       storage: memoryStorage(),
-      limits: { fileSize: ATTACHMENT_MAX_BYTES, files: ATTACHMENT_MAX_FILES },
+      limits: { fileSize: FILE_CEILING_BYTES, files: FILES_CEILING },
     }),
   )
   async uploadFile(@UploadedFiles() files: Express.Multer.File[]) {
     if (!files || files.length === 0) {
       throw new BadRequestException('No files uploaded');
     }
-    const refused = files.filter((f) => !isAcceptedAttachment(f));
+    // Taille et nombre réglables par le super admin (02/11/2026) ; plafonds techniques au démarrage
+    const maxMb = setting('files.attachment_max_mb');
+    if (files.length > setting('files.attachment_max_files')) {
+      throw new BadRequestException(`${setting('files.attachment_max_files')} fichiers au plus par envoi.`);
+    }
+    const refused = files.filter((f) => !isAcceptedAttachment(f) || f.size > maxMb * 1024 * 1024);
     if (refused.length) {
-      throw new BadRequestException('Format non accepté : JPEG, PNG, WebP ou PDF de 5 Mo au plus.');
+      throw new BadRequestException(`Format non accepté : JPEG, PNG, WebP ou PDF de ${maxMb} Mo au plus.`);
     }
 
     const uploaded = [];

@@ -5,7 +5,7 @@ import { RegisterDto } from './dto/register.dto';
 import { sendVerificationEmail } from '../auth/mailer';
 import { randomInt } from 'crypto';
 import { maskOtp } from '../common/sanitize';
-import { buildCampaignOtpEmail, CAMPAIGN_OTP_EMAIL_SUBJECT, CAMPAIGN_OTP_TTL_MS } from './campaign-otp-email';
+import { buildCampaignOtpEmail, CAMPAIGN_OTP_EMAIL_SUBJECT } from './campaign-otp-email';
 import { statusSql } from './campaign-rules';
 import { KIT_AMOUNT_SQL } from '../commissions/commission-rules';
 import { campaignExtraColumns, decorateCampaign } from './campaign-sql';
@@ -15,6 +15,7 @@ import { readTarget, targetLabel, targetMismatch } from './campaign-target';
 import { pickupCityOf } from './pickup-city';
 import { cityAmong, cleanPosition, normCity } from '../common/geo-city';
 import { cleanBirthDate, cleanSex } from '../common/field-rules';
+import { setting } from '../platform-settings/platform-settings.store';
 @Injectable()
 export class CampaignsService {
   constructor(private readonly databaseService: DatabaseService) { }
@@ -261,7 +262,7 @@ export class CampaignsService {
 
     // 6) Demande + marques dans une transaction : la clé primaire des marques bloque les doublons simultanés
     const otp = randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + CAMPAIGN_OTP_TTL_MS);
+    const expiresAt = new Date(Date.now() + setting('campaign.otp_ttl_hours') * 3600000);
     const conn: any = await pool.getConnection();
     let registrationId: number;
     try {
@@ -515,7 +516,7 @@ export class CampaignsService {
     }
 
     const otp = randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + CAMPAIGN_OTP_TTL_MS);
+    const expiresAt = new Date(Date.now() + setting('campaign.otp_ttl_hours') * 3600000);
     // Conditions revérifiées dans le WHERE (validation concurrente par le point de retrait)
     const [result]: any = await pool.query(
       `UPDATE campaign_registrations
