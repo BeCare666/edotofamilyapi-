@@ -442,6 +442,8 @@ async getUserFacets(role?: string) {
 
     // Notifications push et rappel contraception du compte (migration 028, 04/11/2026)
     await pool.query('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
+    // Choix par sujet (migration 029, 05/11/2026) ; table absente avant db:setup : ignoré
+    await pool.query('DELETE FROM push_preferences WHERE user_id = ?', [id]).catch((e: any) => { if (e?.code !== 'ER_NO_SUCH_TABLE') throw e; });
     await pool.query('DELETE FROM contraception_reminders WHERE user_id = ?', [id]);
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
     return `This action removes user #${id}`;

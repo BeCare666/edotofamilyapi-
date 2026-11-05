@@ -9,11 +9,21 @@ export class PushSubscribeDto {
   @IsOptional() @IsScalar() endpoint: string;
   @IsOptional() @IsScalar() p256dh: string;
   @IsOptional() @IsScalar() auth: string;
+  // Correction A2 (05/11/2026) : renvoi discret par le site quand le téléphone se croit abonné, sans notification d'activation
+  @IsOptional() @IsScalar() resync: boolean;
 }
 
 @StrictDto()
 export class PushUnsubscribeDto {
   @IsOptional() @IsScalar() endpoint: string;
+}
+
+// Site Paramètres (05/11/2026, décision P4) : notifications par sujet
+@StrictDto()
+export class PushPreferencesDto {
+  @IsOptional() @IsScalar() orders: boolean;
+  @IsOptional() @IsScalar() appointments: boolean;
+  @IsOptional() @IsScalar() campaigns: boolean;
 }
 
 // Site dashboard jeune, Ma contraception : rappel à rythme libre

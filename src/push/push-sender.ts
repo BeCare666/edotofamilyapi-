@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import * as webpush from 'web-push';
-import { PushMessage } from './push-messages';
+import { PUSH_TOPICS, PushMessage, PushTopic } from './push-messages';
 
 // Envoi des notifications push (04/11/2026, rapports/PLAN_NOTIFICATIONS_PUSH.md).
 // Clés VAPID dans l'environnement (Render) : VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY, VAPID_SUBJECT.
@@ -63,9 +63,28 @@ async function sendTo(pool: any, subs: Sub[], msg: PushMessage): Promise<number>
 }
 
 /** À tous les appareils d'un compte. Ne lève jamais d'erreur. */
+/** Choix par sujet du compte (décision P4) : sans ligne, tout est activé. */
+// Table absente (migration 029 pas encore lancée) : tout reste activé, rien n'est bloqué.
+export async function readPushPreferences(pool: any, userId: number): Promise<Record<PushTopic, boolean>> {
+  let row: any = null;
+  try {
+    const [[r]]: any = await pool.query(
+      `SELECT orders, appointments, campaigns FROM push_preferences WHERE user_id = ? LIMIT 1`,
+      [Number(userId)],
+    );
+    row = r || null;
+  } catch (e: any) {
+    if (e?.code !== 'ER_NO_SUCH_TABLE') throw e;
+  }
+  const out = {} as Record<PushTopic, boolean>;
+  for (const t of PUSH_TOPICS) out[t] = row ? Number(row[t]) === 1 : true;
+  return out;
+}
+
 export async function pushToUser(pool: any, userId: number | null | undefined, msg: PushMessage): Promise<number> {
   try {
     if (!userId || !ready()) return 0;
+    if (msg.topic && !(await readPushPreferences(pool, Number(userId)))[msg.topic]) return 0;
     const [subs]: any = await pool.query(
       `SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?`,
       [Number(userId)],
@@ -77,17 +96,32 @@ export async function pushToUser(pool: any, userId: number | null | undefined, m
   }
 }
 
+// Condition SQL « ce sujet est coupé » ; le nom de colonne vient de la liste fixe PUSH_TOPICS, jamais de l'extérieur
+function topicOff(alias: string, topic?: PushTopic): string {
+  return topic && (PUSH_TOPICS as readonly string[]).includes(topic) ? `${alias}.${topic} = 0` : '1 = 0';
+}
+
 /** À tous les appareils abonnés (nouvelle campagne). Par lots pour ne pas tout charger d'un coup. */
 export async function pushToAll(pool: any, msg: PushMessage): Promise<number> {
   let sent = 0;
   try {
     if (!ready()) return 0;
     let lastId = 0;
+    let prefsTable = true;
     for (;;) {
       const [subs]: any = await pool.query(
-        `SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE id > ? ORDER BY id LIMIT 200`,
+        // Comptes ayant coupé ce sujet dans Paramètres (décision P4) : exclus
+        `SELECT s.id, s.endpoint, s.p256dh, s.auth FROM push_subscriptions s
+          WHERE s.id > ?
+            ${prefsTable ? `AND NOT EXISTS (SELECT 1 FROM push_preferences p WHERE p.user_id = s.user_id AND ${topicOff('p', msg.topic)})` : ''}
+          ORDER BY s.id LIMIT 200`,
         [lastId],
-      );
+      ).catch((e: any) => {
+        // Migration 029 pas encore lancée : envoi sans filtre, comme avant
+        if (e?.code === 'ER_NO_SUCH_TABLE' && prefsTable) { prefsTable = false; return [null]; }
+        throw e;
+      });
+      if (subs === null) continue;
       if (!subs?.length) break;
       sent += await sendTo(pool, subs, msg);
       lastId = subs[subs.length - 1].id;

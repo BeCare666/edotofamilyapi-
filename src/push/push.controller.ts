@@ -5,9 +5,9 @@ import { CUSTOMER, Roles } from '../auth/roles.decorator';
 import { Public } from '../auth/public.decorator';
 import { allowAttempt } from '../sponsors/sponsor-rules';
 import { DatabaseService } from '../database/database.services';
-import { endpointHash, pushPublicKey, pushToUser } from './push-sender';
-import { PUSH } from './push-messages';
-import { ContraceptionReminderDto, PushSubscribeDto, PushUnsubscribeDto } from './push-body.dto';
+import { endpointHash, pushPublicKey, pushToUser, readPushPreferences } from './push-sender';
+import { PUSH, PUSH_TOPICS } from './push-messages';
+import { ContraceptionReminderDto, PushPreferencesDto, PushSubscribeDto, PushUnsubscribeDto } from './push-body.dto';
 import { isDue, isValidDate, parseTime, Rhythm, RHYTHMS } from './reminder-rules';
 
 // Notifications push (04/11/2026, rapports/PLAN_NOTIFICATIONS_PUSH.md, étapes 1.4 et 1.4 bis)
@@ -46,9 +46,40 @@ export class PushController {
        ON DUPLICATE KEY UPDATE user_id = VALUES(user_id), endpoint = VALUES(endpoint), p256dh = VALUES(p256dh), auth = VALUES(auth)`,
       [userId, endpoint, endpointHash(endpoint), p256dh, auth],
     );
-    // Confirmation sur l'appareil : la personne voit tout de suite que cela fonctionne
-    void pushToUser(pool, userId, PUSH.test());
+    // Confirmation sur l'appareil : la personne voit tout de suite que cela fonctionne.
+    // Pas pour le renvoi discret du site (correction A2, 05/11/2026), qui ne fait que remettre la ligne en place.
+    if (body?.resync !== true) void pushToUser(pool, userId, PUSH.test());
     return { success: true };
+  }
+
+  // Choix des notifications par sujet (05/11/2026, décision P4) : le compte connecté ne lit et ne change que les siens
+  @UseGuards(JwtAuthGuard)
+  @Get('preferences')
+  async preferences(@Req() req: any) {
+    return readPushPreferences(this.db.getPool(), Number(req.user.id));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Put('preferences')
+  async savePreferences(@Req() req: any, @Body() body: PushPreferencesDto) {
+    const userId = Number(req.user.id);
+    if (!allowAttempt(`push-pref:${userId}`, 60, 60 * 60 * 1000)) {
+      throw new HttpException('Trop de tentatives. Réessayez dans une heure.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    const pool: any = this.db.getPool();
+    const current = await readPushPreferences(pool, userId);
+    const next: Record<string, number> = {};
+    for (const t of PUSH_TOPICS) {
+      const v = (body as any)?.[t];
+      if (v !== undefined && typeof v !== 'boolean') throw new BadRequestException('Choix invalide.');
+      next[t] = (v === undefined ? current[t] : v) ? 1 : 0;
+    }
+    await pool.query(
+      `INSERT INTO push_preferences (user_id, orders, appointments, campaigns) VALUES (?, ?, ?, ?)
+       ON DUPLICATE KEY UPDATE orders = VALUES(orders), appointments = VALUES(appointments), campaigns = VALUES(campaigns)`,
+      [userId, next.orders, next.appointments, next.campaigns],
+    );
+    return readPushPreferences(pool, userId);
   }
 
   // Compte connecté : retire cet appareil (seulement s'il est à lui)

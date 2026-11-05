@@ -8,37 +8,43 @@ export type PushMessage = {
   url: string; // page du site ouverte au toucher (chemin relatif)
   tag?: string; // une notification du même tag remplace la précédente
   ttl?: number; // secondes pendant lesquelles le service d'envoi garde la notification si le téléphone est éteint
+  // Sujet (05/11/2026, décision P4) : la personne peut couper orders, appointments ou campaigns dans Paramètres.
+  // Sans sujet (rappel, activation) : toujours envoyée.
+  topic?: PushTopic;
 };
+
+export const PUSH_TOPICS = ['orders', 'appointments', 'campaigns'] as const;
+export type PushTopic = (typeof PUSH_TOPICS)[number];
 
 const TITLE = 'E.doto family';
 const DAY = 24 * 3600;
 
 export const PUSH = {
   orderPaid: (orderId: number): PushMessage => ({
-    title: TITLE, body: 'Votre paiement est confirmé. Votre commande est en préparation.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY,
+    title: TITLE, body: 'Votre paiement est confirmé. Votre commande est en préparation.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
   }),
   orderOnTheWay: (orderId: number): PushMessage => ({
-    title: TITLE, body: 'Votre commande est en route vers vous.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY,
+    title: TITLE, body: 'Votre commande est en route vers vous.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
   }),
   orderWithdrawn: (orderId: number, delivered: boolean): PushMessage => ({
-    title: TITLE, body: delivered ? 'Votre commande a été livrée.' : 'Votre commande a été retirée.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY,
+    title: TITLE, body: delivered ? 'Votre commande a été livrée.' : 'Votre commande a été retirée.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
   }),
   orderRefunded: (orderId: number): PushMessage => ({
-    title: TITLE, body: 'Votre commande a été remboursée.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY,
+    title: TITLE, body: 'Votre commande a été remboursée.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
   }),
   kitWithdrawn: (): PushMessage => ({
-    title: TITLE, body: 'Votre retrait a bien été enregistré.', url: '/campaigns', tag: 'kit', ttl: DAY,
+    title: TITLE, body: 'Votre retrait a bien été enregistré.', url: '/campaigns', tag: 'kit', ttl: DAY, topic: 'orders',
   }),
   appointmentBooked: (): PushMessage => ({
-    title: TITLE, body: 'Votre rendez-vous est confirmé.', url: '/mon-espace', tag: 'rdv', ttl: DAY,
+    title: TITLE, body: 'Votre rendez-vous est confirmé.', url: '/mon-espace', tag: 'rdv', ttl: DAY, topic: 'appointments',
   }),
   appointmentSoon: (minutes: number): PushMessage => ({
     title: TITLE,
     body: minutes > 1 ? `Votre rendez-vous commence dans ${minutes} minutes.` : 'Votre rendez-vous commence dans une minute.',
-    url: '/mon-espace', tag: 'rdv', ttl: 15 * 60,
+    url: '/mon-espace', tag: 'rdv', ttl: 15 * 60, topic: 'appointments',
   }),
   newCampaign: (): PushMessage => ({
-    title: TITLE, body: 'Une nouvelle campagne a commencé. Découvrez-la.', url: '/campaigns', tag: 'campagne', ttl: 2 * DAY,
+    title: TITLE, body: 'Une nouvelle campagne a commencé. Découvrez-la.', url: '/campaigns', tag: 'campagne', ttl: 2 * DAY, topic: 'campaigns',
   }),
   reminder: (): PushMessage => ({
     title: TITLE, body: 'C’est l’heure de votre rappel.', url: '/mon-espace', tag: 'rappel', ttl: 6 * 3600,

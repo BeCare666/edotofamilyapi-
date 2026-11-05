@@ -53,6 +53,7 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'push_subscriptions', migration: '028' },
   { table: 'contraception_reminders', migration: '028' },
   { table: 'campaigns', column: 'push_sent_at', migration: '028' },
+  { table: 'push_preferences', migration: '029' },
 ];
 
 async function main() {

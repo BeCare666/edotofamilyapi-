@@ -114,6 +114,8 @@ export class InactivityService {
       await conn.query(`DELETE FROM totp_recovery_codes WHERE user_id = ?`, [userId]);
       // Notifications push et rappel contraception (migration 028, 04/11/2026)
       await conn.query(`DELETE FROM push_subscriptions WHERE user_id = ?`, [userId]);
+      // Choix par sujet (migration 029, 05/11/2026) ; table absente avant db:setup : ignoré
+      await conn.query(`DELETE FROM push_preferences WHERE user_id = ?`, [userId]).catch((e: any) => { if (e?.code !== 'ER_NO_SUCH_TABLE') throw e; });
       await conn.query(`DELETE FROM contraception_reminders WHERE user_id = ?`, [userId]);
       // Preuves du consentement et journal des droits gardés (date, version), sans l'adresse IP (migration 023)
       await conn.query(`UPDATE user_consents SET ip = NULL WHERE user_id = ?`, [userId]);
