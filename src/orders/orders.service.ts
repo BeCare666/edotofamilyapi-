@@ -38,6 +38,8 @@ import { ORDER_WITHDRAWN_SQL, assertCanChangeProcessing, stageCountsSql, stageSq
 import { safeError } from '../common/request-log';
 import { signedInvoiceUrl } from '../payment-intent/invoice-storage';
 import { setting } from '../platform-settings/platform-settings.store';
+import { pushToOrderCustomer } from '../push/push-sender';
+import { PUSH } from '../push/push-messages';
 
 // Le retrait est effectué quand le point de retrait a validé l'OTP (verifyOtp) :
 // otp_used = 1, order_status = 'order-completed', delivered_at renseigné.
@@ -339,6 +341,8 @@ export class OrdersService {
     if (!updateResult?.affectedRows) {
       throw new BadRequestException({ message: 'Ce code OTP a déjà été utilisé.' });
     }
+    // Notification push « commande retirée » (04/11/2026), sans attendre
+    void pushToOrderCustomer(pool, order.id, PUSH.orderWithdrawn(order.id, false));
 
     const [updatedRows]: any = await pool.query(
       `SELECT * FROM orders WHERE id = ? LIMIT 1`,

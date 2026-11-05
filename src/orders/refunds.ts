@@ -7,6 +7,8 @@ import { RolesGuard } from '../auth/roles.guard';
 import { Roles, SUPER_ADMIN } from '../auth/roles.decorator';
 import { SensitiveAction } from '../auth/step-up';
 import { PAYOUT_METHODS } from '../commissions/payouts';
+import { pushToOrderCustomer } from '../push/push-sender';
+import { PUSH } from '../push/push-messages';
 
 /**
  * Remboursement d'une commande (B7, 30/10/2026, migration 025), par le super admin uniquement.
@@ -98,6 +100,8 @@ export class RefundsService {
       );
       await conn.query(`UPDATE order_children SET order_status = 'order-refunded', updated_at = NOW() WHERE order_id = ?`, [orderId]);
       await conn.commit();
+      // Notification push « remboursée » (04/11/2026), après validation, sans attendre
+      void pushToOrderCustomer(this.db.getPool(), orderId, PUSH.orderRefunded(orderId));
       return {
         success: true,
         message: `Commande ${o.tracking_number} remboursée (${p.amount.toLocaleString('fr-FR')} FCFA).`,

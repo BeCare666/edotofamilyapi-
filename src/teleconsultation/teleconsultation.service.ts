@@ -61,6 +61,8 @@ import {
 } from './tc-notify';
 import { iso, num, utcSql } from './tc-db';
 import { bumpTokenVersion } from '../auth/session';
+import { pushToUser } from '../push/push-sender';
+import { PUSH } from '../push/push-messages';
 import { CONCLUSIONS, CONCLUSION_LABEL } from '../contraception/contraception-rules';
 import { setting } from '../platform-settings/platform-settings.store';
 
@@ -306,6 +308,8 @@ export class TeleconsultationService {
           ]);
         }
         await this.notifyBooked(Number(res.insertId), appt, Number(doctor.id));
+        // Notification push « rendez-vous confirmé » (04/11/2026), sans attendre
+        void pushToUser(this.pool, userId, PUSH.appointmentBooked());
         return {
           id: Number(res.insertId),
           reference,

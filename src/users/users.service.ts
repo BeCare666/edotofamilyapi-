@@ -440,6 +440,9 @@ async getUserFacets(role?: string) {
       throw new NotFoundException(`User with id ${id} not found`);
     }
 
+    // Notifications push et rappel contraception du compte (migration 028, 04/11/2026)
+    await pool.query('DELETE FROM push_subscriptions WHERE user_id = ?', [id]);
+    await pool.query('DELETE FROM contraception_reminders WHERE user_id = ?', [id]);
     await pool.query('DELETE FROM users WHERE id = ?', [id]);
     return `This action removes user #${id}`;
   }

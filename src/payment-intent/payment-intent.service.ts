@@ -14,6 +14,8 @@ import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT } from '../orders/pickup-
 import { safeError } from '../common/request-log';
 import { INVOICE_STORAGE_TYPE } from './invoice-storage';
 import { setting } from '../platform-settings/platform-settings.store';
+import { pushToOrderCustomer } from '../push/push-sender';
+import { PUSH } from '../push/push-messages';
 @Injectable()
 export class PaymentIntentService {
   private pool: Pool;
@@ -193,6 +195,9 @@ export class PaymentIntentService {
           [paymentIntentId, pendingId]
         );
       }
+
+      // Notification push « paiement confirmé » (04/11/2026), après validation, sans attendre
+      if (!isExternal) void pushToOrderCustomer(this.pool, orderId, PUSH.orderPaid(orderId));
 
       return {
         success: true,

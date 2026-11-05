@@ -37,6 +37,8 @@ const PUBLIC_ROUTES = [
   'POST /verify-forget-password-token', 'POST /reset-password', 'POST /resend-verification-email',
   'GET /verify-email', 'POST /logout',
   'POST /ai/chat',
+  // Notifications push (04/11/2026) : clé publique VAPID, nécessaire au navigateur pour s'abonner (non secrète)
+  'GET /push/public-key',
   'GET /products', 'GET /products/:slug', 'GET /products/corridor', 'GET /products/search',
   'GET /popular-products', 'GET /top-rate-product', 'GET /category-wise-product',
   'GET /campaigns/active', 'GET /campaigns/upcoming', 'GET /campaigns/:id', 'GET /campaigns/:id/stats',

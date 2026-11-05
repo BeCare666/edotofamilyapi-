@@ -23,6 +23,8 @@ import {
   whatsappUrl,
 } from './delivery-rules';
 import { setting } from '../platform-settings/platform-settings.store';
+import { pushToOrderCustomer } from '../push/push-sender';
+import { PUSH } from '../push/push-messages';
 
 // Itinéraire OSRM (même serveur que la carte du site client).
 // Sans OSRM_CAR_URL : serveur de démonstration FOSSGIS, réservé au DÉVELOPPEMENT
@@ -229,6 +231,8 @@ export class DeliveryService {
        WHERE id = ? AND delivered_at IS NULL`,
       [courierName, courierPhone, tokenHash, pinHash, row.id],
     );
+    // Notification push « en route » (04/11/2026) : à la première attribution d'un livreur seulement, sans attendre
+    if (!row.assigned_at) void pushToOrderCustomer(this.db.getPool(), orderId, PUSH.orderOnTheWay(orderId));
 
     const base = (process.env.FRONTEND_CALLBACK_URL || '').replace(/\/+$/, '');
     const link = `${base}/livraison/${token}`;
@@ -367,6 +371,8 @@ export class DeliveryService {
       `UPDATE custom_deliveries SET delivered_at = NOW(), link_token_hash = NULL, pin_hash = NULL WHERE id = ?`,
       [row.id],
     );
+    // Notification push « livrée » (04/11/2026), sans attendre
+    void pushToOrderCustomer(pool, Number(row.order_id), PUSH.orderWithdrawn(Number(row.order_id), true));
     return { success: true, message: 'Code valide : remettez le colis au client.', tracking_number: row.tracking_number };
   }
 }

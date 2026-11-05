@@ -112,6 +112,9 @@ export class InactivityService {
       await conn.query(`UPDATE profiles SET bio = NULL, socials = NULL, contact = NULL, notifications = NULL, avatar_id = NULL WHERE customer_id = ?`, [userId]);
       await conn.query(`DELETE FROM addresses WHERE customer_id = ?`, [userId]);
       await conn.query(`DELETE FROM totp_recovery_codes WHERE user_id = ?`, [userId]);
+      // Notifications push et rappel contraception (migration 028, 04/11/2026)
+      await conn.query(`DELETE FROM push_subscriptions WHERE user_id = ?`, [userId]);
+      await conn.query(`DELETE FROM contraception_reminders WHERE user_id = ?`, [userId]);
       // Preuves du consentement et journal des droits gardés (date, version), sans l'adresse IP (migration 023)
       await conn.query(`UPDATE user_consents SET ip = NULL WHERE user_id = ?`, [userId]);
       await conn.query(`UPDATE data_rights_log SET ip = NULL WHERE user_id = ?`, [userId]);

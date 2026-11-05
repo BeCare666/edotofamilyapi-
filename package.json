@@ -38,6 +38,7 @@
     "@nestjs/schedule": "^6.0.0",
     "@nestjs/swagger": "^11.2.0",
     "@nestjs/throttler": "^6.4.0",
+    "@types/web-push": "3.6.4",
     "@vendia/serverless-express": "^4.12.6",
     "axios": "^1.2.1",
     "bcrypt": "^6.0.0",
@@ -59,7 +60,8 @@
     "rimraf": "^5.0.10",
     "rxjs": "^7.5.6",
     "sanitize-html": "2.18.0",
-    "sib-api-v3-sdk": "^8.5.0"
+    "sib-api-v3-sdk": "^8.5.0",
+    "web-push": "3.6.7"
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.10",

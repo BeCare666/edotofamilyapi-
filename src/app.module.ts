@@ -34,6 +34,7 @@ import { TeleconsultationModule } from './teleconsultation/teleconsultation.modu
 import { ContraceptionModule } from './contraception/contraception.module';
 import { AdminNotificationsModule } from './admin-notifications/admin-notifications.module';
 import { SiteAppearanceModule } from './site-appearance/site-appearance.module';
+import { PushModule } from './push/push.module';
 import { PlatformSettingsModule } from './platform-settings/platform-settings';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
@@ -84,6 +85,8 @@ import { AdminAuditInterceptor } from './common/admin-audit';
     ContraceptionModule,
     AdminNotificationsModule,
     SiteAppearanceModule,
+    // Notifications push et rappel contraception (04/11/2026)
+    PushModule,
     PlatformSettingsModule
     //DatabaseService
   ],

@@ -4,6 +4,8 @@ import { DatabaseService } from '../database/database.services';
 import { mail, phoneReminderSms, sendSms, videoReminderEmail } from './tc-notify';
 import { iso } from './tc-db';
 import { setting, settingOn } from '../platform-settings/platform-settings.store';
+import { pushToUser } from '../push/push-sender';
+import { PUSH } from '../push/push-messages';
 
 // Rappels « à moins de 10 min » du début (19/10/2026) : visio = e-mail avec le lien, appel = SMS Brevo.
 // Chaque rappel est « réservé » en base avant l'envoi : jamais deux rappels, même avec deux serveurs.
@@ -22,7 +24,7 @@ export class TcRemindersCron {
     try {
       const pool: any = this.db.getPool();
       const [rows]: any = await pool.query(
-        `SELECT a.id, a.reference, a.mode, a.room, a.patient_name, a.patient_email, a.patient_phone, ${iso('a.starts_at')},
+        `SELECT a.id, a.reference, a.mode, a.room, a.patient_user_id, a.patient_name, a.patient_email, a.patient_phone, ${iso('a.starts_at')},
                 d.name AS doctor_name, d.title AS doctor_title
          FROM tc_appointments a JOIN tc_doctors d ON d.id = a.doctor_id
          WHERE a.status = 'booked'
@@ -35,6 +37,9 @@ export class TcRemindersCron {
         const col = a.mode === 'video' ? 'reminder_email_at' : 'reminder_sms_at';
         const [claim]: any = await pool.query(`UPDATE tc_appointments SET ${col} = UTC_TIMESTAMP() WHERE id = ? AND ${col} IS NULL`, [a.id]);
         if (!claim?.affectedRows) continue;
+        // Notification push du rappel (04/11/2026), en plus de l'e-mail ou du SMS, sans attendre
+        const minutesLeft = Math.max(1, Math.round((new Date(a.starts_at).getTime() - Date.now()) / 60000));
+        void pushToUser(pool, a.patient_user_id, PUSH.appointmentSoon(minutesLeft));
         try {
           if (a.mode === 'video') await mail(a.patient_email, `Votre téléconsultation commence bientôt (${a.reference})`, videoReminderEmail(a));
           else await sendSms(a.patient_phone, phoneReminderSms(a));

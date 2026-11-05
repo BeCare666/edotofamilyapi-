@@ -12,6 +12,8 @@ import { campaignExtraColumns, decorateCampaign } from './campaign-sql';
 import { ALREADY_REGISTERED_MESSAGE, SAME_DEVICE_MESSAGE, GuardKey, buildGuardKeys, guardMessage } from './campaign-guard';
 import { dailySeries, daysBetween, todayBenin } from '../sponsors/sponsor-rules';
 import { readTarget, targetLabel, targetMismatch } from './campaign-target';
+import { pushToUser } from '../push/push-sender';
+import { PUSH } from '../push/push-messages';
 import { pickupCityOf } from './pickup-city';
 import { cityAmong, cleanPosition, normCity } from '../common/geo-city';
 import { cleanBirthDate, cleanSex } from '../common/field-rules';
@@ -703,6 +705,13 @@ export class CampaignsService {
        WHERE r.id = ?`,
       [registration_id]
     );
+
+    // Notification push « retrait enregistré » (04/11/2026) : la demande de kit est rattachée au compte par l'e-mail ; sans attendre
+    const pool: any = this.databaseService.getPool();
+    void pool
+      .query(`SELECT id FROM users WHERE LOWER(email) = LOWER(?) LIMIT 1`, [reg.email])
+      .then(([rows]: any) => pushToUser(pool, rows?.[0]?.id, PUSH.kitWithdrawn()))
+      .catch(() => undefined);
 
     return { message: "Retrait confirmé." };
   }

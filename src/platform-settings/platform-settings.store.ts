@@ -9,7 +9,7 @@ import { BadRequestException } from '@nestjs/common';
  * Fichier sans dépendance vers les modules métier (évite les imports circulaires) : les valeurs par défaut
  * reprennent les constantes d'origine, qui restent exportées pour les tests.
  */
-export type SettingGroup = 'teleconsultation' | 'campaigns' | 'orders' | 'contraception' | 'signup' | 'sponsors' | 'ai' | 'files';
+export type SettingGroup = 'teleconsultation' | 'campaigns' | 'orders' | 'contraception' | 'signup' | 'sponsors' | 'ai' | 'files' | 'privacy';
 
 export type SettingDef = {
   key: string;
@@ -37,6 +37,7 @@ export const GROUP_LABELS: Record<SettingGroup, string> = {
   sponsors: 'Sponsors',
   ai: 'Assistant IA',
   files: 'Fichiers envoyés',
+  privacy: 'Page Confidentialité',
 };
 
 export const SETTING_DEFS: SettingDef[] = [
@@ -70,6 +71,9 @@ export const SETTING_DEFS: SettingDef[] = [
   { key: 'files.photo_max_mb', group: 'files', label: 'Photo de profil : taille maximale', help: 'JPEG, PNG ou WebP.', type: 'int', unit: 'Mo', min: 1, max: 10, fallback: () => 3, public: true },
   { key: 'files.attachment_max_mb', group: 'files', label: 'Fichiers de l’admin : taille maximale', help: 'Images et PDF envoyés depuis l’admin.', type: 'int', unit: 'Mo', min: 1, max: 10, fallback: () => 5 },
   { key: 'files.attachment_max_files', group: 'files', label: 'Fichiers de l’admin : nombre par envoi', help: '', type: 'int', min: 1, max: 20, fallback: () => 10 },
+  // Page Confidentialité (04/11/2026, rapports/PLAN_NOTIFICATIONS_PUSH.md, 2.3) : la nouvelle version n'est mise en ligne
+  // que lorsque le super admin active ce réglage ; désactivé, le site garde la version actuelle
+  { key: 'privacy.notifications_published', group: 'privacy', label: 'Nouvelle version en ligne (notifications)', help: 'Activé : la page Confidentialité affiche la section « Notifications » et le service de notification Google ou Apple. Désactivé : la version actuelle reste affichée.', type: 'bool', fallback: () => false, public: true },
 ];
 
 /** Plafonds techniques (limites fixées au démarrage du serveur) : la valeur réglée est contrôlée ensuite */
