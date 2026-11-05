@@ -97,6 +97,14 @@ export class MyDataService {
             HEALTH_FIELDS.contraception_followups,
           )
         : [],
+      // Notifications (migrations 028 et 029, ajout du 05/11/2026) : appareils abonnés sans leur adresse d'envoi
+      // ni leurs clés (ce sont des secrets techniques du navigateur), rappel contraception, choix par sujet
+      push_devices: await this.section(`SELECT created_at, last_success_at FROM push_subscriptions WHERE user_id = ? ORDER BY id`, [userId]),
+      contraception_reminder: await this.section(
+        `SELECT rhythm, time_hm, DATE_FORMAT(start_date, '%Y-%m-%d') AS start_date, active, last_sent_at, created_at, updated_at
+         FROM contraception_reminders WHERE user_id = ?`, [userId],
+      ),
+      notification_preferences: await this.section(`SELECT orders, appointments, campaigns, updated_at FROM push_preferences WHERE user_id = ?`, [userId]),
       rights_requests: await this.section(`SELECT kind, created_at FROM data_rights_log WHERE user_id = ? ORDER BY id`, [userId]),
     };
     await logRight(this.pool, userId, 'export', ip);
