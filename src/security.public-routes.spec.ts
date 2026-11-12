@@ -53,6 +53,8 @@ const PUBLIC_ROUTES = [
   'GET /reviews', 'GET /reviews/:id', 'GET /questions', 'GET /questions/:id',
   'GET /shops', 'GET /shops/:slug', 'GET /new-shops',
   'GET /pickup', 'GET /pickup/:id', 'GET /delivery/quote',
+  // Tournées de retrait (12/11/2026, 1.9) : prochaine heure de disponibilité des points, sans donnée personnelle
+  'GET /pickup-rounds/next',
   'POST /courier-links/:token/open', 'POST /courier-links/:token/unlock', 'POST /courier-links/:token/deliver',
   'GET /sponsor-invitations/:token', 'POST /sponsor-invitations/accept', 'POST /sponsor-signup',
   'GET /teleconsultation/availability', 'GET /teleconsultation/qr/:file', 'GET /teleconsultation/qr-info/:token',

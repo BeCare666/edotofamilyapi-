@@ -32,6 +32,25 @@ export const PUSH = {
   orderRefunded: (orderId: number): PushMessage => ({
     title: TITLE, body: 'Votre commande a été remboursée.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
   }),
+  // Tournées de retrait (12/11/2026, rapports/PLAN_TOURNEES_RETRAIT.md, Q4) : jour et heure seulement, jamais de produit
+  orderAvailableAt: (orderId: number, day: string, hour: string): PushMessage => ({
+    title: TITLE, body: `Votre commande sera disponible à votre point de retrait le ${day} à ${hour}.`, url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
+  }),
+  orderAvailable: (orderId: number): PushMessage => ({
+    title: TITLE, body: 'Votre commande est disponible à votre point de retrait.', url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
+  }),
+  orderNewTime: (orderId: number, day: string, hour: string): PushMessage => ({
+    title: TITLE, body: `Nouvelle heure : votre commande sera disponible le ${day} à ${hour}.`, url: `/orders/${orderId}`, tag: `order-${orderId}`, ttl: DAY, topic: 'orders',
+  }),
+  kitAvailableAt: (day: string, hour: string): PushMessage => ({
+    title: TITLE, body: `Votre kit sera disponible à votre point de retrait le ${day} à ${hour}.`, url: '/campaigns', tag: 'kit', ttl: DAY, topic: 'orders',
+  }),
+  kitAvailable: (): PushMessage => ({
+    title: TITLE, body: 'Votre kit est disponible à votre point de retrait.', url: '/campaigns', tag: 'kit', ttl: DAY, topic: 'orders',
+  }),
+  kitNewTime: (day: string, hour: string): PushMessage => ({
+    title: TITLE, body: `Nouvelle heure : votre kit sera disponible le ${day} à ${hour}.`, url: '/campaigns', tag: 'kit', ttl: DAY, topic: 'orders',
+  }),
   kitWithdrawn: (): PushMessage => ({
     title: TITLE, body: 'Votre retrait a bien été enregistré.', url: '/campaigns', tag: 'kit', ttl: DAY, topic: 'orders',
   }),

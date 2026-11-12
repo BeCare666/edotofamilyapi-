@@ -55,6 +55,12 @@ export const SETTING_DEFS: SettingDef[] = [
   { key: 'campaign.guard_fingerprint', group: 'campaigns', label: 'Anti-doublon par appareil', help: 'Une seule demande de kit par navigateur.', type: 'bool', fallback: () => !envOff('CAMPAIGN_GUARD_FINGERPRINT') },
   // Commandes (pickup-otp-email.ts, delivery-rules.ts)
   { key: 'order.pickup_otp_ttl_hours', group: 'orders', label: 'Validité du code de retrait d’une commande', help: 'S’applique aux nouveaux codes ; annoncée dans l’e-mail.', type: 'int', unit: 'heures', min: 1, max: 168, fallback: () => 48 },
+  // Tournées de retrait (12/11/2026, rapports/PLAN_TOURNEES_RETRAIT.md, D1 et D5, pickup/pickup-rounds.ts).
+  // Ordre imposé à l'enregistrement : limite du matin < tournée du matin < limite du soir < tournée du soir.
+  { key: 'pickup.morning_round_hour', group: 'orders', label: 'Tournée du matin', help: 'Heure annoncée (heure du Bénin) pour les colis payés ou demandés avant la limite du matin.', type: 'int', unit: 'h', min: 0, max: 23, fallback: () => 9 },
+  { key: 'pickup.morning_cutoff_hour', group: 'orders', label: 'Limite pour la tournée du matin', help: 'Avant cette heure : tournée du matin le jour même.', type: 'int', unit: 'h', min: 0, max: 23, fallback: () => 8 },
+  { key: 'pickup.evening_round_hour', group: 'orders', label: 'Tournée du soir', help: 'Heure annoncée (heure du Bénin) pour les colis payés ou demandés entre les deux limites.', type: 'int', unit: 'h', min: 0, max: 23, fallback: () => 17 },
+  { key: 'pickup.evening_cutoff_hour', group: 'orders', label: 'Limite pour la tournée du soir', help: 'Après cette heure : tournée du matin du lendemain.', type: 'int', unit: 'h', min: 0, max: 23, fallback: () => 16 },
   { key: 'delivery.max_failed_attempts', group: 'orders', label: 'Essais ratés avant blocage du lien de livraison', help: 'Livraison personnalisée : lien bloqué après ce nombre d’échecs.', type: 'int', min: 1, max: 20, fallback: () => 5 },
   // Contraception (contraception-rules.ts)
   { key: 'contraception.max_open_requests', group: 'contraception', label: 'Demandes en cours par jeune', help: 'Nouvelle demande refusée au-delà.', type: 'int', min: 1, max: 10, fallback: () => 3 },

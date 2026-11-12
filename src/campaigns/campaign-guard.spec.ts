@@ -94,7 +94,13 @@ describe('Demande de kit', () => {
     expect(JSON.stringify(res)).not.toMatch(/"\d{6}"/);
     expect(res).toMatchObject({ id: 40, city: 'Cotonou', pickup_center_name: 'Point A' });
     const ins = s.calls.find((c) => c.sql.startsWith('INSERT INTO campaign_registrations'));
-    expect(ins.params.slice(-3)).toEqual([6.37, 2.41, 'Cotonou']);
+    expect(ins.params.slice(-4, -1)).toEqual([6.37, 2.41, 'Cotonou']);
+    // Tournées (12/11/2026, 1.6) : heure de disponibilité enregistrée, code valable à partir d'elle, phrase dans l'e-mail
+    const availableAt = ins.params[ins.params.length - 1];
+    expect(availableAt).toBeInstanceOf(Date);
+    expect(res.available_at).toBe(availableAt);
+    expect(new Date(res.otp_expires_at).getTime() - availableAt.getTime()).toBe(48 * 3600000);
+    expect(String(mailer.mock.calls[0][0].message)).toMatch(/Votre kit sera disponible à votre point de retrait Point A le \S+ \d+ \S+ à \d\d h 00\./);
   });
 
   it('position absente ou hors des villes de la campagne : refusée avant toute écriture', async () => {

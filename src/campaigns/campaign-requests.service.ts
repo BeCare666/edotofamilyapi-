@@ -61,7 +61,7 @@ export class CampaignRequestsService {
       pool.query(
         `SELECT r.id, r.campaign_id, c.title AS campaign_title, r.full_name, r.email, r.city, r.pickup_center,
                 pc.name AS pickup_center_name, r.created_at, r.otp_used, r.verified_at, r.picked_up, r.picked_up_at,
-                r.order_status, r.processed_at, pb.name AS processed_by_name
+                r.order_status, r.processed_at, pb.name AS processed_by_name, r.available_at, r.available_notified_at
          FROM campaign_registrations r
          JOIN campaigns c ON c.id = r.campaign_id
          LEFT JOIN users pc ON CAST(pc.id AS CHAR) = r.pickup_center

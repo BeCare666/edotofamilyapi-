@@ -40,6 +40,8 @@ import { signedInvoiceUrl } from '../payment-intent/invoice-storage';
 import { setting } from '../platform-settings/platform-settings.store';
 import { pushToOrderCustomer } from '../push/push-sender';
 import { PUSH } from '../push/push-messages';
+import { availabilityAt } from '../pickup/pickup-rounds.db';
+import { codeExpiry, formatRound } from '../pickup/pickup-rounds';
 
 // Le retrait est effectué quand le point de retrait a validé l'OTP (verifyOtp) :
 // otp_used = 1, order_status = 'order-completed', delivered_at renseigné.
@@ -407,7 +409,7 @@ export class OrdersService {
       await sendVerificationEmail({
         email: order.email,
         subject: PICKUP_OTP_EMAIL_SUBJECT,
-        message: buildPickupOtpEmail(order.tracking_number, otp),
+        message: buildPickupOtpEmail(order.tracking_number, otp, null, expiresAt),
       });
     } catch (e) {
       // Sans e-mail, le client ne connaîtrait pas le nouveau code : on remet l'ancien (expiré)
@@ -913,7 +915,38 @@ export class OrdersService {
     }
 
     const updated = await this.update(id, fields as UpdateOrderDto);
+    // Tournées (12/11/2026, rapports/PLAN_TOURNEES_RETRAIT.md, 1.5) : nouveau point après paiement →
+    // nouvelle heure de disponibilité et code valable à partir de cette heure (D6) ; le code lui-même ne change pas
+    if (fields.pickup_point_id && Number(fields.pickup_point_id) !== Number(order.pickup_point_id)) {
+      const moved = await this.rescheduleForNewPoint(id, Number(fields.pickup_point_id));
+      if (moved) Object.assign(updated as any, moved);
+    }
     return presentOrderForRelation(updated, relation);
+  }
+
+  /** 1.5 : commande payée, à retirer, pas encore retirée ; notification de l'heure (sans attendre) */
+  private async rescheduleForNewPoint(orderId: number, pointId: number) {
+    const pool = this.databaseService.getPool();
+    const [rows]: any = await pool.query(
+      `SELECT id, payment_status, order_status, otp_code, otp_used, delivered_at, delivery_type, available_at
+       FROM orders WHERE id = ? LIMIT 1`,
+      [orderId],
+    );
+    const o = Array.isArray(rows) ? rows[0] : null;
+    if (!o || o.payment_status !== 'payment-success' || o.delivery_type === 'CUSTOM' || !o.otp_code) return null;
+    if (isWithdrawn(o) || ['order-cancelled', 'order-refunded', 'order-failed'].includes(o.order_status)) return null;
+    const availableAt = await availabilityAt(pool, pointId);
+    if (!availableAt) return null;
+    const expiresAt = codeExpiry(availableAt, setting('order.pickup_otp_ttl_hours'));
+    const [res]: any = await pool.query(
+      `UPDATE orders SET available_at = ?, available_notified_at = NULL, otp_expires_at = ?, updated_at = NOW()
+       WHERE id = ? AND otp_used = 0 AND pickup_point_id = ?`,
+      [availableAt, expiresAt, orderId, pointId],
+    );
+    if (!res?.affectedRows) return null;
+    const { day, hour } = formatRound(availableAt);
+    void pushToOrderCustomer(pool, orderId, o.available_at ? PUSH.orderNewTime(orderId, day, hour) : PUSH.orderAvailableAt(orderId, day, hour));
+    return { available_at: availableAt, available_notified_at: null, otp_expires_at: expiresAt };
   }
 
   // orders.service.ts

@@ -167,6 +167,26 @@ describe('Points bloqués : visibles mais non sélectionnables', () => {
     await expect(orders(orderHandler({ id: 3, is_active: 1, pickup_approved: 1 })).updateForUser(5, { pickup_point_id: 3 }, customer))
       .resolves.toBeDefined();
   });
+  // Tournées (12/11/2026, rapports/PLAN_TOURNEES_RETRAIT.md, 1.5) : nouveau point après paiement
+  it('commande : nouveau point après paiement → nouvelle heure, code valable à partir d’elle', async () => {
+    const base = orderHandler({ id: 3, is_active: 1, pickup_approved: 1 });
+    const { db, calls } = fakeDb((sql, params) => {
+      if (sql.includes('available_at') && sql.startsWith('SELECT id, payment_status')) {
+        return [{ id: 5, payment_status: 'payment-success', order_status: 'order-processing', otp_code: '123456', otp_used: 0, delivered_at: null, delivery_type: 'PICKUP', available_at: new Date('2026-11-12T16:00:00Z') }];
+      }
+      if (sql.includes('FROM pickup_open_days') || sql.includes('FROM pickup_closures')) return [];
+      if (sql.startsWith('UPDATE orders SET available_at')) return { affectedRows: 1 };
+      return base(sql, params);
+    });
+    const res: any = await new OrdersService({} as any, db).updateForUser(5, { pickup_point_id: 3 }, customer);
+    const u = calls.find((c) => c.sql.startsWith('UPDATE orders SET available_at'));
+    expect(u).toBeDefined();
+    const [availableAt, expiresAt, id, point] = u!.params;
+    expect(availableAt).toBeInstanceOf(Date);
+    expect(expiresAt.getTime() - availableAt.getTime()).toBe(48 * 3600000);
+    expect([id, point]).toEqual([5, 3]);
+    expect(res.available_at).toBe(availableAt);
+  });
   it('commande : garder son point devenu bloqué ne casse pas la mise à jour', async () => {
     await expect(orders(orderHandler({ id: 2, is_active: 0, pickup_approved: 1 })).updateForUser(5, { pickup_point_id: 2, note: 'x' }, customer))
       .resolves.toBeDefined();

@@ -151,6 +151,7 @@ export class PickupDashboardService {
         `SELECT o.id, o.tracking_number, u.name AS customer_name, o.customer_contact, o.order_status,
                 DATE_FORMAT(o.created_at, '${UTC_FMT}') AS created_at, DATE_FORMAT(o.delivered_at, '${UTC_FMT}') AS delivered_at,
                 DATE_FORMAT(o.otp_expires_at, '${UTC_FMT}') AS otp_expires_at, (o.otp_code IS NOT NULL) AS has_otp,
+                DATE_FORMAT(o.available_at, '${UTC_FMT}') AS available_at,
                 ${PRODUCTS_SQL} AS products_amount, o.commission_amount
          ${from}
          ORDER BY (o.order_status = 'order-completed') ASC, o.created_at DESC
@@ -191,7 +192,8 @@ export class PickupDashboardService {
     const [rows]: any = await this.db.getPool().query(
       `SELECT r.id, r.campaign_id, c.title AS campaign_title, r.full_name, r.city, r.order_status,
               DATE_FORMAT(r.created_at, '${UTC_FMT}') AS created_at, DATE_FORMAT(r.picked_up_at, '${UTC_FMT}') AS picked_up_at,
-              DATE_FORMAT(r.otp_expires_at, '${UTC_FMT}') AS otp_expires_at, r.otp_used, r.picked_up, r.commission_amount
+              DATE_FORMAT(r.otp_expires_at, '${UTC_FMT}') AS otp_expires_at, r.otp_used, r.picked_up, r.commission_amount,
+              DATE_FORMAT(r.available_at, '${UTC_FMT}') AS available_at
        FROM campaign_registrations r JOIN campaigns c ON c.id = r.campaign_id
        WHERE ${where.join(' AND ')}
        ORDER BY r.picked_up ASC, r.created_at DESC`,

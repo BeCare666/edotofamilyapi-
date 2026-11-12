@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Injectable, Logger, Module, OnModuleDestroy, OnModuleInit, Param, Put, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Injectable, Logger, Module, OnModuleDestroy, OnModuleInit, Param, Put, Req, UseGuards } from '@nestjs/common';
 import { IsOptional } from 'class-validator';
 import { IsScalar, StrictDto } from 'src/common/strict-body';
 import { DatabaseModule } from '../database/database.module';
@@ -17,6 +17,7 @@ import {
   settingDef,
   settingOn,
 } from './platform-settings.store';
+import { currentRoundHours, roundSettingsError } from '../pickup/pickup-rounds';
 
 // Paramètres avancés (02/11/2026, migration 027) : voir platform-settings.store.ts
 
@@ -92,6 +93,9 @@ export class PlatformSettingsService implements OnModuleInit, OnModuleDestroy {
   async update(key: string, raw: unknown, adminId: number) {
     const def = settingDef(key);
     const value = parseSettingValue(def, raw);
+    // Tournées de retrait : les quatre heures doivent rester dans l'ordre (pickup/pickup-rounds.ts)
+    const roundsError = roundSettingsError({ ...currentRoundHours(), [key]: value as number }, key);
+    if (roundsError) throw new BadRequestException(roundsError);
     await this.db.getPool().query(
       `INSERT INTO platform_settings (setting_key, value, updated_at, updated_by) VALUES (?, ?, NOW(), ?)
        ON DUPLICATE KEY UPDATE value = VALUES(value), updated_at = NOW(), updated_by = VALUES(updated_by)`,
@@ -104,6 +108,8 @@ export class PlatformSettingsService implements OnModuleInit, OnModuleDestroy {
   /** Retour à la valeur d'origine (ligne supprimée) */
   async reset(key: string) {
     const def = settingDef(key);
+    const roundsError = roundSettingsError({ ...currentRoundHours(), [key]: def.fallback() as number }, key);
+    if (roundsError) throw new BadRequestException(roundsError);
     await this.db.getPool().query('DELETE FROM platform_settings WHERE setting_key = ?', [key]);
     await this.reload();
     return { success: true, message: `${def.label} : valeur d'origine rétablie.`, key, value: current(key) };

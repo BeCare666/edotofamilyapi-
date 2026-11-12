@@ -10,7 +10,9 @@ import { Readable } from 'stream';
 import { sendVerificationEmail } from '../auth/mailer';
 import { randomInt } from 'crypto';
 import { verifyFeexPayForOrder } from './feexpay-verify';
-import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT } from '../orders/pickup-otp-email';
+import { buildPickupOtpEmail, PICKUP_OTP_EMAIL_SUBJECT, PickupAvailability } from '../orders/pickup-otp-email';
+import { availabilityAt } from '../pickup/pickup-rounds.db';
+import { codeExpiry, formatRound } from '../pickup/pickup-rounds';
 import { safeError } from '../common/request-log';
 import { INVOICE_STORAGE_TYPE } from './invoice-storage';
 import { setting } from '../platform-settings/platform-settings.store';
@@ -143,12 +145,22 @@ export class PaymentIntentService {
       const paymentIntentId = insert.insertId;
 
       // 4) OTP
+      // Tournées (12/11/2026, rapports/PLAN_TOURNEES_RETRAIT.md, 1.4) : commande à retirer à un point →
+      // heure de la tournée (D1, D9) et code valable à partir de cette heure (D6). Livraison à domicile exclue.
       const otp = randomInt(100000, 1000000).toString();
-      const expiresAt = new Date(Date.now() + setting('order.pickup_otp_ttl_hours') * 3600000);
+      const ttlHours = setting('order.pickup_otp_ttl_hours');
+      const toPoint = order.delivery_type !== 'CUSTOM' && !!order.pickup_point_id;
+      const availableAt = toPoint ? await availabilityAt(conn, order.pickup_point_id) : null;
+      const expiresAt = availableAt ? codeExpiry(availableAt, ttlHours) : new Date(Date.now() + ttlHours * 3600000);
       await conn.query(
-        `UPDATE orders SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, updated_at=NOW() WHERE id=?`,
-        [otp, expiresAt, orderId]
+        `UPDATE orders SET otp_code=?, otp_used=0, otp_attempts=0, otp_expires_at=?, available_at=?, available_notified_at=NULL, updated_at=NOW() WHERE id=?`,
+        [otp, expiresAt, availableAt, orderId]
       );
+      let availability: PickupAvailability | null = null;
+      if (availableAt) {
+        const [pointRows] = await conn.query<RowDataPacket[]>(`SELECT name FROM users WHERE id=? LIMIT 1`, [order.pickup_point_id]);
+        availability = { pointName: pointRows[0]?.name ?? '', ...formatRound(availableAt) };
+      }
 
       // 5) Récup email
       const [userRows] = await conn.query<RowDataPacket[]>(
@@ -164,7 +176,7 @@ export class PaymentIntentService {
         await sendVerificationEmail({
           email: customer.email,
           subject: PICKUP_OTP_EMAIL_SUBJECT,
-          message: buildPickupOtpEmail(order.tracking_number, otp),
+          message: buildPickupOtpEmail(order.tracking_number, otp, availability, expiresAt),
         });
       } catch (e) {
         throw new Error("Failed to send OTP email: " + e);
@@ -197,7 +209,14 @@ export class PaymentIntentService {
       }
 
       // Notification push « paiement confirmé » (04/11/2026), après validation, sans attendre
-      if (!isExternal) void pushToOrderCustomer(this.pool, orderId, PUSH.orderPaid(orderId));
+      // Tournées (1.4) : retrait à un point → « sera disponible le … à … » à la place
+      if (!isExternal) {
+        void pushToOrderCustomer(
+          this.pool,
+          orderId,
+          availability ? PUSH.orderAvailableAt(orderId, availability.day, availability.hour) : PUSH.orderPaid(orderId),
+        );
+      }
 
       return {
         success: true,

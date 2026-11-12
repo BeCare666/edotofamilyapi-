@@ -1,6 +1,7 @@
 import { setting } from '../platform-settings/platform-settings.store';
+import { PickupAvailability, availabilityParagraph, validityText } from '../orders/pickup-otp-email';
 // Gabarit de l'e-mail du code de retrait de kit (extrait tel quel de campaigns.service)
-export function buildCampaignOtpEmail(pickupCenterName: string, otp: string): string {
+export function buildCampaignOtpEmail(pickupCenterName: string, otp: string, availability?: PickupAvailability | null, expiresAt?: Date | null): string {
   return `
   <div style="font-family: 'Inter', Arial, sans-serif; max-width: 640px; margin: auto; background: #ffffff; border-radius: 16px; overflow: hidden;">
 
@@ -25,9 +26,10 @@ export function buildCampaignOtpEmail(pickupCenterName: string, otp: string): st
         ${otp}
       </div>
 
+      ${availabilityParagraph('kit', availability)}
       <p style="color: #6B7280; font-size: 14px;">
         Présentez ce code à l’agent sur place pour récupérer votre kit.<br/>
-        Le code est valable <strong>${setting('campaign.otp_ttl_hours')} heures</strong>.<br/>
+        Le code est valable ${validityText(expiresAt, setting('campaign.otp_ttl_hours'))}.<br/>
         Gardez-le confidentiel.
       </p>
     </div>

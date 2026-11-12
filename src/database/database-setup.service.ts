@@ -116,7 +116,9 @@ export class DatabaseSetupService implements OnModuleInit {
       // Notifications push et rappel contraception (04/11/2026)
       '028_push_notifications.sql',
       // Choix des notifications par sujet (05/11/2026)
-      '029_push_preferences.sql'
+      '029_push_preferences.sql',
+      // Tournées de retrait 09 h / 17 h et jours d'ouverture des points (12/11/2026)
+      '030_pickup_rounds.sql'
     ];
 
     // Bilan final (07/10/2026) : une migration en échec ne doit plus passer inaperçue

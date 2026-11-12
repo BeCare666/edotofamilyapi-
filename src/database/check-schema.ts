@@ -54,6 +54,12 @@ const EXPECTED: { table: string; column?: string; migration: string }[] = [
   { table: 'contraception_reminders', migration: '028' },
   { table: 'campaigns', column: 'push_sent_at', migration: '028' },
   { table: 'push_preferences', migration: '029' },
+  { table: 'orders', column: 'available_at', migration: '030' },
+  { table: 'orders', column: 'available_notified_at', migration: '030' },
+  { table: 'campaign_registrations', column: 'available_at', migration: '030' },
+  { table: 'campaign_registrations', column: 'available_notified_at', migration: '030' },
+  { table: 'pickup_open_days', migration: '030' },
+  { table: 'pickup_closures', migration: '030' },
 ];
 
 async function main() {

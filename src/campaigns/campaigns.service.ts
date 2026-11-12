@@ -18,6 +18,8 @@ import { pickupCityOf } from './pickup-city';
 import { cityAmong, cleanPosition, normCity } from '../common/geo-city';
 import { cleanBirthDate, cleanSex } from '../common/field-rules';
 import { setting } from '../platform-settings/platform-settings.store';
+import { availabilityAt } from '../pickup/pickup-rounds.db';
+import { codeExpiry, formatRound } from '../pickup/pickup-rounds';
 @Injectable()
 export class CampaignsService {
   constructor(private readonly databaseService: DatabaseService) { }
@@ -264,7 +266,12 @@ export class CampaignsService {
 
     // 6) Demande + marques dans une transaction : la clé primaire des marques bloque les doublons simultanés
     const otp = randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + setting('campaign.otp_ttl_hours') * 3600000);
+    // Tournées (12/11/2026, rapports/PLAN_TOURNEES_RETRAIT.md, 1.6 et D4) : mêmes règles que les commandes ;
+    // heure de la tournée (D1, D9) et code valable à partir de cette heure (D6)
+    const availableAt = await availabilityAt(pool, Number(dto.pickup_center));
+    const expiresAt = availableAt
+      ? codeExpiry(availableAt, setting('campaign.otp_ttl_hours'))
+      : new Date(Date.now() + setting('campaign.otp_ttl_hours') * 3600000);
     const conn: any = await pool.getConnection();
     let registrationId: number;
     try {
@@ -272,9 +279,9 @@ export class CampaignsService {
       const [result]: any = await conn.query(
         `INSERT INTO campaign_registrations
        (campaign_id, full_name, email, pickup_center, city, otp_code, otp_used, otp_attempts, order_status, otp_expires_at,
-        request_lat, request_lng, request_city)
-       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'order-processing', ?, ?, ?, ?)`,
-        [dto.campaign_id, fullName, email, String(dto.pickup_center), city, otp, expiresAt, position.lat, position.lng, city]
+        request_lat, request_lng, request_city, available_at)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'order-processing', ?, ?, ?, ?, ?)`,
+        [dto.campaign_id, fullName, email, String(dto.pickup_center), city, otp, expiresAt, position.lat, position.lng, city, availableAt]
       );
       // Profil complété pendant la demande (anciens comptes) : enregistré avec la demande
       if (completeProfile.birth_date || completeProfile.sex) {
@@ -304,11 +311,12 @@ export class CampaignsService {
 
     // 7) Code de retrait par e-mail ; sans e-mail la participante ne connaîtrait pas son code :
     //    la demande est annulée pour qu'elle puisse la refaire.
+    const when = availableAt ? formatRound(availableAt) : null;
     try {
       await sendVerificationEmail({
         email,
         subject: CAMPAIGN_OTP_EMAIL_SUBJECT,
-        message: buildCampaignOtpEmail(pickupCenterName, otp)
+        message: buildCampaignOtpEmail(pickupCenterName, otp, when ? { pointName: pickupCenterName, ...when } : null, expiresAt)
       });
     } catch (e) {
       console.error(e);
@@ -319,11 +327,15 @@ export class CampaignsService {
       );
     }
 
+    // Notification « sera disponible le … à … » (1.6 ; aucune notification à la demande jusqu'ici), sans attendre
+    if (when) void pushToUser(pool, userId, PUSH.kitAvailableAt(when.day, when.hour));
+
     return {
       id: registrationId,
       city,
       pickup_center_name: pickupCenterName,
       otp_expires_at: expiresAt,
+      available_at: availableAt,
       message: 'Demande enregistrée. Votre code de retrait vous a été envoyé par e-mail.',
     };
   }
@@ -469,7 +481,7 @@ export class CampaignsService {
               r.pickup_center, pc.name AS pickup_center_name, pc.pickup_lat, pc.pickup_lng,
               (SELECT p.contact FROM profiles p WHERE p.customer_id = pc.id LIMIT 1) AS pickup_phone,
               r.otp_used, r.otp_expires_at, r.verified_at, r.picked_up, r.picked_up_at,
-              r.order_status, r.created_at
+              r.order_status, r.created_at, r.available_at, r.available_notified_at
        FROM campaign_registrations r
        JOIN campaigns c ON c.id = r.campaign_id
        LEFT JOIN users pc ON pc.id = r.pickup_center
@@ -518,7 +530,9 @@ export class CampaignsService {
     }
 
     const otp = randomInt(100000, 1000000).toString();
-    const expiresAt = new Date(Date.now() + setting('campaign.otp_ttl_hours') * 3600000);
+    // Tournées (1.6, D6) : valable à partir de l'heure de disponibilité si elle n'est pas encore passée
+    const from = reg.available_at && new Date(reg.available_at).getTime() > Date.now() ? new Date(reg.available_at) : new Date();
+    const expiresAt = codeExpiry(from, setting('campaign.otp_ttl_hours'));
     // Conditions revérifiées dans le WHERE (validation concurrente par le point de retrait)
     const [result]: any = await pool.query(
       `UPDATE campaign_registrations
@@ -534,7 +548,12 @@ export class CampaignsService {
       await sendVerificationEmail({
         email: reg.email,
         subject: CAMPAIGN_OTP_EMAIL_SUBJECT,
-        message: buildCampaignOtpEmail(reg.pickup_center_name ?? '', otp),
+        message: buildCampaignOtpEmail(
+          reg.pickup_center_name ?? '',
+          otp,
+          from.getTime() > Date.now() ? { pointName: reg.pickup_center_name ?? '', ...formatRound(from) } : null,
+          expiresAt,
+        ),
       });
     } catch (e) {
       // Sans e-mail le participant ne connaîtrait pas le code : on remet l'ancien (expiré)
